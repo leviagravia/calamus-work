@@ -1399,7 +1399,10 @@ class App(Gtk.Window):
         self.populate_favourites_menu()
 
     def text_stats(self):
-        return calc_text_stats(self.buffer_text())
+        text = self.buffer_text()
+        stats = document_statistics(text)
+        _old_words, chars, lines = calc_text_stats(text)
+        return stats["words"], chars, lines
 
     def schedule_status_update(self):
         if self.word_count_source:
