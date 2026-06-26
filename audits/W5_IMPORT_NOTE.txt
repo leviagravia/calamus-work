@@ -1,0 +1,27 @@
+CALAMUS W5 IMPORT NOTE
+
+Imported from installed package:
+  calamus 1.7.0~rc3+stable4.3
+
+Copied:
+  /usr/bin/calamus -> bin/calamus
+  /usr/bin/calamus-selftest -> bin/calamus-selftest
+  /usr/lib/calamus/*.py -> calamus/
+  /usr/share/calamus/tests/*.py -> tests/
+  /usr/share/applications/calamus.desktop -> share/applications/calamus.desktop
+  /usr/share/pixmaps/calamus.png -> share/pixmaps/calamus.png
+  /usr/share/doc/calamus/* -> share/doc/calamus/
+
+Source authority:
+  installed Calamus stable4.3 package
+
+Generated:
+  scripts/prove-source-provenance.sh
+  scripts/selftest-from-source.sh
+  scripts/run-from-source.sh
+  scripts/build-deb.sh
+  packaging/debian/control
+  docs/canonical/CALAMUS_W5_INSTALLED_SOURCE_AUTHORITY.md
+
+Generated at:
+  2026-06-26T15:30:57+02:00

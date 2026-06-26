@@ -1,0 +1,2120 @@
+#!/usr/bin/env python3
+import os
+import json
+import shutil
+import subprocess
+import re
+import sys
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo
+
+sys.path.insert(0, os.environ.get("CALAMUS_LIB_DIR", "/usr/lib/calamus"))
+from calamus_config import (
+    CONFIG_DIR, clamp_int, load_json_file, save_json_file,
+)
+from calamus_state import StateManager
+from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
+from calamus_model import Document
+from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range
+from calamus_search import WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
+from calamus_history import TextHistory
+from calamus_external import open_character_map as external_open_character_map
+from calamus_clips import load_clips, save_clips, new_clip, clip_title_from_text
+from calamus_writing import (
+    current_date_string, sort_lines, clean_pdf_text, remove_extra_spaces,
+    remove_trailing_spaces, join_lines, reflow_paragraph, smart_typography,
+    title_case, sentence_case, document_statistics, list_templates, read_template,
+)
+from calamus_spellcheck import (
+    hunspell_dict as spell_hunspell_dict,
+    hunspell_base_command as spell_hunspell_base_command,
+    hunspell_misspelled_words as spell_hunspell_misspelled_words,
+    hunspell_suggestions as spell_hunspell_suggestions,
+)
+from calamus_dialogs import (
+    SHORTCUT_ROWS, ask_save as dialog_ask_save, choose_open_file, choose_save_file,
+    prompt_go_to_line, run_find_replace_dialog, run_spelling_dialog,
+    show_about, show_error, show_info, show_keyboard_shortcuts, show_large_info,
+)
+from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts, add_item as ui_add_item, add_separator as ui_add_separator, top_menu as ui_top_menu
+
+APP_TITLE = "Calamus"
+APP_ICON = "calamus"
+from calamus_version import APP_VERSION as VERSION
+from calamus_layout import CLIP_PANEL_DEFAULT_WIDTH, LINE_GUTTER_MIN_WIDTH, LINE_GUTTER_MAX_WIDTH
+from calamus_logging import log_nonfatal
+from calamus_editor import build_editor_widgets
+from calamus_clip_panel import build_clip_panel, calculate_clip_panel_width
+DEFAULT_OPACITY = 88
+DEFAULT_FONT = 12
+MIN_FONT = 8
+MAX_FONT = 32
+DEFAULT_WINDOW_WIDTH = 900
+DEFAULT_WINDOW_HEIGHT = 650
+MIN_WINDOW_WIDTH = 520
+MIN_WINDOW_HEIGHT = 360
+MAX_WINDOW_WIDTH = 1600
+MAX_WINDOW_HEIGHT = 1000
+
+class App(Gtk.Window):
+    def __init__(self):
+        super().__init__(title=APP_TITLE)
+        self.state = StateManager(CONFIG_DIR)
+        self.settings = self.load_settings()
+
+        width = clamp_int(self.settings.get("width"), DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
+        height = clamp_int(self.settings.get("height"), DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT)
+        self.font_size = clamp_int(self.settings.get("font_size"), DEFAULT_FONT, MIN_FONT, MAX_FONT)
+        self.font_family = self.settings.get("font_family", "Monospace") if isinstance(self.settings.get("font_family", "Monospace"), str) else "Monospace"
+        self.word_wrap = bool(self.settings.get("word_wrap", True))
+        self.always_on_top = bool(self.settings.get("always_on_top", False))
+        self.spell_lang = self.settings.get("spell_lang", "it") if isinstance(self.settings.get("spell_lang", "it"), str) else "it"
+        # Inline spell-check is deliberately disabled in 1.3.0.
+        # F7 now runs an external, interactive Hunspell check.
+        self.inline_spell_enabled = False
+        self.white_background = bool(self.settings.get("white_background", True))
+        self.dark_mode = bool(self.settings.get("dark_mode", False))
+        self.theme_name = self.settings.get("theme_name", "Classic Light") if isinstance(self.settings.get("theme_name", "Classic Light"), str) else "Classic Light"
+        if self.white_background and self.dark_mode:
+            self.dark_mode = False
+        self.document = Document(file_path=self.settings.get("last_file") or None)
+        self.current_file = self.document.file_path
+
+        self.modified = self.document.modified
+        self.loading = False
+        self.spell_source = None
+        self.word_count_source = None
+        self.last_search = ""
+        self.last_match = None
+        self.history = TextHistory(max_steps=100)
+        self.undo_snapshot_source = None
+        self.restoring_undo = False
+        self.search_highlight_source = None
+        self.print_pages = []
+        self.show_line_numbers = bool(self.settings.get("line_numbers", True))
+        self.focus_mode = False
+        self.current_line_highlight = False
+        self.distraction_free = False
+        self.bookmarks = []
+        self.trim_trailing_on_save = bool(self.settings.get("trim_trailing_on_save", False))
+
+        self.set_default_size(width, height)
+        # Set only a minimum size; do not set maximum geometry hints.
+        # Maximum hints and size-allocate clamps made the window fight the WM
+        # and caused long pasted text/Enter-heavy documents to stretch or lock
+        # the top-level window. Child scrollers must contain document growth.
+        self.set_size_request(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
+        self.apply_window_geometry_hints()
+        self.set_resizable(True)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.set_keep_above(self.always_on_top)
+        self.set_opacity(clamp_int(self.settings.get("opacity"), DEFAULT_OPACITY, 30, 100) / 100.0)
+        self.set_icon_name(APP_ICON)
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.set_hexpand(True)
+        root.set_vexpand(True)
+        self.add(root)
+
+        self.menubar = Gtk.MenuBar()
+        root.pack_start(self.menubar, False, False, 0)
+        self.build_menu()
+
+        self.body_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.body_paned.set_hexpand(True)
+        self.body_paned.set_vexpand(True)
+        root.pack_start(self.body_paned, True, True, 0)
+
+        # Keep Gtk.TextView as the direct Gtk.ScrolledWindow child.
+        # GTK's native caret/selection scrolling only works reliably in this
+        # topology; the line-number gutter stays outside the scroller.
+        self.editor_box, self.line_numbers, self.scroller, self.text = build_editor_widgets(self.word_wrap)
+        self.body_paned.pack1(self.editor_box, True, True)
+        self.text.get_buffer().connect("changed", self.on_changed)
+        self.text.get_buffer().connect("notify::cursor-position", self.on_cursor_position_notify)
+        self.text.connect_after("key-release-event", self.on_text_key_release)
+        self.text.connect_after("move-cursor", self.on_text_move_cursor)
+        self.text.connect_after("motion-notify-event", self.on_text_motion_notify)
+        self.text.connect_after("button-release-event", self.on_text_button_release)
+        self.apply_wrap_policy()
+        self.build_clip_collection()
+        # Clip Collection is attached lazily by toggle_clip_collection().
+        # This avoids fragile no_show_all/show_all interactions inside Gtk.Paned.
+        self.clip_panel_attached = False
+        self.body_paned.set_position(max(420, int(width * 0.72)))
+
+        self.tag = self.text.get_buffer().create_tag("misspelled", underline=Pango.Underline.ERROR)
+        self.search_tag = self.text.get_buffer().create_tag("search_highlight", background="#fff59d", foreground="#000000")
+        self.current_line_tag = self.text.get_buffer().create_tag("current_line", background="#eef5ff")
+
+        self.status = Gtk.Label()
+        self.status.set_xalign(0)
+        self.status.set_margin_start(8)
+        self.status.set_margin_end(8)
+        self.status.set_margin_top(3)
+        self.status.set_margin_bottom(3)
+        root.pack_end(self.status, False, False, 0)
+
+        self.css = Gtk.CssProvider()
+        self.apply_font()
+
+        self.add_shortcuts()
+        self.setup_file_drop_target()
+        self.connect("delete-event", self.on_close)
+
+        if self.current_file and os.path.exists(self.current_file):
+            self.open_path(self.current_file, silent=True)
+        else:
+            self.reset_undo_history()
+
+        self.update_title()
+
+    def apply_window_geometry_hints(self):
+        """Apply minimum geometry only.
+
+        Calamus must never use max-size hints or resize itself from
+        size-allocate. Those policies can make the top-level window expand to
+        monitor bounds after large paste/Enter-heavy documents and can prevent
+        normal WM resizing from the top edge. Document growth belongs inside
+        Gtk.ScrolledWindow, not in Gtk.Window geometry.
+        """
+        try:
+            geometry = Gdk.Geometry()
+            geometry.min_width = MIN_WINDOW_WIDTH
+            geometry.min_height = MIN_WINDOW_HEIGHT
+            self.set_geometry_hints(None, geometry, Gdk.WindowHints.MIN_SIZE)
+        except Exception as exc:
+            log_nonfatal("window geometry hints failed", exc)
+
+    def apply_wrap_policy(self):
+        """Make word wrap depend on the visible editor width, not virtual line width."""
+        if not hasattr(self, "scroller") or not hasattr(self, "text"):
+            return False
+        hpolicy = Gtk.PolicyType.NEVER if getattr(self, "word_wrap", True) else Gtk.PolicyType.AUTOMATIC
+        self.scroller.set_policy(hpolicy, Gtk.PolicyType.AUTOMATIC)
+        self.text.set_wrap_mode(Gtk.WrapMode.WORD_CHAR if getattr(self, "word_wrap", True) else Gtk.WrapMode.NONE)
+        if hasattr(self, "editor_box"):
+            self.editor_box.queue_resize()
+        self.text.queue_resize()
+        return False
+
+    def queue_wrap_reflow(self):
+        self.apply_wrap_policy()
+        if hasattr(self, "body_paned"):
+            self.body_paned.queue_resize()
+        GLib.idle_add(self.apply_wrap_policy)
+
+    def on_cursor_position_notify(self, *_):
+        # Do not auto-scroll on every cursor-position notification. Mouse clicks
+        # produce this signal too, and forcing scroll here caused the document to
+        # jump down by blocks when selecting/pointing at a word.
+        self.update_current_line_highlight()
+
+    def on_text_key_release(self, *_):
+        # Keep keyboard-driven typing/navigation visible, but defer one idle tick
+        # and use a tiny margin so visible clicks do not get re-centered.
+        self.queue_insert_scroll(margin=0.02)
+        return False
+
+    def on_text_move_cursor(self, *_):
+        self.queue_insert_scroll(margin=0.02)
+        return False
+
+    def queue_insert_scroll(self, margin=0.02):
+        if not hasattr(self, "text"):
+            return False
+        GLib.idle_add(lambda: self.ensure_insert_visible(margin))
+        return False
+
+    def ensure_insert_visible(self, margin=0.02):
+        try:
+            buf = self.text.get_buffer()
+            self.text.scroll_to_mark(buf.get_insert(), margin, False, 0.0, 0.0)
+        except Exception as exc:
+            log_nonfatal("non-fatal GTK operation failed", exc)
+        return False
+
+    def on_text_motion_notify(self, widget, event):
+        # Let Gtk.TextView perform native selection autoscroll. Forcing our own
+        # scroll on every pointer-motion event caused unstable jumps.
+        return False
+
+    def on_text_button_release(self, widget, event):
+        return False
+
+
+    def setup_file_drop_target(self):
+        targets = [Gtk.TargetEntry.new("text/uri-list", 0, 0)]
+        for widget in (self, self.text):
+            widget.drag_dest_set(Gtk.DestDefaults.ALL, targets, Gdk.DragAction.COPY)
+            widget.connect("drag-data-received", self.on_drag_data_received)
+
+    def on_drag_data_received(self, widget, context, x, y, data, info, time):
+        opened = False
+        try:
+            for uri in data.get_uris() if data is not None else []:
+                parsed = GLib.filename_from_uri(uri)
+                path = parsed[0] if parsed else None
+                if path and os.path.isfile(path):
+                    if self.may_continue():
+                        self.open_path(path)
+                        opened = True
+                    break
+        except Exception as e:
+            self.error(str(e))
+        Gtk.drag_finish(context, opened, False, time)
+        return True
+
+    def load_settings(self):
+        return self.state.load_settings()
+
+    def save_settings(self):
+        self.state.ensure_dir()
+        width, height = self.get_size()
+        width = clamp_int(width, DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
+        height = clamp_int(height, DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT)
+        data = {
+            "width": width,
+            "height": height,
+            "opacity": int(self.get_opacity() * 100),
+            "font_size": self.font_size,
+            "font_family": self.font_family,
+            "word_wrap": self.word_wrap_item.get_active() if hasattr(self, "word_wrap_item") else self.word_wrap,
+            "last_file": self.current_file,
+            "spell_lang": self.spell_lang,
+            "inline_spell": False,
+            "always_on_top": self.always_item.get_active() if hasattr(self, "always_item") else False,
+            "white_background": self.white_item.get_active() if hasattr(self, "white_item") else self.white_background,
+            "dark_mode": self.dark_item.get_active() if hasattr(self, "dark_item") else self.dark_mode,
+            "line_numbers": self.line_item.get_active() if hasattr(self, "line_item") else self.show_line_numbers,
+            "trim_trailing_on_save": self.trim_trailing_on_save_item.get_active() if hasattr(self, "trim_trailing_on_save_item") else self.trim_trailing_on_save,
+        }
+        self.state.save_settings(data)
+
+    def build_menu(self):
+        ui_build_menu(self)
+
+    def top(self, label):
+        return ui_top_menu(self, label)
+
+    def item(self, menu, label, cb):
+        return ui_add_item(menu, label, cb)
+
+    def sep(self, menu):
+        return ui_add_separator(menu)
+
+    def add_shortcuts(self):
+        ui_add_shortcuts(self)
+
+    def buffer_text(self):
+        b = self.text.get_buffer()
+        s, e = b.get_bounds()
+        current = b.get_text(s, e, True)
+        # Keep the non-GTK document model synchronized without making it the
+        # owner of per-keystroke TextBuffer state.
+        if hasattr(self, "document"):
+            self.document.text = current
+        return current
+
+    def set_buffer(self, text, *, modified=False):
+        self.loading = True
+        self.text.get_buffer().set_text(text)
+        self.loading = False
+        if hasattr(self, "document"):
+            self.document.set_text(text, modified=modified)
+            self.current_file = self.document.file_path
+            self.modified = self.document.modified
+        self.reset_undo_history()
+
+    def reset_undo_history(self):
+        text = self.buffer_text()
+        self.history.reset(text)
+        if self.undo_snapshot_source:
+            try:
+                GLib.source_remove(self.undo_snapshot_source)
+            except Exception:
+                pass
+            self.undo_snapshot_source = None
+
+    def schedule_undo_snapshot(self):
+        if self.loading or self.restoring_undo:
+            return
+        if self.undo_snapshot_source:
+            try:
+                GLib.source_remove(self.undo_snapshot_source)
+            except Exception:
+                pass
+        self.undo_snapshot_source = GLib.timeout_add(600, self.commit_undo_snapshot)
+
+    def commit_undo_snapshot(self):
+        self.undo_snapshot_source = None
+        self.history.commit(self.buffer_text())
+        return False
+
+    def commit_pending_undo(self):
+        if self.undo_snapshot_source:
+            try:
+                GLib.source_remove(self.undo_snapshot_source)
+            except Exception:
+                pass
+            self.undo_snapshot_source = None
+        self.commit_undo_snapshot()
+
+    def finalize_command_edit(self, select_range=None, command_name="Edit"):
+        self.commit_pending_undo()
+        if select_range:
+            self.select_range(*select_range)
+        self.modified = True
+        if hasattr(self, "document"):
+            self.document.mark_modified(self.buffer_text())
+        self.last_command = command_name
+        self.schedule_status_update()
+        self.schedule_search_highlight()
+        self.update_line_numbers()
+        self.update_title()
+
+    def execute_command(self, command_name, edit_func, select_range=None):
+        """Single mutation gateway for editor commands.
+
+        Every feature-level edit must pass through this handler so GTK sees a
+        grouped user action and Calamus records one coherent undo snapshot.
+        File/session loading intentionally bypasses this and resets history.
+        """
+        self.commit_pending_undo()
+        before = self.buffer_text()
+        b = self.text.get_buffer()
+        b.begin_user_action()
+        try:
+            edit_func(b)
+        finally:
+            b.end_user_action()
+        after = self.buffer_text()
+        if after != before:
+            self.finalize_command_edit(select_range=select_range, command_name=command_name)
+            return True
+        return False
+
+    def perform_buffer_edit(self, edit_func, select_range=None, command_name="Edit"):
+        # Compatibility wrapper: all callers still route through the unified command layer.
+        return self.execute_command(command_name, edit_func, select_range=select_range)
+
+    @staticmethod
+    def estimate_history_cursor(before: str, after: str) -> int:
+        """Return a stable cursor offset near the edit changed by undo/redo."""
+        if before == after:
+            return min(len(after), 0)
+        prefix = 0
+        limit = min(len(before), len(after))
+        while prefix < limit and before[prefix] == after[prefix]:
+            prefix += 1
+        before_suffix = len(before)
+        after_suffix = len(after)
+        while before_suffix > prefix and after_suffix > prefix and before[before_suffix - 1] == after[after_suffix - 1]:
+            before_suffix -= 1
+            after_suffix -= 1
+        return max(0, min(prefix, len(after)))
+
+    def set_text_from_history(self, text, cursor_offset=None):
+        self.restoring_undo = True
+        self.loading = True
+        self.text.get_buffer().set_text(text)
+        self.loading = False
+        self.restoring_undo = False
+        if cursor_offset is not None:
+            self.set_cursor_offset(cursor_offset)
+        self.modified = True
+        if hasattr(self, "document"):
+            self.document.mark_modified(text)
+        self.schedule_status_update()
+        self.schedule_search_highlight()
+        self.update_line_numbers()
+        self.update_title()
+
+    def on_undo(self, *_):
+        self.commit_pending_undo()
+        current_text = self.buffer_text()
+        text = self.history.undo(current_text)
+        if text is None:
+            if self.history.disabled_reason:
+                self.status.set_text(self.history.disabled_reason)
+            return
+        self.set_text_from_history(text, self.estimate_history_cursor(current_text, text))
+
+    def on_redo(self, *_):
+        current_text = self.buffer_text()
+        text = self.history.redo()
+        if text is None:
+            if self.history.disabled_reason:
+                self.status.set_text(self.history.disabled_reason)
+            return
+        self.set_text_from_history(text, self.estimate_history_cursor(current_text, text))
+
+    def on_changed(self, *_):
+        if not self.loading:
+            self.modified = True
+            if hasattr(self, "document"):
+                self.document.mark_modified(self.buffer_text())
+            self.schedule_undo_snapshot()
+            self.schedule_status_update()
+            self.schedule_search_highlight()
+            self.update_line_numbers()
+            self.update_current_line_highlight()
+            self.queue_insert_scroll()
+            self.update_title()
+
+    def theme_css(self):
+        themes = {
+            "Classic Light": ("#ffffff", "#000000", "#f5f5f5", "#555555"),
+            "Soft Cream": ("#fff8e7", "#2b2418", "#f4ead2", "#6a5a3a"),
+            "Sepia": ("#f3ead7", "#3b2f22", "#e4d2b2", "#6c5738"),
+            "Solarized Light": ("#fdf6e3", "#586e75", "#eee8d5", "#657b83"),
+            "Solarized Dark": ("#002b36", "#eee8d5", "#073642", "#93a1a1"),
+            "Slate Dark": ("#20242a", "#e8e8e8", "#2d333b", "#aeb6c2"),
+        }
+        bg, fg, panel, muted = themes.get(getattr(self, "theme_name", "Classic Light"), themes["Classic Light"])
+        return '''
+        textview, textview text { background-color: %s; color: %s; }
+        #line-numbers { background-color: %s; color: %s; }
+        .calamus-clip-button { min-width: 44px; min-height: 20px; padding: 1px 6px; }
+        #calamus-clip-title { font-weight: bold; }
+        ''' % (bg, fg, panel, muted)
+
+    def set_theme_name(self, name):
+        self.theme_name = name
+        if name in ("Solarized Dark", "Slate Dark"):
+            self.white_background = False
+            self.dark_mode = True
+        else:
+            self.white_background = True
+            self.dark_mode = False
+        self.apply_font()
+        self.save_settings()
+        self.update_title()
+
+    def on_theme_selection(self, *_):
+        d = Gtk.Dialog(title="Theme Selection", transient_for=self, modal=True)
+        d.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Apply", Gtk.ResponseType.OK)
+        box = d.get_content_area()
+        box.set_spacing(6)
+        box.set_margin_start(12); box.set_margin_end(12); box.set_margin_top(12); box.set_margin_bottom(12)
+        names = ["Classic Light", "Soft Cream", "Sepia", "Solarized Light", "Solarized Dark", "Slate Dark"]
+        group = None
+        buttons = []
+        for name in names:
+            rb = Gtk.RadioButton.new_with_label_from_widget(group, name) if group else Gtk.RadioButton.new_with_label(None, name)
+            if group is None:
+                group = rb
+            rb.set_active(name == getattr(self, "theme_name", "Classic Light"))
+            box.pack_start(rb, False, False, 0)
+            buttons.append((name, rb))
+        d.show_all()
+        if d.run() == Gtk.ResponseType.OK:
+            for name, rb in buttons:
+                if rb.get_active():
+                    self.set_theme_name(name)
+                    break
+        d.destroy()
+
+    def on_opacity_selection(self, *_):
+        d = Gtk.Dialog(title="Opacity", transient_for=self, modal=True)
+        d.add_buttons("Cancel", Gtk.ResponseType.CANCEL)
+        box = d.get_content_area()
+        box.set_spacing(8)
+        box.set_margin_start(12); box.set_margin_end(12); box.set_margin_top(12); box.set_margin_bottom(12)
+        label = Gtk.Label(label="Choose a fixed opacity value:")
+        label.set_xalign(0)
+        box.pack_start(label, False, False, 0)
+        grid = Gtk.Grid(column_spacing=6, row_spacing=6)
+        vals = [30, 40, 50, 60, 70, 80, 88, 90, 100]
+        for i, val in enumerate(vals):
+            b = Gtk.Button(label=f"{val}%")
+            b.set_size_request(58, 28)
+            b.connect("clicked", lambda _w, v=val: (self.set_opacity_value(v), d.response(Gtk.ResponseType.CANCEL)))
+            grid.attach(b, i % 3, i // 3, 1, 1)
+        box.pack_start(grid, False, False, 0)
+        d.show_all(); d.run(); d.destroy()
+
+    def installed_hunspell_languages(self):
+        names = []
+        for base in ("/usr/share/hunspell", "/usr/share/myspell/dicts"):
+            try:
+                for fn in os.listdir(base):
+                    if fn.endswith(".dic"):
+                        lang = fn[:-4]
+                        if lang not in names:
+                            names.append(lang)
+            except OSError:
+                pass
+        preferred = [x for x in ("it_IT", "it", "en_US", "en_GB", "en") if x in names]
+        rest = sorted(x for x in names if x not in preferred)
+        return preferred + rest
+
+    def on_language_selection(self, *_):
+        d = Gtk.Dialog(title="Language", transient_for=self, modal=True)
+        d.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Apply", Gtk.ResponseType.OK)
+        box = d.get_content_area()
+        box.set_spacing(6)
+        box.set_margin_start(12); box.set_margin_end(12); box.set_margin_top(12); box.set_margin_bottom(12)
+        langs = self.installed_hunspell_languages() or [self.spell_lang]
+        group = None
+        buttons = []
+        for lang in langs:
+            rb = Gtk.RadioButton.new_with_label_from_widget(group, lang) if group else Gtk.RadioButton.new_with_label(None, lang)
+            if group is None:
+                group = rb
+            rb.set_active(lang == self.spell_lang)
+            box.pack_start(rb, False, False, 0)
+            buttons.append((lang, rb))
+        note = Gtk.Label(label="Install missing dictionaries with your system package manager, e.g. hunspell-it or hunspell-en-us.")
+        note.set_xalign(0); note.set_line_wrap(True)
+        box.pack_start(note, False, False, 8)
+        d.show_all()
+        if d.run() == Gtk.ResponseType.OK:
+            for lang, rb in buttons:
+                if rb.get_active():
+                    self.spell_lang = lang
+                    self.save_settings(); self.update_title()
+                    break
+        d.destroy()
+
+    def on_system_info(self, *_):
+        import platform
+        dicts = ", ".join(self.installed_hunspell_languages()[:20]) or "none found"
+        msg = (
+            f"Calamus: {VERSION}\n"
+            f"Python: {platform.python_version()}\n"
+            f"GTK: {Gtk.MAJOR_VERSION}.{Gtk.MINOR_VERSION}.{Gtk.MICRO_VERSION}\n"
+            f"OS: {platform.platform()}\n"
+            f"Desktop: {os.environ.get('XDG_CURRENT_DESKTOP', 'unknown')}\n"
+            f"Session: {os.environ.get('XDG_SESSION_TYPE', 'unknown')}\n"
+            f"Config path: {self.state.config_dir}\n"
+            f"Hunspell dictionaries: {dicts}"
+        )
+        self.large_info("System Info", msg)
+
+    def update_title(self):
+        name = self.current_file or "Untitled"
+        status = "not saved" if self.modified else "saved"
+        mark = " *" if self.modified else ""
+        self.set_title(f"{APP_TITLE} - {name} ({status})")
+        lang = self.spell_lang.upper()
+        top_active = self.always_item.get_active() if hasattr(self, "always_item") else bool(self.settings.get("always_on_top", True))
+        top = "top ON" if top_active else "top OFF"
+        bg = "dark bg" if self.dark_mode else ("white bg" if self.white_background else "default bg")
+        words, chars, lines = self.text_stats()
+        ln = "lines ON" if self.show_line_numbers else "lines OFF"
+        undo_note = " | undo limited" if getattr(self.history, "disabled_reason", None) else ""
+        self.status.set_text(f"{name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln}{undo_note}")
+
+    def apply_font(self):
+        bg_css = ""
+        if self.white_background:
+            bg_css = """
+            /* White mode: keep editor and menus readable on dark GTK themes. */
+            window, box, scrolledwindow, viewport, textview, textview text {
+                background-color: #ffffff;
+                color: #000000;
+            }
+            menubar, menubar > menuitem, menu, menuitem {
+                background-color: #f5f5f5;
+                color: #000000;
+            }
+            menubar > menuitem:hover, menubar > menuitem:prelight,
+            menuitem:hover, menuitem:prelight {
+                background-color: #dcdcdc;
+                color: #000000;
+            }
+            menuitem label, menubar menuitem label, label {
+                color: #000000;
+            }
+            #line-numbers {
+                background-color: #f2f2f2;
+                color: #555555;
+            }
+
+            /* Dialogs and spellcheck controls: force a complete light palette so
+               dark Mint themes cannot produce dark buttons with dark text. */
+            dialog, messagedialog, dialog box, messagedialog box,
+            notebook, notebook header, notebook stack, stack, frame,
+            notebook > header, notebook > stack, notebook > frame,
+            notebook tab, notebook tab label,
+            #calamus-about-dialog, #calamus-about-dialog *,
+            #calamus-about-notebook, #calamus-about-notebook *,
+            #calamus-about-page, #calamus-about-page *,
+            #calamus-license-view, #calamus-license-view text {
+                background-color: #ffffff;
+                color: #000000;
+                background-image: none;
+                text-shadow: none;
+                box-shadow: none;
+            }
+            notebook tab {
+                background-color: #e9e9e9;
+                color: #000000;
+                border-color: #b8b8b8;
+                padding: 6px 10px;
+            }
+            notebook tab:checked, notebook tab:hover, notebook tab:prelight {
+                background-color: #dcdcdc;
+                color: #000000;
+            }
+            notebook tab label, notebook label,
+            dialog label, messagedialog label,
+            #calamus-about-dialog label {
+                color: #000000;
+                background-image: none;
+                text-shadow: none;
+            }
+            button {
+                color: #000000;
+                background-color: #f7f7f7;
+                background-image: none;
+                border-color: #a8a8a8;
+                text-shadow: none;
+                box-shadow: none;
+            }
+            button:hover, button:prelight {
+                color: #000000;
+                background-color: #e9e9e9;
+                background-image: none;
+            }
+            button:active, button:checked {
+                color: #000000;
+                background-color: #d8d8d8;
+                background-image: none;
+            }
+            button, button *, button label,
+            button:hover label, button:prelight label,
+            button:active label, button:checked label {
+                color: #000000;
+                text-shadow: none;
+                -gtk-icon-shadow: none;
+            }
+            entry {
+                color: #000000;
+                background-color: #ffffff;
+                background-image: none;
+                border-color: #9a9a9a;
+                caret-color: #000000;
+            }
+            entry selection {
+                color: #ffffff;
+                background-color: #2b62b8;
+            }
+            list, listbox, row {
+                color: #000000;
+                background-color: #ffffff;
+                background-image: none;
+            }
+            row label {
+                color: #000000;
+            }
+            row:selected, row:selected label {
+                color: #ffffff;
+                background-color: #2b62b8;
+                background-image: none;
+            }
+            scrolledwindow, viewport {
+                background-color: #ffffff;
+            }
+            separator {
+                background-color: #cfcfcf;
+            }
+            """
+        elif self.dark_mode:
+            bg_css = """
+            window, box, scrolledwindow, viewport, textview, textview text {
+                background-color: #1e1e1e;
+                color: #f5f5f5;
+            }
+            menubar, menubar > menuitem, menu, menuitem {
+                background-color: #242424;
+                color: #f5f5f5;
+            }
+            menubar > menuitem:hover, menubar > menuitem:prelight,
+            menuitem:hover, menuitem:prelight {
+                background-color: #3a3a3a;
+                color: #ffffff;
+            }
+            menuitem label, menubar menuitem label, label {
+                color: #f5f5f5;
+            }
+            #line-numbers {
+                background-color: #252525;
+                color: #bdbdbd;
+            }
+            dialog, messagedialog, dialog box, messagedialog box,
+            notebook, notebook header, notebook stack, stack, frame,
+            notebook > header, notebook > stack, notebook > frame,
+            notebook tab, notebook tab label,
+            #calamus-about-dialog, #calamus-about-dialog *,
+            #calamus-about-notebook, #calamus-about-notebook *,
+            #calamus-about-page, #calamus-about-page *,
+            #calamus-license-view, #calamus-license-view text {
+                background-color: #1e1e1e;
+                color: #f5f5f5;
+                background-image: none;
+                text-shadow: none;
+                box-shadow: none;
+            }
+            notebook tab {
+                background-color: #333333;
+                color: #f5f5f5;
+                border-color: #777777;
+                padding: 6px 10px;
+            }
+            notebook tab:checked, notebook tab:hover, notebook tab:prelight {
+                background-color: #444444;
+                color: #ffffff;
+            }
+            notebook tab label, notebook label,
+            dialog label, messagedialog label,
+            #calamus-about-dialog label {
+                color: #f5f5f5;
+                background-image: none;
+                text-shadow: none;
+            }
+            button {
+                color: #f5f5f5;
+                background-color: #333333;
+                background-image: none;
+                border-color: #777777;
+                text-shadow: none;
+                box-shadow: none;
+            }
+            button:hover, button:prelight {
+                color: #ffffff;
+                background-color: #444444;
+                background-image: none;
+            }
+            button:active, button:checked {
+                color: #ffffff;
+                background-color: #555555;
+                background-image: none;
+            }
+            button, button *, button label,
+            button:hover label, button:prelight label,
+            button:active label, button:checked label {
+                color: #f5f5f5;
+                text-shadow: none;
+                -gtk-icon-shadow: none;
+            }
+            entry {
+                color: #ffffff;
+                background-color: #2a2a2a;
+                background-image: none;
+                border-color: #777777;
+                caret-color: #ffffff;
+            }
+            entry selection, row:selected, row:selected label {
+                color: #ffffff;
+                background-color: #2b62b8;
+                background-image: none;
+            }
+            list, listbox, row {
+                color: #f5f5f5;
+                background-color: #242424;
+                background-image: none;
+            }
+            row label {
+                color: #f5f5f5;
+            }
+            separator {
+                background-color: #555555;
+            }
+            """
+        css = f"""
+        textview {{ font-family: "{self.font_family}"; font-size: {self.font_size}pt; }}
+        textview text {{ font-family: "{self.font_family}"; font-size: {self.font_size}pt; }}
+        {bg_css}
+        """
+        self.css.load_from_data(css.encode())
+        if hasattr(self, "line_numbers"):
+            self.line_numbers.set_name("line-numbers")
+            self.line_numbers.set_visible(self.show_line_numbers)
+            self.update_line_numbers()
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), self.css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.update_title()
+
+    def ask_save(self):
+        return dialog_ask_save(self, self.modified)
+
+    def may_continue(self):
+        r = self.ask_save()
+        if r == "cancel":
+            return False
+        if r == "save":
+            return self.save_file()
+        return True
+
+    def on_close(self, *_):
+        self.save_settings()
+        return not self.may_continue()
+
+    def on_quit(self, *_):
+        self.save_settings()
+        if self.may_continue():
+            Gtk.main_quit()
+
+    def on_new(self, *_):
+        if not self.may_continue():
+            return
+        self.document.clear()
+        self.current_file = None
+        self.set_buffer("", modified=False)
+        self.modified = False
+        self.update_title()
+
+    def on_open(self, *_):
+        if not self.may_continue():
+            return
+        path = choose_open_file(self)
+        if path:
+            self.open_path(path)
+
+    def open_path(self, path, silent=False):
+        try:
+            large_file = is_large_text_file(path)
+            text = self.document.load(path)
+            self.set_buffer(text, modified=False)
+            self.current_file = self.document.file_path
+            self.modified = self.document.modified
+            self.add_recent_file(path)
+            self.update_title()
+            self.save_settings()
+            if large_file and not silent:
+                self.info("Large file mode", f"This file is larger than {LARGE_FILE_BYTES // 1_000_000} MB. Undo history is limited to keep Calamus responsive.")
+        except (OSError, UnicodeError) as e:
+            if not silent:
+                self.error(str(e))
+
+    def on_save(self, *_):
+        self.save_file()
+
+    def on_save_as(self, *_):
+        self.save_as()
+
+    def save_file(self):
+        if not self.current_file:
+            return self.save_as()
+        try:
+            text = self.buffer_text()
+            if getattr(self, "trim_trailing_on_save", False):
+                trimmed = remove_trailing_spaces(text)
+                if trimmed != text:
+                    self.loading = True
+                    self.text.get_buffer().set_text(trimmed)
+                    self.loading = False
+                    text = trimmed
+            self.document.save(self.current_file, text)
+            self.current_file = self.document.file_path
+            self.modified = self.document.modified
+            self.add_recent_file(self.current_file)
+            self.update_title()
+            self.save_settings()
+            return True
+        except (OSError, ValueError) as e:
+            self.error(str(e))
+            return False
+
+    def save_as(self):
+        path = choose_save_file(self)
+        if not path:
+            return False
+        self.current_file = path
+        self.document.file_path = path
+        return self.save_file()
+
+    def get_cursor_offset(self):
+        buf = self.text.get_buffer()
+        mark = buf.get_insert()
+        it = buf.get_iter_at_mark(mark)
+        return it.get_offset()
+
+    def set_cursor_offset(self, offset):
+        try:
+            buf = self.text.get_buffer()
+            it = buf.get_iter_at_offset(max(0, int(offset)))
+            buf.place_cursor(it)
+            self.text.scroll_to_iter(it, 0.15, False, 0, 0)
+        except Exception as exc:
+            log_nonfatal("non-fatal GTK operation failed", exc)
+
+    def on_save_session(self, *_):
+        self.state.ensure_dir()
+        data = {
+            "version": 2,
+            "mode": "future-multifile-ready",
+            "files": [{
+                "path": self.current_file,
+                "cursor": self.get_cursor_offset(),
+                "modified": self.modified
+            }] if self.current_file else [],
+            "current_index": 0,
+            "font_size": self.font_size,
+            "opacity": int(self.get_opacity()*100),
+            "spell_lang": self.spell_lang,
+            "inline_spell": False,
+            "always_on_top": self.always_item.get_active(),
+            "white_background": self.white_background,
+            "dark_mode": self.dark_mode,
+            "theme_name": getattr(self, "theme_name", "Classic Light"),
+            "line_numbers": self.show_line_numbers,
+            "width": self.get_size()[0],
+            "height": self.get_size()[1],
+        }
+        if self.state.save_session(data):
+            self.info("Session saved.")
+        else:
+            self.error("Could not save session.")
+
+    def on_restore_session(self, *_):
+        if not self.may_continue():
+            return
+        try:
+            data = self.state.load_session()
+            if not isinstance(data, dict):
+                self.info("No valid saved session found.")
+                return
+            files = data.get("files") if isinstance(data.get("files"), list) else []
+            current_index = clamp_int(data.get("current_index"), 0, 0, max(len(files) - 1, 0))
+            item = files[current_index] if files and isinstance(files[current_index], dict) else {"path": data.get("current_file"), "cursor": 0}
+            path = item.get("path")
+            if not path or not os.path.exists(path):
+                self.info("No saved session file found.")
+                return
+            self.font_size = clamp_int(data.get("font_size"), DEFAULT_FONT, MIN_FONT, MAX_FONT)
+            self.font_family = data.get("font_family", self.font_family) if isinstance(data.get("font_family", self.font_family), str) else self.font_family
+            self.word_wrap = bool(data.get("word_wrap", self.word_wrap))
+            self.text.set_wrap_mode(Gtk.WrapMode.WORD_CHAR if self.word_wrap else Gtk.WrapMode.NONE)
+            self.spell_lang = data.get("spell_lang", "it") if data.get("spell_lang", "it") in ("it", "en") else "it"
+            self.inline_spell_enabled = False
+            self.white_background = bool(data.get("white_background", self.white_background))
+            self.dark_mode = bool(data.get("dark_mode", self.dark_mode))
+            if self.white_background and self.dark_mode:
+                self.dark_mode = False
+            self.show_line_numbers = bool(data.get("line_numbers", self.show_line_numbers))
+            self.open_path(path, silent=True)
+            self.set_cursor_offset(clamp_int(item.get("cursor", 0), 0, 0, 10**9))
+            self.set_opacity_value(clamp_int(data.get("opacity"), DEFAULT_OPACITY, 30, 100))
+            self.always_item.set_active(bool(data.get("always_on_top", self.always_on_top)))
+            self.white_item.set_active(self.white_background)
+            self.dark_item.set_active(self.dark_mode)
+            self.line_item.set_active(self.show_line_numbers)
+            if hasattr(self, "word_wrap_item"):
+                self.word_wrap_item.set_active(self.word_wrap)
+            if hasattr(self, "lang_en") and hasattr(self, "lang_it"):
+                self.lang_en.set_active(self.spell_lang == "en")
+                self.lang_it.set_active(self.spell_lang != "en")
+            self.resize(clamp_int(data.get("width"), 560, 260, 4096), clamp_int(data.get("height"), 420, 180, 4096))
+            self.modified = False
+            self.apply_font()
+            self.update_title()
+            self.save_settings()
+        except FileNotFoundError:
+            self.info("No saved session found.")
+        except Exception as e:
+            self.error(str(e))
+
+    def on_top(self, item):
+        self.set_keep_above(item.get_active())
+        self.update_title()
+        self.save_settings()
+
+    def on_white_background(self, item):
+        self.white_background = item.get_active()
+        if self.white_background and hasattr(self, "dark_item") and self.dark_item.get_active():
+            self.dark_item.set_active(False)
+            self.dark_mode = False
+        self.apply_font()
+        self.save_settings()
+
+    def on_dark_mode(self, item):
+        self.dark_mode = item.get_active()
+        if self.dark_mode and hasattr(self, "white_item") and self.white_item.get_active():
+            self.white_item.set_active(False)
+            self.white_background = False
+        self.apply_font()
+        self.save_settings()
+
+    def on_line_numbers(self, item):
+        self.show_line_numbers = item.get_active()
+        self.line_numbers.set_visible(self.show_line_numbers)
+        self.update_line_numbers()
+        self.update_title()
+        self.save_settings()
+
+    def set_opacity_value(self, v):
+        self.set_opacity(v/100.0)
+        self.update_title()
+        self.save_settings()
+
+    def change_font(self, delta):
+        self.font_size = max(MIN_FONT, min(MAX_FONT, self.font_size + delta))
+        self.apply_font()
+        self.save_settings()
+
+    def replace_selection(self, transform):
+        b = self.text.get_buffer()
+        if not b.get_has_selection():
+            return
+        s, e = b.get_selection_bounds()
+        start = s.get_offset()
+        end = e.get_offset()
+        txt = b.get_text(s, e, True)
+        replacement = transform(txt)
+        _, select = command_replace_range(self.buffer_text(), start, end, replacement)
+        def edit(buf):
+            it1 = buf.get_iter_at_offset(start)
+            it2 = buf.get_iter_at_offset(end)
+            buf.delete(it1, it2)
+            buf.insert(buf.get_iter_at_offset(start), replacement)
+        self.execute_command("Replace Selection", edit, select_range=select)
+
+    def selected_or_all_range(self):
+        b = self.text.get_buffer()
+        if b.get_has_selection():
+            s, e = b.get_selection_bounds()
+            return s.get_offset(), e.get_offset()
+        s, e = b.get_bounds()
+        return s.get_offset(), e.get_offset()
+
+    def apply_text_transform(self, transform, command_name="Text Transform"):
+        b = self.text.get_buffer()
+        start, end = self.selected_or_all_range()
+        old = b.get_text(b.get_iter_at_offset(start), b.get_iter_at_offset(end), True)
+        current = self.buffer_text()
+        _, select = command_transform_range(current, start, end, transform)
+        new = transform(old)
+        def edit(buf):
+            it1 = buf.get_iter_at_offset(start)
+            it2 = buf.get_iter_at_offset(end)
+            buf.delete(it1, it2)
+            buf.insert(buf.get_iter_at_offset(start), new)
+        self.execute_command(command_name, edit, select_range=select)
+
+    def on_reflow_paragraph(self, *_):
+        self.apply_text_transform(lambda t: reflow_paragraph(t, width=80), "Reflow Paragraph")
+
+    def _clipboard(self):
+        return Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+
+    def on_cut(self, *_):
+        self.text.get_buffer().cut_clipboard(self._clipboard(), True)
+
+    def on_copy(self, *_):
+        self.text.get_buffer().copy_clipboard(self._clipboard())
+
+    def on_paste(self, *_):
+        self.text.get_buffer().paste_clipboard(self._clipboard(), None, True)
+
+    def on_select_all(self, *_):
+        buf = self.text.get_buffer()
+        start, end = buf.get_bounds()
+        buf.select_range(start, end)
+
+    def on_paste_clean_pdf(self, *_):
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        text = clipboard.wait_for_text()
+        if text is None:
+            return
+        cleaned = clean_pdf_text(text)
+        b = self.text.get_buffer()
+        cursor = b.get_iter_at_mark(b.get_insert()).get_offset()
+        def edit(buf):
+            if buf.get_has_selection():
+                s, e = buf.get_selection_bounds()
+                buf.delete(s, e)
+                buf.insert(s, cleaned)
+            else:
+                buf.insert(buf.get_iter_at_offset(cursor), cleaned)
+        self.execute_command("Paste Clean PDF", edit)
+
+    def on_paste_plain_text(self, *_):
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        text = clipboard.wait_for_text()
+        if text is None:
+            return
+        def edit(buf):
+            if buf.get_has_selection():
+                s, e = buf.get_selection_bounds()
+                buf.delete(s, e)
+                buf.insert(s, text)
+            else:
+                buf.insert_at_cursor(text)
+        self.execute_command("Paste Plain Text", edit)
+
+    def current_line_bounds_from_text(self, text, cursor):
+        cursor = max(0, min(len(text), int(cursor)))
+        start = text.rfind("\n", 0, cursor) + 1
+        end = text.find("\n", cursor)
+        if end == -1:
+            end = len(text)
+        return start, end
+
+    def on_duplicate_line_or_selection(self, *_):
+        b = self.text.get_buffer()
+        if b.get_has_selection():
+            s, e = b.get_selection_bounds()
+            start, end = s.get_offset(), e.get_offset()
+            txt = b.get_text(s, e, True)
+            def edit(buf):
+                it = buf.get_iter_at_offset(end)
+                buf.insert(it, txt)
+            return self.execute_command("Duplicate Selection", edit, select_range=(end, end + len(txt)))
+        text = self.buffer_text()
+        cursor = self.get_cursor_offset()
+        start, end = self.current_line_bounds_from_text(text, cursor)
+        line = text[start:end]
+        if end < len(text) and text[end:end+1] == "\n":
+            insert_pos = end + 1
+            insertion = line + "\n"
+        else:
+            insert_pos = end
+            insertion = "\n" + line
+        def edit(buf):
+            buf.insert(buf.get_iter_at_offset(insert_pos), insertion)
+        new_cursor = insert_pos + len(insertion)
+        self.execute_command("Duplicate Line", edit, select_range=(new_cursor, new_cursor))
+
+    def on_move_line(self, direction):
+        text = self.buffer_text()
+        if not text:
+            return
+        cursor = self.get_cursor_offset()
+        lines = text.splitlines(True)
+        if not lines:
+            return
+        offsets = []
+        pos = 0
+        for line in lines:
+            offsets.append(pos)
+            pos += len(line)
+        idx = 0
+        for i, start in enumerate(offsets):
+            end = start + len(lines[i])
+            if start <= cursor < end or (i == len(lines) - 1 and cursor == end):
+                idx = i
+                break
+        new_idx = idx + int(direction)
+        if new_idx < 0 or new_idx >= len(lines):
+            return
+        col = max(0, cursor - offsets[idx])
+        moved_line_len = len(lines[idx])
+        lines[idx], lines[new_idx] = lines[new_idx], lines[idx]
+        new_text = "".join(lines)
+        new_offsets = []
+        pos = 0
+        for line in lines:
+            new_offsets.append(pos)
+            pos += len(line)
+        new_cursor = min(new_offsets[new_idx] + col, new_offsets[new_idx] + moved_line_len)
+        def edit(buf):
+            buf.set_text(new_text)
+        self.execute_command("Move Line", edit, select_range=(new_cursor, new_cursor))
+
+    def on_trim_trailing_on_save(self, item):
+        self.trim_trailing_on_save = item.get_active()
+        self.save_settings()
+
+    def on_document_statistics(self, *_):
+        stats = document_statistics(self.buffer_text())
+        msg = (
+            f"Words: {stats['words']}\n"
+            f"Characters: {stats['characters']}\n"
+            f"Characters without spaces: {stats['characters_no_spaces']}\n"
+            f"Paragraphs: {stats['paragraphs']}\n"
+            f"Lines: {stats['lines']}\n"
+            f"Estimated reading time: {stats['reading_minutes']} min"
+        )
+        self.large_info("Document Statistics", msg)
+
+    def populate_template_menu(self):
+        if not hasattr(self, "template_menu"):
+            return
+        for child in list(self.template_menu.get_children()):
+            self.template_menu.remove(child)
+        templates = list_templates(self.state.config_dir)
+        if not templates:
+            item = Gtk.MenuItem(label="No templates")
+            item.set_sensitive(False)
+            self.template_menu.append(item)
+        else:
+            for name, path in templates:
+                item = Gtk.MenuItem(label=name)
+                item.connect("activate", lambda _w, p=path: self.on_new_from_template(p))
+                self.template_menu.append(item)
+        self.template_menu.show_all()
+
+    def on_new_from_template(self, path):
+        if not self.may_continue():
+            return
+        try:
+            self.current_file = None
+            self.set_buffer(read_template(path))
+            self.modified = False
+            self.update_title()
+        except OSError as e:
+            self.error(str(e))
+
+
+    def on_word_wrap(self, item):
+        self.word_wrap = item.get_active()
+        self.apply_wrap_policy()
+        self.save_settings()
+        self.update_title()
+
+    def toggle_word_wrap(self, *_):
+        if hasattr(self, "word_wrap_item"):
+            self.word_wrap_item.set_active(not self.word_wrap_item.get_active())
+
+    def on_transparent_mode(self, item):
+        if item.get_active():
+            self.set_opacity_value(int(self.settings.get("opacity", DEFAULT_OPACITY)) if int(self.settings.get("opacity", DEFAULT_OPACITY)) < 100 else DEFAULT_OPACITY)
+        else:
+            self.set_opacity_value(100)
+
+    def toggle_transparent_mode(self, *_):
+        if hasattr(self, "transparent_item"):
+            self.transparent_item.set_active(not self.transparent_item.get_active())
+
+    def toggle_always_on_top(self, *_):
+        if hasattr(self, "always_item"):
+            self.always_item.set_active(not self.always_item.get_active())
+
+    def toggle_line_numbers(self, *_):
+        if hasattr(self, "line_item"):
+            self.line_item.set_active(not self.line_item.get_active())
+
+    def on_font(self, *_):
+        d = Gtk.FontChooserDialog(title="Font", transient_for=self)
+        d.set_font(f"{self.font_family} {self.font_size}")
+        if d.run() == Gtk.ResponseType.OK:
+            desc = Pango.FontDescription(d.get_font())
+            family = desc.get_family()
+            size = desc.get_size() // Pango.SCALE if desc.get_size() > 0 else self.font_size
+            if family:
+                self.font_family = family
+            if size:
+                self.font_size = max(MIN_FONT, min(MAX_FONT, int(size)))
+            self.apply_font()
+            self.save_settings()
+        d.destroy()
+
+    def on_insert_datetime(self, *_):
+        txt = current_date_string()
+        cursor = self.get_cursor_offset()
+        _, select = command_insert_at(self.buffer_text(), cursor, txt)
+        def edit(buf):
+            buf.insert_at_cursor(txt)
+        self.execute_command("Insert Date/Time", edit, select_range=select)
+
+    def on_replace_all_dialog(self, *_):
+        self.on_find_replace()
+
+    def load_favourites(self):
+        return self.state.load_favourites(limit=50)
+
+    def save_favourites(self, items):
+        return self.state.save_favourites(items, limit=50)
+
+    def populate_favourites_menu(self):
+        if not hasattr(self, "favourites_menu"):
+            return
+        children = list(self.favourites_menu.get_children())
+        # Keep the first 4 fixed entries: Add, Edit, Reload, separator.
+        for child in children[4:]:
+            self.favourites_menu.remove(child)
+        items = self.load_favourites()
+        if not items:
+            item = Gtk.MenuItem(label="No favourites")
+            item.set_sensitive(False)
+            self.favourites_menu.append(item)
+        else:
+            for path in items:
+                label = os.path.basename(path) or path
+                item = Gtk.MenuItem(label=label)
+                item.set_tooltip_text(path)
+                item.connect("activate", lambda _w, p=path: self.open_recent_path(p))
+                self.favourites_menu.append(item)
+        self.favourites_menu.show_all()
+
+    def on_add_favourite(self, *_):
+        if not self.current_file:
+            self.error("Save the current document before adding it to Favourites.")
+            return
+        path = os.path.abspath(self.current_file)
+        items = [x for x in self.load_favourites() if x != path]
+        items.insert(0, path)
+        self.save_favourites(items)
+        self.populate_favourites_menu()
+        self.info("Added to Favourites:\n" + path)
+
+    def on_edit_favourites(self, *_):
+        d = Gtk.Dialog(title="Edit Favourites", transient_for=self, modal=True)
+        d.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Save", Gtk.ResponseType.OK)
+        box = d.get_content_area()
+        box.set_spacing(8)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        box.set_margin_top(10)
+        box.set_margin_bottom(10)
+        label = Gtk.Label(label="One file path per line:")
+        label.set_xalign(0)
+        view = Gtk.TextView()
+        view.set_wrap_mode(Gtk.WrapMode.NONE)
+        view.get_buffer().set_text("\n".join(self.load_favourites()))
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_size_request(520, 260)
+        scroll.add(view)
+        box.pack_start(label, False, False, 0)
+        box.pack_start(scroll, True, True, 0)
+        d.show_all()
+        if d.run() == Gtk.ResponseType.OK:
+            b = view.get_buffer()
+            s, e = b.get_bounds()
+            items = [line.strip() for line in b.get_text(s, e, True).splitlines() if line.strip()]
+            missing = [x for x in items if not os.path.exists(x)]
+            if missing:
+                self.error("These favourite files do not exist and were skipped:\n" + "\n".join(missing[:10]))
+            self.save_favourites([x for x in items if os.path.exists(x)])
+            self.populate_favourites_menu()
+        d.destroy()
+
+    def on_reload_favourites(self, *_):
+        self.populate_favourites_menu()
+
+    def text_stats(self):
+        return calc_text_stats(self.buffer_text())
+
+    def schedule_status_update(self):
+        if self.word_count_source:
+            return
+        def run():
+            self.word_count_source = None
+            self.update_title()
+            return False
+        self.word_count_source = GLib.timeout_add(250, run)
+
+    def update_line_numbers(self):
+        if not hasattr(self, "line_numbers"):
+            return
+        if not self.show_line_numbers:
+            self.line_numbers.set_text("")
+            return
+        _words, _chars, lines = self.text_stats()
+        self.line_numbers.set_text("\n".join(str(i) for i in range(1, lines + 1)))
+        # Compact dynamic gutter: enough for digit count, never a wide sidebar.
+        try:
+            digits = max(1, len(str(max(1, lines))))
+            width = max(LINE_GUTTER_MIN_WIDTH, min(LINE_GUTTER_MAX_WIDTH, 12 + digits * 9))
+            parent = self.line_numbers.get_parent()
+            if parent is not None:
+                parent.set_size_request(width, 1)
+            self.line_numbers.set_size_request(max(1, width - 5), 1)
+        except Exception as exc:
+            log_nonfatal("line-number gutter resize failed", exc)
+
+    def load_recent_files(self):
+        return self.state.load_recent_files(limit=10)
+
+    def save_recent_files(self, items):
+        return self.state.save_recent_files(items, limit=10)
+
+    def add_recent_file(self, path):
+        if not path:
+            return
+        self.state.add_recent_file(path, limit=10)
+        if hasattr(self, "recent_menu"):
+            self.populate_recent_menu()
+
+    def populate_recent_menu(self):
+        if not hasattr(self, "recent_menu"):
+            return
+        for child in list(self.recent_menu.get_children()):
+            self.recent_menu.remove(child)
+        items = self.load_recent_files()
+        if not items:
+            item = Gtk.MenuItem(label="No recent files")
+            item.set_sensitive(False)
+            self.recent_menu.append(item)
+        else:
+            for path in items:
+                label = os.path.basename(path) or path
+                item = Gtk.MenuItem(label=label)
+                item.set_tooltip_text(path)
+                item.connect("activate", lambda _w, p=path: self.open_recent_path(p))
+                self.recent_menu.append(item)
+            self.sep(self.recent_menu)
+            self.item(self.recent_menu, "Clear Recent Files", self.on_clear_recent)
+        self.recent_menu.show_all()
+
+    def open_recent_path(self, path):
+        if not self.may_continue():
+            return
+        if os.path.exists(path):
+            self.open_path(path)
+        else:
+            self.error("Recent file not found:\n" + path)
+            self.save_recent_files([x for x in self.load_recent_files() if x != path])
+            self.populate_recent_menu()
+
+    def on_clear_recent(self, *_):
+        self.save_recent_files([])
+        self.populate_recent_menu()
+
+    def clear_search_highlights(self):
+        if not hasattr(self, "search_tag"):
+            return
+        b = self.text.get_buffer()
+        s, e = b.get_bounds()
+        b.remove_tag(self.search_tag, s, e)
+
+    def schedule_search_highlight(self):
+        if not self.last_search:
+            return
+        if self.search_highlight_source:
+            return
+        def run():
+            self.search_highlight_source = None
+            self.highlight_all_search(self.last_search)
+            return False
+        self.search_highlight_source = GLib.timeout_add(300, run)
+
+    def on_character_map(self, *_):
+        d = Gtk.Dialog(title="Character Map", transient_for=self, modal=True)
+        d.set_name("calamus-character-map-dialog")
+        d.add_buttons("Close", Gtk.ResponseType.CLOSE)
+        d.set_default_size(720, 520)
+
+        css = b"""
+        #calamus-character-map-dialog,
+        #calamus-character-map-dialog box,
+        #calamus-character-map-dialog scrolledwindow,
+        #calamus-character-map-dialog viewport {
+            background-color: #ffffff;
+            color: #000000;
+            background-image: none;
+        }
+        #calamus-character-map-dialog label {
+            color: #000000;
+        }
+        #calamus-character-map-dialog button,
+        #calamus-character-map-dialog button label {
+            background-color: #eeeeee;
+            color: #000000;
+            background-image: none;
+            text-shadow: none;
+            box-shadow: none;
+        }
+        #calamus-character-map-dialog button:hover {
+            background-color: #dddddd;
+            color: #000000;
+            background-image: none;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
+        )
+
+        box = d.get_content_area()
+        box.set_spacing(8)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        box.set_margin_top(10)
+        box.set_margin_bottom(10)
+
+        hint = Gtk.Label(label="Click a character to insert it at the cursor position. Shortcut: Ctrl+Alt+F10")
+        hint.set_xalign(0)
+        box.pack_start(hint, False, False, 0)
+
+        notebook = Gtk.Notebook()
+        box.pack_start(notebook, True, True, 0)
+
+        groups = [
+            ("Alphabet", "ABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz"),
+            ("Accents", "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞß\nàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\nĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĞğĠġĢģĪīĮįİıŁłŃńŇňŐőŒœŔŕŘřŚśŞşŠšŤťŪūŮůŰűŲųŸŹźŻżŽž"),
+            ("Greek", "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ\nαβγδεζηθικλμνξοπρστυφχψω"),
+            ("Numbers", "0123456789 ⁰¹²³⁴⁵⁶⁷⁸⁹ ₀₁₂₃₄₅₆₇₈₉ ½⅓⅔¼¾⅛⅜⅝⅞"),
+            ("Punctuation", ".,;:!?¡¿'\"`´‘’“”‚„…·•-–—_()[]{}<>/\\|@#&§¶"),
+            ("Math", "+−×÷=≠≈≡<≤>≥±∞√∑∏∫∂∆∇πµΩ°′″‰%¬∧∨∩∪⊂⊃⊆⊇∈∉∅"),
+            ("Currency", "€£$¥¢₹₽₩₪₫₴₦₱₲₵₡₭₮₨฿"),
+            ("Arrows", "←↑→↓↔↕↖↗↘↙⇐⇑⇒⇓⇔⇧⇨➜➤➔➜➞"),
+            ("Symbols", "©®™✓✔✕✖★☆♥♦♣♠♪♫☀☁☂☃☎☑☐☒⚠⚙⚡☕⌘⌥⇧⎋"),
+        ]
+
+        def insert_char(ch):
+            b = self.text.get_buffer()
+            if b.get_has_selection():
+                self.replace_selection(lambda _old, c=ch: c)
+                return
+            cursor = b.get_iter_at_mark(b.get_insert()).get_offset()
+            def edit(buf):
+                buf.insert(buf.get_iter_at_offset(cursor), ch)
+            self.execute_command("Insert Character", edit, select_range=(cursor + len(ch), cursor + len(ch)))
+
+        for title, chars in groups:
+            scroll = Gtk.ScrolledWindow()
+            scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            grid = Gtk.Grid(column_spacing=4, row_spacing=4)
+            grid.set_margin_start(8)
+            grid.set_margin_end(8)
+            grid.set_margin_top(8)
+            grid.set_margin_bottom(8)
+            scroll.add(grid)
+
+            row = 0
+            col = 0
+            for ch in chars:
+                if ch == "\n":
+                    row += 1
+                    col = 0
+                    continue
+                if ch == " ":
+                    continue
+                btn = Gtk.Button(label=ch)
+                btn.set_size_request(34, 30)
+                btn.set_tooltip_text("Insert " + ch)
+                btn.connect("clicked", lambda _b, c=ch: insert_char(c))
+                grid.attach(btn, col, row, 1, 1)
+                col += 1
+                if col >= 16:
+                    row += 1
+                    col = 0
+            notebook.append_page(scroll, Gtk.Label(label=title))
+
+        d.show_all()
+        d.run()
+        d.destroy()
+
+
+    def build_clip_collection(self):
+        self.clips = self.state.load_clips()
+        # Regression invariant: equivalent to
+        # self.clip_list.connect("button-press-event", self.on_clip_list_button_press)
+        self.clip_panel, self.clip_list = build_clip_panel(
+            self.on_clip_list_button_press,
+            self.on_clip_add_selection,
+            self.on_clip_insert,
+            self.on_clip_delete,
+        )
+        self.refresh_clip_list()
+
+    def refresh_clip_list(self):
+        if not hasattr(self, "clip_list"):
+            return
+        for child in list(self.clip_list.get_children()):
+            self.clip_list.remove(child)
+        for clip in self.clips:
+            row = Gtk.ListBoxRow()
+            label = Gtk.Label(label=clip.get("title", "Clip"))
+            label.set_xalign(0)
+            label.set_margin_top(4)
+            label.set_margin_bottom(4)
+            row.add(label)
+            self.clip_list.add(row)
+        self.clip_list.show_all()
+
+    def toggle_clip_collection(self, *_):
+        if getattr(self, "clip_panel_attached", False):
+            try:
+                self.body_paned.remove(self.clip_panel)
+            except Exception:
+                self.clip_panel.hide()
+            self.clip_panel_attached = False
+            self.queue_wrap_reflow()
+            return
+
+        # Attach the panel only when requested.  This is more reliable than
+        # hiding a Gtk.Paned child with no_show_all, which can fail to remap on
+        # some GTK/theme combinations.
+        if self.clip_panel.get_parent() is None:
+            self.body_paned.pack2(self.clip_panel, False, False)
+        self.clip_panel_attached = True
+        self.clip_panel.show_all()
+        alloc = self.body_paned.get_allocation()
+        width = getattr(alloc, "width", 900) or 900
+        panel_width = calculate_clip_panel_width(width)
+        self.clip_panel.set_size_request(panel_width, -1)
+        self.clip_panel.set_hexpand(False)
+        self.clip_panel.set_vexpand(True)
+        self.body_paned.set_position(max(1, width - panel_width))
+        self.queue_wrap_reflow()
+
+    def selected_clip_index(self):
+        row = self.clip_list.get_selected_row() if hasattr(self, "clip_list") else None
+        return row.get_index() if row is not None else None
+
+    def on_clip_list_button_press(self, listbox, event):
+        """Insert the clicked clip on a primary-button double click only.
+
+        This intentionally avoids Gtk.ListBox row-activated because GTK also
+        emits that signal for keyboard activation.  Enter should keep its
+        normal list/navigation semantics and must not insert a clip.
+        """
+        if event.type != Gdk.EventType._2BUTTON_PRESS or getattr(event, "button", 0) != 1:
+            return False
+        row = listbox.get_row_at_y(int(event.y))
+        if row is None:
+            return False
+        listbox.select_row(row)
+        self.text.grab_focus()
+        self.on_clip_insert()
+        return True
+
+    def insert_clip_number(self, number):
+        try:
+            idx = int(number) - 1
+        except (TypeError, ValueError):
+            return
+        if idx < 0 or idx >= len(self.clips):
+            return
+        if hasattr(self, "clip_list"):
+            row = self.clip_list.get_row_at_index(idx)
+            if row is not None:
+                self.clip_list.select_row(row)
+        self.on_clip_insert()
+
+    def on_clip_add_selection(self, *_):
+        b = self.text.get_buffer()
+        if b.get_has_selection():
+            s, e = b.get_selection_bounds()
+            txt = b.get_text(s, e, True)
+        else:
+            txt = ""
+        self.clips.insert(0, new_clip(clip_title_from_text(txt), txt))
+        self.state.save_clips(self.clips)
+        self.refresh_clip_list()
+
+    def on_clip_insert(self, *_):
+        idx = self.selected_clip_index()
+        if idx is None or idx < 0 or idx >= len(self.clips):
+            return
+        txt = self.clips[idx].get("text", "")
+        def edit(buf):
+            buf.insert_at_cursor(txt)
+        self.execute_command("Insert Clip", edit)
+
+    def on_clip_delete(self, *_):
+        idx = self.selected_clip_index()
+        if idx is None or idx < 0 or idx >= len(self.clips):
+            return
+        del self.clips[idx]
+        self.state.save_clips(self.clips)
+        self.refresh_clip_list()
+
+    def toggle_focus_mode(self, *_):
+        self.focus_mode = not self.focus_mode
+        self.text.set_left_margin(42 if self.focus_mode else 10)
+        self.text.set_right_margin(42 if self.focus_mode else 10)
+        self.update_title()
+
+    def toggle_distraction_free(self, *_):
+        self.distraction_free = not self.distraction_free
+        if self.distraction_free:
+            self.fullscreen()
+            self.menubar.hide()
+            self.status.hide()
+        else:
+            self.unfullscreen()
+            self.menubar.show()
+            self.status.show()
+
+    def toggle_current_line_highlight(self, *_):
+        self.current_line_highlight = not self.current_line_highlight
+        self.update_current_line_highlight()
+
+    def update_current_line_highlight(self):
+        if not hasattr(self, "current_line_tag"):
+            return
+        b = self.text.get_buffer()
+        s, e = b.get_bounds()
+        b.remove_tag(self.current_line_tag, s, e)
+        if not self.current_line_highlight:
+            return
+        cur = b.get_iter_at_mark(b.get_insert())
+        start = cur.copy()
+        start.set_line_offset(0)
+        end = start.copy()
+        if not end.ends_line():
+            end.forward_to_line_end()
+        b.apply_tag(self.current_line_tag, start, end)
+
+    def toggle_bookmark(self, *_):
+        off = self.get_cursor_offset()
+        if off in self.bookmarks:
+            self.bookmarks.remove(off)
+            self.status.set_text("Bookmark removed")
+        else:
+            self.bookmarks.append(off)
+            self.bookmarks.sort()
+            self.status.set_text("Bookmark added")
+
+    def next_bookmark(self, *_):
+        if not self.bookmarks:
+            return
+        cur = self.get_cursor_offset()
+        target = next((x for x in self.bookmarks if x > cur), self.bookmarks[0])
+        self.set_cursor_offset(target)
+
+    def previous_bookmark(self, *_):
+        if not self.bookmarks:
+            return
+        cur = self.get_cursor_offset()
+        prior = [x for x in self.bookmarks if x < cur]
+        target = prior[-1] if prior else self.bookmarks[-1]
+        self.set_cursor_offset(target)
+
+    def on_manage_bookmarks(self, *_):
+        if not self.bookmarks:
+            self.info("No bookmarks have been inserted. Use Revise > Insert Bookmark Here or Ctrl+F2.")
+            return
+        lines = []
+        text = self.buffer_text()
+        for i, off in enumerate(self.bookmarks, start=1):
+            line = text.count("\n", 0, max(0, min(off, len(text)))) + 1
+            lines.append(f"{i}. Line {line} — offset {off}")
+        self.large_info("Bookmarks", "\n".join(lines))
+
+    def on_go_to_line(self, *_):
+        _words, _chars, total_lines = self.text_stats()
+        line_no, invalid = prompt_go_to_line(self, total_lines)
+        if invalid:
+            self.error("Invalid line number.")
+            return
+        if line_no is None:
+            return
+        b = self.text.get_buffer()
+        target_line = max(0, min(line_no - 1, b.get_line_count() - 1))
+        it = b.get_iter_at_line_offset(target_line, 0)
+        b.place_cursor(it)
+        self.text.grab_focus()
+
+        def reveal():
+            try:
+                mark = b.get_insert()
+                self.text.scroll_to_mark(mark, 0.08, True, 0.0, 0.15)
+            except Exception as exc:
+                log_nonfatal("go-to-line scroll failed", exc)
+            return False
+
+        GLib.idle_add(reveal)
+
+    def on_find_replace(self, *_):
+        def highlight(needle, match_case, whole_word):
+            self.last_search = needle
+            return self.highlight_all_search(needle, match_case=match_case, whole_word=whole_word)
+
+        callbacks = {
+            "highlight": highlight,
+            "find": lambda needle, backwards, match_case, whole_word, wrap: self.find_text(needle, backwards=backwards, match_case=match_case, whole_word=whole_word, wrap=wrap),
+            "need_current_match": lambda needle: (not self.last_match) or self.last_search != needle,
+            "replace_current": lambda needle, repl, match_case, whole_word: self.replace_current_match(needle, repl, match_case=match_case, whole_word=whole_word),
+            "replace_all": lambda needle, repl, match_case, whole_word: self.replace_all_literal(needle, repl, match_case=match_case, whole_word=whole_word),
+        }
+        run_find_replace_dialog(self, self.last_search, callbacks)
+
+    def on_find_next(self, *_):
+        if not self.last_search:
+            self.on_find_replace()
+            return
+        self.highlight_all_search(self.last_search)
+        if not self.find_text(self.last_search):
+            self.info("No match found.")
+
+    def on_find_previous(self, *_):
+        if not self.last_search:
+            self.on_find_replace()
+            return
+        self.highlight_all_search(self.last_search)
+        if not self.find_text(self.last_search, backwards=True):
+            self.info("No previous match found.")
+
+    def search_matches(self, needle, match_case=False, whole_word=False):
+        return calc_search_matches(self.buffer_text(), needle, match_case=match_case, whole_word=whole_word)
+
+    def highlight_all_search(self, needle, match_case=False, whole_word=False):
+        self.clear_search_highlights()
+        matches = self.search_matches(needle, match_case=match_case, whole_word=whole_word)
+        if not matches:
+            return 0
+        b = self.text.get_buffer()
+        for m in matches:
+            it1 = b.get_iter_at_offset(m.start())
+            it2 = b.get_iter_at_offset(m.end())
+            b.apply_tag(self.search_tag, it1, it2)
+        return len(matches)
+
+    def find_text(self, needle, backwards=False, match_case=False, whole_word=False, wrap=True):
+        matches = self.search_matches(needle, match_case=match_case, whole_word=whole_word)
+        if not matches:
+            self.last_match = None
+            return False
+        b = self.text.get_buffer()
+        if b.get_has_selection():
+            s, e = b.get_selection_bounds()
+            cursor = s.get_offset() if backwards else e.get_offset()
+        else:
+            cursor = b.get_iter_at_mark(b.get_insert()).get_offset()
+        chosen = None
+        if backwards:
+            for m in reversed(matches):
+                if m.start() < cursor:
+                    chosen = m
+                    break
+            if chosen is None and wrap:
+                chosen = matches[-1]
+        else:
+            for m in matches:
+                if m.start() >= cursor:
+                    chosen = m
+                    break
+            if chosen is None and wrap:
+                chosen = matches[0]
+        if chosen is None:
+            self.last_match = None
+            return False
+        self.last_search = needle
+        self.last_match = (chosen.start(), chosen.end())
+        self.select_range(chosen.start(), chosen.end())
+        return True
+
+    def find_text_previous(self, needle):
+        return self.find_text(needle, backwards=True)
+
+    def replace_current_match(self, needle, replacement, match_case=False, whole_word=False):
+        if not self.last_match:
+            return False
+        start, end = self.last_match
+        text = self.buffer_text()
+        if start < 0 or end > len(text):
+            return False
+        current = text[start:end]
+        if not self.search_matches(current, match_case=True, whole_word=False):
+            return False
+        if whole_word:
+            before = text[start - 1] if start > 0 else ""
+            after = text[end] if end < len(text) else ""
+            if re.match(r"[A-Za-zÀ-ÖØ-öø-ÿ']", before) or re.match(r"[A-Za-zÀ-ÖØ-öø-ÿ']", after):
+                return False
+        if match_case:
+            if current != needle:
+                return False
+        elif current.lower() != needle.lower():
+            return False
+        self.replace_buffer_range(start, end, replacement)
+        self.last_match = (start, start + len(replacement))
+        return True
+
+    def replace_all_literal(self, old, new, match_case=False, whole_word=False):
+        replaced, count = replace_all_literal_text(self.buffer_text(), old, new, match_case=match_case, whole_word=whole_word)
+        if not count:
+            return 0
+        def edit(buf):
+            s, e = buf.get_bounds()
+            buf.delete(s, e)
+            buf.insert(buf.get_start_iter(), replaced)
+        self.execute_command("Replace All", edit)
+        self.last_match = None
+        return count
+
+    def on_print_preview(self, *_):
+        op = Gtk.PrintOperation()
+        op.set_job_name("Calamus")
+        op.connect("begin-print", self.on_begin_print)
+        op.connect("draw-page", self.on_draw_page)
+        try:
+            op.run(Gtk.PrintOperationAction.PREVIEW, self)
+        except Exception as e:
+            self.error(str(e))
+
+    def on_print(self, *_):
+        op = Gtk.PrintOperation()
+        op.set_job_name("Calamus")
+        op.connect("begin-print", self.on_begin_print)
+        op.connect("draw-page", self.on_draw_page)
+        try:
+            op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self)
+        except Exception as e:
+            self.error(str(e))
+
+    def on_begin_print(self, operation, context):
+        text = self.buffer_text()
+        lines = text.splitlines() or [""]
+        # Conservative pagination for lightweight, dependency-free printing.
+        # GTK/Pango renders the actual page; this just decides page chunks.
+        lines_per_page = 54
+        self.print_pages = ["\n".join(lines[i:i+lines_per_page]) for i in range(0, len(lines), lines_per_page)] or [""]
+        operation.set_n_pages(len(self.print_pages))
+
+    def on_draw_page(self, operation, context, page_nr):
+        cr = context.get_cairo_context()
+        layout = context.create_pango_layout()
+        layout.set_text(self.print_pages[page_nr], -1)
+        desc = Pango.FontDescription(f"{self.font_family} {self.font_size}")
+        layout.set_font_description(desc)
+        layout.set_width(int(context.get_width() * Pango.SCALE))
+        cr.move_to(0, 0)
+        PangoCairo.show_layout(cr, layout)
+
+    def on_lang(self, item, lang):
+        if item.get_active():
+            self.spell_lang = lang
+            self.save_settings()
+            self.update_title()
+
+    def clear_spell_tags(self):
+        b = self.text.get_buffer()
+        s, e = b.get_bounds()
+        b.remove_tag(self.tag, s, e)
+
+    def hunspell_dict(self):
+        return spell_hunspell_dict(self.spell_lang)
+
+    def hunspell_base_command(self):
+        return spell_hunspell_base_command(self.spell_lang)
+
+    def hunspell_misspelled_words(self, text):
+        return spell_hunspell_misspelled_words(text, self.spell_lang)
+
+    def hunspell_suggestions(self, word):
+        return spell_hunspell_suggestions(word, self.spell_lang)
+
+    def find_next_error(self, start_offset, misspelled):
+        text = self.buffer_text()
+        for m in WORD_RE.finditer(text, max(0, start_offset)):
+            word = m.group(0)
+            if word in misspelled:
+                return m.start(), m.end(), word
+        return None
+
+    def select_range(self, start, end):
+        b = self.text.get_buffer()
+        it1 = b.get_iter_at_offset(start)
+        it2 = b.get_iter_at_offset(end)
+        b.select_range(it1, it2)
+        self.text.scroll_to_iter(it1, 0.15, False, 0, 0)
+
+    def spelling_dialog(self, word, suggestions):
+        return run_spelling_dialog(self, word, suggestions)
+
+    def replace_buffer_range(self, start, end, replacement):
+        def edit(buf):
+            it1 = buf.get_iter_at_offset(start)
+            it2 = buf.get_iter_at_offset(end)
+            buf.delete(it1, it2)
+            buf.insert(buf.get_iter_at_offset(start), replacement)
+        self.execute_command("Replace Selection", edit, select_range=(start, start + len(replacement)))
+
+    def replace_all_word(self, old, new, from_offset=0):
+        text = self.buffer_text()
+        pattern = re.compile(r"(?<![A-Za-zÀ-ÖØ-öø-ÿ'])" + re.escape(old) + r"(?![A-Za-zÀ-ÖØ-öø-ÿ'])")
+        matches = list(pattern.finditer(text, max(0, from_offset)))
+        if not matches:
+            return 0
+        def edit(buf):
+            shift = 0
+            for m in matches:
+                s = m.start() + shift
+                e = m.end() + shift
+                it1 = buf.get_iter_at_offset(s)
+                it2 = buf.get_iter_at_offset(e)
+                buf.delete(it1, it2)
+                buf.insert(buf.get_iter_at_offset(s), new)
+                shift += len(new) - len(old)
+        self.execute_command("Replace All Word", edit)
+        return len(matches)
+
+    def on_check(self, *_):
+        self.clear_spell_tags()
+        try:
+            if not self.hunspell_base_command():
+                self.error("Hunspell was not found. Install hunspell and the required dictionaries, for example hunspell-it and hunspell-en-us.")
+                return
+            misspelled = self.hunspell_misspelled_words(self.buffer_text())
+            if misspelled is None:
+                self.error("Hunspell was not found.")
+                return
+            if not misspelled:
+                self.info("No spelling issues found.")
+                return
+
+            ignored = set()
+            offset = 0
+            fixed = 0
+            ignored_count = 0
+
+            while True:
+                active_errors = misspelled - ignored
+                found = self.find_next_error(offset, active_errors)
+                if not found:
+                    break
+                start, end, word = found
+                self.select_range(start, end)
+                suggestions = self.hunspell_suggestions(word)
+                response, replacement = self.spelling_dialog(word, suggestions)
+
+                if response == Gtk.ResponseType.CANCEL:
+                    self.clear_spell_tags()
+                    self.update_title()
+                    return
+                if response == 10:  # Ignore
+                    ignored_count += 1
+                    offset = end
+                    continue
+                if response == 11:  # Ignore all
+                    ignored.add(word)
+                    ignored_count += 1
+                    offset = end
+                    continue
+                if response == 20:  # Replace
+                    if replacement and replacement != word:
+                        self.replace_buffer_range(start, end, replacement)
+                        fixed += 1
+                        offset = start + len(replacement)
+                    else:
+                        offset = end
+                    continue
+                if response == 21:  # Replace all
+                    if replacement and replacement != word:
+                        fixed += self.replace_all_word(word, replacement, start)
+                        misspelled.discard(word)
+                        offset = start + len(replacement)
+                    else:
+                        offset = end
+                    continue
+
+            self.clear_spell_tags()
+            self.update_title()
+            self.info(f"Spellcheck complete. Replacements: {fixed}. Ignored: {ignored_count}.")
+        except Exception as e:
+            self.error(str(e))
+
+    def shortcut_rows(self):
+        return SHORTCUT_ROWS
+
+    def on_keyboard_shortcuts(self, *_):
+        show_keyboard_shortcuts(self, self.shortcut_rows())
+
+    def on_about(self, *_):
+        show_about(self, VERSION)
+
+    def info(self, msg):
+        show_info(self, msg)
+
+    def large_info(self, title, body):
+        show_large_info(self, title, body)
+
+    def error(self, msg):
+        show_error(self, msg)
+
+
+if __name__ == "__main__":
+    win = App()
+    win.show_all()
+    # Clip panel starts detached and is attached lazily on demand.
+    Gtk.main()

@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Run Calamus' lightweight non-GUI regression and release-audit tests."""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+import unittest
+
+sys.dont_write_bytecode = True
+
+LIB_DIR = os.environ.get("CALAMUS_LIB_DIR", "/usr/lib/calamus")
+TEST_DIR = os.environ.get("CALAMUS_TEST_DIR", "/usr/share/calamus/tests")
+
+HERE = os.path.abspath(os.path.dirname(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
+DEV_LIB_DIR = os.path.join(ROOT, "usr", "lib", "calamus")
+DEV_TEST_DIR = os.path.join(ROOT, "usr", "share", "calamus", "tests")
+
+if os.path.isdir(DEV_LIB_DIR):
+    LIB_DIR = DEV_LIB_DIR
+if os.path.isdir(DEV_TEST_DIR):
+    TEST_DIR = DEV_TEST_DIR
+
+sys.path.insert(0, LIB_DIR)
+
+parser = argparse.ArgumentParser(description="Run Calamus selftests.")
+parser.add_argument("--full", action="store_true", help="run the same full regression/audit suite explicitly")
+parser.add_argument("--list-shortcuts", action="store_true", help="print audited shortcut table and exit")
+args = parser.parse_args()
+
+if args.list_shortcuts:
+    from calamus_audit import SHORTCUTS, shortcut_conflicts, shortcut_warnings
+
+    for spec in SHORTCUTS:
+        suffix = f"  # {spec.reserved_note}" if spec.reserved_note else ""
+        print(f"{spec.menu:12s} {spec.command:34s} {spec.shortcut}{suffix}")
+    conflicts = shortcut_conflicts()
+    if conflicts:
+        print(f"CONFLICTS: {conflicts}", file=sys.stderr)
+        sys.exit(1)
+    for warning in shortcut_warnings():
+        print(f"WARNING: {warning}", file=sys.stderr)
+    sys.exit(0)
+
+suite = unittest.defaultTestLoader.discover(TEST_DIR)
+result = unittest.TextTestRunner(verbosity=2).run(suite)
+sys.exit(0 if result.wasSuccessful() else 1)

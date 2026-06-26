@@ -1,0 +1,7 @@
+calamus (1.7.0~rc3+stable2) unstable; urgency=low
+
+  * Stable2 conservative architecture cleanup release.
+  * Centralize version, shortcut metadata, and layout constants.
+  * Preserve stable1 user-facing behavior.
+
+ -- Calamus Maintainer <maintainer@example.invalid>  Fri, 08 May 2026 00:00:00 +0200

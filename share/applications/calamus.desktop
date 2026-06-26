@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Calamus
+Comment=Lightweight GTK text editor with external Hunspell spellcheck
+Exec=calamus
+Icon=calamus
+Terminal=false
+Categories=Utility;TextEditor;
+StartupNotify=true
