@@ -1,0 +1,18 @@
+CALAMUS W1 BOOTSTRAP
+
+Created local working directory:
+  /home/luciano/Projects/calamus-work
+
+Existing directory intentionally not touched:
+  /home/luciano/Projects/calamus
+
+GitHub repository target:
+  https://github.com/leviagravia/calamus-work
+
+Generated:
+  README.md
+  docs/CALAMUS_WORK_POLICY.md
+  audits/W1_LOCAL_GITHUB_BOOTSTRAP_NOTE.txt
+
+Generated at:
+  2026-06-26T14:57:47+02:00
