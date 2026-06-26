@@ -2,6 +2,7 @@ import unittest
 
 from calamus_command_catalog import LOW_RISK_COMMANDS, build_low_risk_registry, low_risk_command_specs
 from calamus_command_context import CommandContext
+from calamus_command_handlers import handled_command_ids
 from calamus_command_layer import CommandLayer
 from calamus_command_registry import CommandSpec, shortcut_conflicts
 
@@ -34,13 +35,22 @@ class CommandCatalogTests(unittest.TestCase):
         registry = build_low_risk_registry()
         self.assertEqual(registry.command_ids(), EXPECTED_COMMAND_IDS)
 
-    def test_all_registered_commands_are_low_risk_metadata_only(self):
+    def test_all_registered_commands_are_low_risk(self):
         for spec in low_risk_command_specs():
             self.assertEqual(spec.risk_class, "low")
-            self.assertIn("metadata-only", spec.flags)
-            self.assertIsNone(spec.handler)
             self.assertTrue(spec.description)
             self.assertTrue(spec.menu_path)
+
+    def test_pure_commands_have_handlers_but_time_command_does_not(self):
+        handled = set(handled_command_ids())
+        for spec in low_risk_command_specs():
+            if spec.command_id in handled:
+                self.assertIsNotNone(spec.handler)
+                self.assertIn("pure-handler", spec.flags)
+            else:
+                self.assertEqual(spec.command_id, "writing.insert-date-time")
+                self.assertIsNone(spec.handler)
+                self.assertIn("metadata-only", spec.flags)
 
     def test_no_shortcut_conflicts_in_catalog(self):
         self.assertEqual(shortcut_conflicts(low_risk_command_specs()), {})
@@ -50,9 +60,17 @@ class CommandCatalogTests(unittest.TestCase):
         self.assertEqual(len(registry), len(low_risk_command_specs()))
         self.assertIsNotNone(registry.get("writing.statistics"))
 
-    def test_layer_dispatch_for_catalog_commands_is_noop_only(self):
+    def test_layer_dispatch_for_pure_command_is_operational_in_isolation(self):
         layer = CommandLayer(build_low_risk_registry())
-        result = layer.dispatch("writing.statistics", CommandContext(source="test"))
+        result = layer.dispatch("edit.uppercase", CommandContext(source="test", data={"text": "abc"}))
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.changed)
+        self.assertEqual(result.value, {"text": "ABC"})
+
+    def test_layer_dispatch_for_time_command_remains_noop(self):
+        layer = CommandLayer(build_low_risk_registry())
+        result = layer.dispatch("writing.insert-date-time", CommandContext(source="test", data={"text": "abc"}))
 
         self.assertTrue(result.success)
         self.assertFalse(result.changed)
