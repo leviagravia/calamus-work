@@ -39,6 +39,9 @@ from calamus_dialogs import (
     show_about, show_error, show_info, show_keyboard_shortcuts, show_large_info,
 )
 from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts, add_item as ui_add_item, add_separator as ui_add_separator, top_menu as ui_top_menu
+from calamus_command_context import CommandContext
+from calamus_command_layer import CommandLayer
+from calamus_command_catalog import build_low_risk_registry
 
 APP_TITLE = "Calamus"
 APP_ICON = "calamus"
@@ -63,6 +66,7 @@ class App(Gtk.Window):
         super().__init__(title=APP_TITLE)
         self.state = StateManager(CONFIG_DIR)
         self.settings = self.load_settings()
+        self.command_layer = CommandLayer(build_low_risk_registry())
 
         width = clamp_int(self.settings.get("width"), DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
         height = clamp_int(self.settings.get("height"), DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT)
@@ -1220,7 +1224,15 @@ class App(Gtk.Window):
         self.save_settings()
 
     def on_document_statistics(self, *_):
-        stats = document_statistics(self.buffer_text())
+        text_before_statistics = self.buffer_text()
+        result = self.command_layer.dispatch(
+            "writing.statistics",
+            CommandContext(app=self, source="gui", data={"text": text_before_statistics}),
+        )
+        if result.success and isinstance(result.value, dict) and "statistics" in result.value:
+            stats = result.value["statistics"]
+        else:
+            stats = document_statistics(text_before_statistics)
         msg = (
             f"Words: {stats['words']}\n"
             f"Characters: {stats['characters']}\n"
