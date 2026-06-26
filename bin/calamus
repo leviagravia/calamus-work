@@ -43,8 +43,9 @@ from calamus_command_context import CommandContext
 from calamus_command_layer import CommandLayer
 from calamus_command_catalog import build_low_risk_registry
 
-APP_TITLE = "Calamus"
+APP_TITLE = "Calamus Copy"
 APP_ICON = "calamus"
+RUNTIME_ABOUT_NAME = "Calamus-Working-Copy"
 from calamus_version import APP_VERSION as VERSION
 from calamus_layout import CLIP_PANEL_DEFAULT_WIDTH, LINE_GUTTER_MIN_WIDTH, LINE_GUTTER_MAX_WIDTH
 from calamus_logging import log_nonfatal
@@ -2143,7 +2144,7 @@ class App(Gtk.Window):
         show_keyboard_shortcuts(self, self.shortcut_rows())
 
     def on_about(self, *_):
-        show_about(self, VERSION)
+        show_about(self, VERSION, RUNTIME_ABOUT_NAME)
 
     def info(self, msg):
         show_info(self, msg)

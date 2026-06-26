@@ -99,8 +99,9 @@ def show_keyboard_shortcuts(parent, rows=SHORTCUT_ROWS):
     dialog.destroy()
 
 
-def show_about(parent, version):
+def show_about(parent, version, display_name=None):
     dialog = Gtk.Dialog(title="About Calamus", transient_for=parent, modal=True)
+    about_header = display_name or f"Calamus {version}"
     dialog.set_name("calamus-about-dialog")
     dialog.add_buttons("Close", Gtk.ResponseType.CLOSE)
     dialog.set_default_size(560, 420)
@@ -155,7 +156,7 @@ def show_about(parent, version):
     notebook = Gtk.Notebook()
     box.pack_start(notebook, True, True, 0)
 
-    about_body = f"""Calamus {version}
+    about_body = f"""{about_header}
 
 Calamus is a lightweight text editor focused on plain-text writing.
 
