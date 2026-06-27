@@ -40,6 +40,36 @@ class SearchTests(unittest.TestCase):
     def test_choose_search_match_empty(self):
         self.assertIsNone(search.choose_search_match([], 0))
 
+    def test_prepare_current_replacement_success(self):
+        plan = search.prepare_current_replacement("alpha beta", "alpha", "omega", (0, 5))
+        self.assertEqual(plan, (0, 5, "omega", (0, 5)))
+
+    def test_prepare_current_replacement_case_modes(self):
+        self.assertEqual(
+            search.prepare_current_replacement("Alpha beta", "alpha", "omega", (0, 5), match_case=False),
+            (0, 5, "omega", (0, 5)),
+        )
+        self.assertIsNone(
+            search.prepare_current_replacement("Alpha beta", "alpha", "omega", (0, 5), match_case=True)
+        )
+
+    def test_prepare_current_replacement_whole_word_boundaries(self):
+        self.assertEqual(
+            search.prepare_current_replacement("alpha beta", "alpha", "omega", (0, 5), whole_word=True),
+            (0, 5, "omega", (0, 5)),
+        )
+        self.assertIsNone(
+            search.prepare_current_replacement("alphabet beta", "alpha", "omega", (0, 5), whole_word=True)
+        )
+
+    def test_prepare_current_replacement_rejects_invalid_state(self):
+        self.assertIsNone(search.prepare_current_replacement("alpha", "", "omega", (0, 5)))
+        self.assertIsNone(search.prepare_current_replacement("alpha", "alpha", "omega", None))
+        self.assertIsNone(search.prepare_current_replacement("alpha", "alpha", "omega", (-1, 5)))
+        self.assertIsNone(search.prepare_current_replacement("alpha", "alpha", "omega", (0, 99)))
+        self.assertIsNone(search.prepare_current_replacement("alpha", "alpha", "omega", (4, 2)))
+        self.assertIsNone(search.prepare_current_replacement("alpha", "beta", "omega", (0, 5)))
+
     def test_replace_all_literal_text(self):
         new, count = search.replace_all_literal_text("uno due uno", "uno", "tre")
         self.assertEqual((new, count), ("tre due tre", 2))

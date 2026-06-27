@@ -57,6 +57,50 @@ def choose_search_match(matches, cursor: int, backwards: bool = False, wrap: boo
             return match
     return matches[0] if wrap else None
 
+
+def is_whole_word_span(text: str, start: int, end: int) -> bool:
+    """Return True when a span is bounded by non-word characters."""
+    before = text[start - 1] if start > 0 else ""
+    after = text[end] if end < len(text) else ""
+    return not re.match(r"[" + WORD_CHARS + r"]", before) and not re.match(r"[" + WORD_CHARS + r"]", after)
+
+
+def prepare_current_replacement(
+    text: str,
+    needle: str,
+    replacement: str,
+    current_match,
+    match_case: bool = False,
+    whole_word: bool = False,
+):
+    """Validate the current match and return a pure replacement plan.
+
+    Return value:
+        (start, end, replacement, next_match_span) or None.
+
+    Buffer mutation, undo grouping, selection and scrolling intentionally remain
+    outside this helper.
+    """
+    if not needle or current_match is None:
+        return None
+    try:
+        start, end = current_match
+        start = int(start)
+        end = int(end)
+    except (TypeError, ValueError):
+        return None
+    if start < 0 or end > len(text) or end < start:
+        return None
+    current = text[start:end]
+    if whole_word and not is_whole_word_span(text, start, end):
+        return None
+    if match_case:
+        if current != needle:
+            return None
+    elif current.lower() != needle.lower():
+        return None
+    return start, end, replacement, (start, start + len(replacement))
+
 def replace_all_literal_text(text: str, old: str, new: str, match_case: bool = False, whole_word: bool = False) -> tuple[str, int]:
     matches = search_matches(text, old, match_case=match_case, whole_word=whole_word)
     if not old or not matches:
