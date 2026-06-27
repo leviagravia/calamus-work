@@ -1102,6 +1102,22 @@ class App(Gtk.Window):
         if not isinstance(transformed, str):
             return text, False
         return transformed, transformed != text
+    def command_layer_lowercase_text(self, text):
+        # Compute lowercase text through CommandLayer without mutating Gtk.TextBuffer.
+        result = self.command_layer.dispatch(
+            "edit.lowercase",
+            CommandContext(app=self, source="gui", data={"text": text}),
+        )
+        if result.success and isinstance(result.value, dict):
+            transformed = result.value.get("text", text)
+        elif result.success:
+            transformed = result.value
+        else:
+            return text, False
+        if not isinstance(transformed, str):
+            return text, False
+        return transformed, transformed != text
+
 
     def apply_text_transform(self, transform, command_name="Text Transform"):
         b = self.text.get_buffer()
@@ -1112,8 +1128,17 @@ class App(Gtk.Window):
             command_name in {"Uppercase", "Upper Case", "UPPERCASE"}
             or transform is str.upper
         )
+        use_layer_lowercase = (
+            command_name in {"Lowercase", "Lower Case", "LOWERCASE"}
+            or transform is str.lower
+        )
         if use_layer_uppercase:
             new, changed = self.command_layer_uppercase_text(old)
+            if not changed:
+                return False
+            _, select = command_transform_range(current, start, end, lambda _text: new)
+        elif use_layer_lowercase:
+            new, changed = self.command_layer_lowercase_text(old)
             if not changed:
                 return False
             _, select = command_transform_range(current, start, end, lambda _text: new)

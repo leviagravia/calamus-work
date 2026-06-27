@@ -69,12 +69,11 @@ class StatusWordCountCanonicalizationTests(unittest.TestCase):
         self.assertEqual(chars, len(sample))
 
     def test_allowed_command_layer_dispatches_after_w15(self):
-        self.assertEqual(sorted(_dispatch_ids()), ["edit.uppercase", "writing.statistics"])
+        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.statistics"])
 
     def test_no_unapproved_text_transform_wiring_added(self):
         source = _source()
         forbidden = [
-            '"edit.lowercase"',
             '"writing.remove-extra-spaces"',
             '"writing.remove-trailing-spaces"',
             '"writing.sort-lines"',

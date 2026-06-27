@@ -35,8 +35,8 @@ def _dispatch_ids() -> list[str]:
 
 
 class UppercaseLayerWiringTests(unittest.TestCase):
-    def test_dispatch_surface_is_statistics_plus_uppercase_only(self):
-        self.assertEqual(sorted(_dispatch_ids()), ["edit.uppercase", "writing.statistics"])
+    def test_dispatch_surface_is_statistics_plus_case_transforms_only(self):
+        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.statistics"])
 
     def test_apply_text_transform_is_uppercase_bridge_only(self):
         method = _app_method("apply_text_transform")
@@ -101,7 +101,6 @@ class UppercaseLayerWiringTests(unittest.TestCase):
     def test_forbidden_transforms_not_wired_in_bin(self):
         source = _source()
         forbidden = [
-            '"edit.lowercase"',
             '"writing.remove-extra-spaces"',
             '"writing.remove-trailing-spaces"',
             '"writing.sort-lines"',

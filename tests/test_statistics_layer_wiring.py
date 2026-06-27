@@ -56,13 +56,12 @@ class StatisticsLayerWiringTests(unittest.TestCase):
             self.assertNotIn(token, method)
 
     def test_allowed_command_layer_dispatches_are_statistics_and_uppercase(self):
-        self.assertEqual(sorted(_dispatch_ids()), ["edit.uppercase", "writing.statistics"])
+        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.statistics"])
 
-    def test_only_uppercase_text_transform_is_wired_to_layer_yet(self):
+    def test_only_case_text_transforms_are_wired_to_layer_yet(self):
         source = _source()
         self.assertIn('"edit.uppercase"', source)
         forbidden = [
-            '"edit.lowercase"',
             '"writing.remove-extra-spaces"',
             '"writing.remove-trailing-spaces"',
             '"writing.sort-lines"',
