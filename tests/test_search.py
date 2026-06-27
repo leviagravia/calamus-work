@@ -23,6 +23,23 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(len(search.search_matches(text, "casa", match_case=True)), 2)
         self.assertEqual(len(search.search_matches(text, "casa", whole_word=True)), 2)
 
+    def test_choose_search_match_forward_and_wrap(self):
+        matches = search.search_matches("alpha beta alpha", "alpha")
+        self.assertEqual(search.choose_search_match(matches, 0).start(), 0)
+        self.assertEqual(search.choose_search_match(matches, 1).start(), 11)
+        self.assertEqual(search.choose_search_match(matches, 99).start(), 0)
+        self.assertIsNone(search.choose_search_match(matches, 99, wrap=False))
+
+    def test_choose_search_match_backward_and_wrap(self):
+        matches = search.search_matches("alpha beta alpha", "alpha")
+        self.assertEqual(search.choose_search_match(matches, 99, backwards=True).start(), 11)
+        self.assertEqual(search.choose_search_match(matches, 11, backwards=True).start(), 0)
+        self.assertEqual(search.choose_search_match(matches, 0, backwards=True).start(), 11)
+        self.assertIsNone(search.choose_search_match(matches, 0, backwards=True, wrap=False))
+
+    def test_choose_search_match_empty(self):
+        self.assertIsNone(search.choose_search_match([], 0))
+
     def test_replace_all_literal_text(self):
         new, count = search.replace_all_literal_text("uno due uno", "uno", "tre")
         self.assertEqual((new, count), ("tre due tre", 2))

@@ -37,6 +37,26 @@ def search_matches(text: str, needle: str, match_case: bool = False, whole_word:
         pattern = re.escape(needle)
     return list(re.finditer(pattern, text, flags))
 
+
+def choose_search_match(matches, cursor: int, backwards: bool = False, wrap: bool = True):
+    """Choose the search match to select from a cursor offset.
+
+    The function is intentionally pure: it accepts already computed matches and
+    returns one match object or None. Editor selection and scrolling stay in App.
+    """
+    if not matches:
+        return None
+    cursor = int(cursor)
+    if backwards:
+        for match in reversed(matches):
+            if match.start() < cursor:
+                return match
+        return matches[-1] if wrap else None
+    for match in matches:
+        if match.start() >= cursor:
+            return match
+    return matches[0] if wrap else None
+
 def replace_all_literal_text(text: str, old: str, new: str, match_case: bool = False, whole_word: bool = False) -> tuple[str, int]:
     matches = search_matches(text, old, match_case=match_case, whole_word=whole_word)
     if not old or not matches:
