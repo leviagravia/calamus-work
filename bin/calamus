@@ -51,6 +51,7 @@ from calamus_layout import CLIP_PANEL_DEFAULT_WIDTH, LINE_GUTTER_MIN_WIDTH, LINE
 from calamus_logging import log_nonfatal
 from calamus_editor import build_editor_widgets
 from calamus_clip_panel import build_clip_panel, calculate_clip_panel_width
+from calamus_navigation import line_to_buffer_index
 DEFAULT_OPACITY = 88
 DEFAULT_FONT = 12
 MIN_FONT = 8
@@ -1857,7 +1858,7 @@ class App(Gtk.Window):
         if line_no is None:
             return
         b = self.text.get_buffer()
-        target_line = max(0, min(line_no - 1, b.get_line_count() - 1))
+        target_line = line_to_buffer_index(line_no, b.get_line_count())
         it = b.get_iter_at_line_offset(target_line, 0)
         b.place_cursor(it)
         self.text.grab_focus()
