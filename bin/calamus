@@ -18,7 +18,7 @@ from calamus_state import StateManager
 from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range
-from calamus_search import WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
+from calamus_search import can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
 from calamus_history import TextHistory
 from calamus_external import open_character_map as external_open_character_map
 from calamus_clips import load_clips, save_clips, new_clip, clip_title_from_text
@@ -1888,7 +1888,7 @@ class App(Gtk.Window):
         run_find_replace_dialog(self, self.last_search, callbacks)
 
     def on_find_next(self, *_):
-        if not self.last_search:
+        if not can_repeat_search(self.last_search):
             self.on_find_replace()
             return
         self.highlight_all_search(self.last_search)

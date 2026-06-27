@@ -7,6 +7,18 @@ WORD_CHARS = r"A-Za-zÀ-ÖØ-öø-ÿ'"
 WORD_RE = re.compile(r"[" + WORD_CHARS + r"]+")
 
 
+
+def normalize_search_query(query):
+    """Normalize a repeat-search query to a string."""
+    if query is None:
+        return ""
+    return str(query)
+
+
+def can_repeat_search(query):
+    """Return True when a stored search query can be repeated."""
+    return bool(normalize_search_query(query))
+
 def text_stats(text: str) -> tuple[int, int, int]:
     words = len(WORD_RE.findall(text))
     chars = len(text)

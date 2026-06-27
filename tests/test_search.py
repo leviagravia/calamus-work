@@ -4,6 +4,15 @@ import calamus_search as search
 
 
 class SearchTests(unittest.TestCase):
+    def test_repeat_search_query_helpers(self):
+        self.assertEqual(search.normalize_search_query(None), "")
+        self.assertEqual(search.normalize_search_query("alpha"), "alpha")
+        self.assertEqual(search.normalize_search_query(123), "123")
+        self.assertFalse(search.can_repeat_search(None))
+        self.assertFalse(search.can_repeat_search(""))
+        self.assertTrue(search.can_repeat_search("alpha"))
+        self.assertTrue(search.can_repeat_search(123))
+
     def test_text_stats(self):
         self.assertEqual(search.text_stats("uno due\ntre"), (3, 11, 2))
         self.assertEqual(search.text_stats(""), (0, 0, 1))
