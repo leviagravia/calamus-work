@@ -1896,7 +1896,7 @@ class App(Gtk.Window):
             self.info("No match found.")
 
     def on_find_previous(self, *_):
-        if not self.last_search:
+        if not can_repeat_search(self.last_search):
             self.on_find_replace()
             return
         self.highlight_all_search(self.last_search)
