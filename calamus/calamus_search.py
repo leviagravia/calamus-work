@@ -101,6 +101,26 @@ def prepare_current_replacement(
         return None
     return start, end, replacement, (start, start + len(replacement))
 
+
+def prepare_replace_all_plan(text: str, needle: str, replacement: str, match_case: bool = False, whole_word: bool = False):
+    """Return a pure replace-all plan.
+
+    Return value:
+        (new_text, count)
+
+    This helper intentionally performs no buffer mutation, no undo grouping, no
+    selection, no scrolling, and no dirty/file lifecycle work.
+    """
+    if not needle:
+        return text, 0
+    return replace_all_literal_text(
+        text,
+        needle,
+        replacement,
+        match_case=match_case,
+        whole_word=whole_word,
+    )
+
 def replace_all_literal_text(text: str, old: str, new: str, match_case: bool = False, whole_word: bool = False) -> tuple[str, int]:
     matches = search_matches(text, old, match_case=match_case, whole_word=whole_word)
     if not old or not matches:

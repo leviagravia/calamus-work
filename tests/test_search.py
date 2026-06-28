@@ -70,6 +70,32 @@ class SearchTests(unittest.TestCase):
         self.assertIsNone(search.prepare_current_replacement("alpha", "alpha", "omega", (4, 2)))
         self.assertIsNone(search.prepare_current_replacement("alpha", "beta", "omega", (0, 5)))
 
+    def test_prepare_replace_all_plan_success(self):
+        new_text, count = search.prepare_replace_all_plan("alpha beta alpha", "alpha", "omega")
+        self.assertEqual(new_text, "omega beta omega")
+        self.assertEqual(count, 2)
+
+    def test_prepare_replace_all_plan_empty_needle_is_noop(self):
+        new_text, count = search.prepare_replace_all_plan("alpha", "", "omega")
+        self.assertEqual(new_text, "alpha")
+        self.assertEqual(count, 0)
+
+    def test_prepare_replace_all_plan_case_modes(self):
+        self.assertEqual(
+            search.prepare_replace_all_plan("Alpha alpha", "alpha", "omega", match_case=False),
+            ("omega omega", 2),
+        )
+        self.assertEqual(
+            search.prepare_replace_all_plan("Alpha alpha", "alpha", "omega", match_case=True),
+            ("Alpha omega", 1),
+        )
+
+    def test_prepare_replace_all_plan_whole_word(self):
+        self.assertEqual(
+            search.prepare_replace_all_plan("alpha alphabet alpha", "alpha", "omega", whole_word=True),
+            ("omega alphabet omega", 2),
+        )
+
     def test_replace_all_literal_text(self):
         new, count = search.replace_all_literal_text("uno due uno", "uno", "tre")
         self.assertEqual((new, count), ("tre due tre", 2))
