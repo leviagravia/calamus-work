@@ -67,6 +67,26 @@ class CommandTests(unittest.TestCase):
         plan = commands.duplicate_line_or_selection_plan("", cursor=0)
         self.assertEqual(plan, (0, "\n", (1, 1), False))
 
+    def test_paste_text_plan_inserts_at_cursor(self):
+        plan = commands.paste_text_plan("alpha omega", " beta", cursor=5)
+        self.assertEqual(plan, (5, 5, " beta", (5, 10)))
+
+    def test_paste_text_plan_replaces_selection(self):
+        plan = commands.paste_text_plan("alpha omega", "beta", cursor=0, selection=(6, 11))
+        self.assertEqual(plan, (6, 11, "beta", (6, 10)))
+
+    def test_paste_text_plan_normalizes_reversed_selection(self):
+        plan = commands.paste_text_plan("alpha omega", "beta", cursor=0, selection=(11, 6))
+        self.assertEqual(plan, (6, 11, "beta", (6, 10)))
+
+    def test_paste_text_plan_clamps_cursor(self):
+        plan = commands.paste_text_plan("alpha", "!", cursor=999)
+        self.assertEqual(plan, (5, 5, "!", (5, 6)))
+
+    def test_paste_text_plan_none_insertion_is_empty(self):
+        plan = commands.paste_text_plan("alpha", None, cursor=2)
+        self.assertEqual(plan, (2, 2, "", (2, 2)))
+
     def test_shortcut_table_has_no_conflicts(self):
         self.assertEqual(commands.shortcut_conflicts(), {})
 

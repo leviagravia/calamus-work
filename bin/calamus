@@ -17,7 +17,7 @@ from calamus_config import (
 from calamus_state import StateManager
 from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
 from calamus_model import Document
-from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan
+from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
 from calamus_history import TextHistory
 from calamus_external import open_character_map as external_open_character_map
@@ -1181,14 +1181,22 @@ class App(Gtk.Window):
         cleaned = clean_pdf_text(text)
         b = self.text.get_buffer()
         cursor = b.get_iter_at_mark(b.get_insert()).get_offset()
+        selection = None
+        if b.get_has_selection():
+            s, e = b.get_selection_bounds()
+            selection = (s.get_offset(), e.get_offset())
+        start, end, insertion, select_range = command_paste_text_plan(
+            self.buffer_text(),
+            cleaned,
+            cursor,
+            selection=selection,
+        )
         def edit(buf):
-            if buf.get_has_selection():
-                s, e = buf.get_selection_bounds()
-                buf.delete(s, e)
-                buf.insert(s, cleaned)
-            else:
-                buf.insert(buf.get_iter_at_offset(cursor), cleaned)
-        self.execute_command("Paste Clean PDF", edit)
+            it1 = buf.get_iter_at_offset(start)
+            it2 = buf.get_iter_at_offset(end)
+            buf.delete(it1, it2)
+            buf.insert(buf.get_iter_at_offset(start), insertion)
+        self.execute_command("Paste Clean PDF", edit, select_range=select_range)
 
     def on_paste_plain_text(self, *_):
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)

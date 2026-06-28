@@ -91,6 +91,26 @@ def duplicate_line_or_selection_plan(text: str, cursor: int, selection: Range | 
     return insert_pos, insertion, (new_cursor, new_cursor), False
 
 
+
+def paste_text_plan(text: str, insertion: str, cursor: int, selection: Range | None = None):
+    """Return a pure replacement plan for paste-like commands.
+
+    Return value:
+        (start, end, insertion, selection_tuple)
+
+    System paste access, buffer mutation and command/undo grouping remain
+    in the application boundary.
+    """
+    text = text if isinstance(text, str) else ""
+    insertion = insertion if isinstance(insertion, str) else ""
+    if selection is not None:
+        start, end = normalize_range(selection[0], selection[1], text)
+    else:
+        start = end = clamp_offset(cursor, text)
+    _new_text, selection_tuple = replace_range(text, start, end, insertion)
+    return start, end, insertion, selection_tuple
+
+
 @dataclass(frozen=True)
 class CommandSpec:
     name: str
