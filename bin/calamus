@@ -17,7 +17,7 @@ from calamus_config import (
 from calamus_state import StateManager
 from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
 from calamus_model import Document
-from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range
+from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan
 from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
 from calamus_history import TextHistory
 from calamus_external import open_character_map as external_open_character_map
@@ -1204,38 +1204,24 @@ class App(Gtk.Window):
                 buf.insert_at_cursor(text)
         self.execute_command("Paste Plain Text", edit)
 
-    def current_line_bounds_from_text(self, text, cursor):
-        cursor = max(0, min(len(text), int(cursor)))
-        start = text.rfind("\n", 0, cursor) + 1
-        end = text.find("\n", cursor)
-        if end == -1:
-            end = len(text)
-        return start, end
-
     def on_duplicate_line_or_selection(self, *_):
         b = self.text.get_buffer()
+        selection = None
         if b.get_has_selection():
             s, e = b.get_selection_bounds()
-            start, end = s.get_offset(), e.get_offset()
-            txt = b.get_text(s, e, True)
-            def edit(buf):
-                it = buf.get_iter_at_offset(end)
-                buf.insert(it, txt)
-            return self.execute_command("Duplicate Selection", edit, select_range=(end, end + len(txt)))
-        text = self.buffer_text()
-        cursor = self.get_cursor_offset()
-        start, end = self.current_line_bounds_from_text(text, cursor)
-        line = text[start:end]
-        if end < len(text) and text[end:end+1] == "\n":
-            insert_pos = end + 1
-            insertion = line + "\n"
-        else:
-            insert_pos = end
-            insertion = "\n" + line
+            selection = (s.get_offset(), e.get_offset())
+        plan = command_duplicate_line_or_selection_plan(
+            self.buffer_text(),
+            self.get_cursor_offset(),
+            selection=selection,
+        )
+        if plan is None:
+            return
+        insert_pos, insertion, select_range, duplicates_selection = plan
         def edit(buf):
             buf.insert(buf.get_iter_at_offset(insert_pos), insertion)
-        new_cursor = insert_pos + len(insertion)
-        self.execute_command("Duplicate Line", edit, select_range=(new_cursor, new_cursor))
+        action_name = "Duplicate Selection" if duplicates_selection else "Duplicate Line"
+        return self.execute_command(action_name, edit, select_range=select_range)
 
     def on_move_line(self, direction):
         text = self.buffer_text()

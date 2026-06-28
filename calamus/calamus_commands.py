@@ -44,6 +44,53 @@ def transform_range(text: str, start: int, end: int, transform: Callable[[str], 
     return replace_range(text, a, b, replacement)
 
 
+
+def line_bounds_at_offset(text: str, cursor: int) -> Range:
+    """Return start/end offsets for the logical line containing cursor.
+
+    The returned end excludes the newline character, matching the legacy
+    App.current_line_bounds_from_text behavior.
+    """
+    text = text if isinstance(text, str) else ""
+    pos = clamp_offset(cursor, text)
+    start = text.rfind("\n", 0, pos) + 1
+    end = text.find("\n", pos)
+    if end == -1:
+        end = len(text)
+    return start, end
+
+
+def duplicate_line_or_selection_plan(text: str, cursor: int, selection: Range | None = None):
+    """Return a pure insertion plan for Duplicate Line/Selection.
+
+    Return value:
+        (insert_pos, insertion, selection_tuple, duplicates_selection)
+
+    Buffer mutation and command/undo grouping intentionally remain in
+    the application boundary.
+    """
+    text = text if isinstance(text, str) else ""
+
+    if selection is not None:
+        start, end = normalize_range(selection[0], selection[1], text)
+        if start != end:
+            selected = text[start:end]
+            insert_pos = end
+            return insert_pos, selected, (end, end + len(selected)), True
+
+    cursor = clamp_offset(cursor, text)
+    start, end = line_bounds_at_offset(text, cursor)
+    line = text[start:end]
+    if end < len(text) and text[end:end + 1] == "\n":
+        insert_pos = end + 1
+        insertion = line + "\n"
+    else:
+        insert_pos = end
+        insertion = "\n" + line
+    new_cursor = insert_pos + len(insertion)
+    return insert_pos, insertion, (new_cursor, new_cursor), False
+
+
 @dataclass(frozen=True)
 class CommandSpec:
     name: str

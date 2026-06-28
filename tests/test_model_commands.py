@@ -42,6 +42,31 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(text, "ciao MONDO")
         self.assertEqual(sel, (5, 10))
 
+    def test_line_bounds_at_offset(self):
+        self.assertEqual(commands.line_bounds_at_offset("one\ntwo\nthree", 0), (0, 3))
+        self.assertEqual(commands.line_bounds_at_offset("one\ntwo\nthree", 5), (4, 7))
+        self.assertEqual(commands.line_bounds_at_offset("one\ntwo\nthree", 999), (8, 13))
+
+    def test_duplicate_selection_plan(self):
+        plan = commands.duplicate_line_or_selection_plan("abcde", cursor=0, selection=(1, 3))
+        self.assertEqual(plan, (3, "bc", (3, 5), True))
+
+    def test_duplicate_selection_plan_normalizes_reversed_selection(self):
+        plan = commands.duplicate_line_or_selection_plan("abcde", cursor=0, selection=(3, 1))
+        self.assertEqual(plan, (3, "bc", (3, 5), True))
+
+    def test_duplicate_line_plan_middle_line(self):
+        plan = commands.duplicate_line_or_selection_plan("one\ntwo\nthree", cursor=5)
+        self.assertEqual(plan, (8, "two\n", (12, 12), False))
+
+    def test_duplicate_line_plan_final_line_without_newline(self):
+        plan = commands.duplicate_line_or_selection_plan("one\ntwo", cursor=5)
+        self.assertEqual(plan, (7, "\ntwo", (11, 11), False))
+
+    def test_duplicate_line_plan_empty_document_preserves_legacy_newline(self):
+        plan = commands.duplicate_line_or_selection_plan("", cursor=0)
+        self.assertEqual(plan, (0, "\n", (1, 1), False))
+
     def test_shortcut_table_has_no_conflicts(self):
         self.assertEqual(commands.shortcut_conflicts(), {})
 

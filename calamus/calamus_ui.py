@@ -75,6 +75,7 @@ def build_menu(app) -> None:
     add_item(editm, "Paste\tCtrl+V", app.on_paste)
     add_item(editm, "Paste as Plain Text\tCtrl+Shift+V", app.on_paste_plain_text)
     add_item(editm, "Select All\tCtrl+A", app.on_select_all)
+    add_item(editm, "Duplicate Line / Selection\tCtrl+D", app.on_duplicate_line_or_selection)
     add_separator(editm)
     add_item(editm, "Find / Replace…\tCtrl+F", app.on_find_replace)
     add_item(editm, "Find Next Word\tCtrl+G", app.on_find_next)

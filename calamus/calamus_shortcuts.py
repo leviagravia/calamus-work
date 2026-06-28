@@ -32,6 +32,7 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("Edit", "Paste", "Ctrl+V"),
     ShortcutSpec("Edit", "Paste as Plain Text", "Ctrl+Shift+V"),
     ShortcutSpec("Edit", "Select All", "Ctrl+A"),
+    ShortcutSpec("Edit", "Duplicate Line / Selection", "Ctrl+D"),
     ShortcutSpec("Edit", "Find / Replace", "Ctrl+F"),
     ShortcutSpec("Edit", "Replace", "Ctrl+H"),
     ShortcutSpec("Edit", "Replace All", "Ctrl+Shift+H"),
