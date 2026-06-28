@@ -100,7 +100,7 @@ def build_menu(app) -> None:
     add_separator(revisem)
     add_item(revisem, "Paste Clean from PDF\tCtrl+Alt+V", app.on_paste_clean_pdf)
     add_item(revisem, "Clean Selected Text from PDF\tCtrl+Alt+Shift+V", lambda *_: app.apply_text_transform(clean_pdf_text, "Clean PDF Text"))
-    add_item(revisem, "Smart Typography\tCtrl+Alt+M", lambda *_: app.apply_text_transform(smart_typography, "Smart Typography"))
+    add_item(revisem, "Smart Typography\tCtrl+Alt+M", app.on_smart_typography)
     add_item(revisem, "Reflow Paragraph\tCtrl+Alt+J", app.on_reflow_paragraph)
     add_item(revisem, "Join Lines\tCtrl+J", lambda *_: app.apply_text_transform(join_lines, "Join Lines"))
     add_item(revisem, "Remove Extra Spaces", lambda *_: app.apply_text_transform(remove_extra_spaces, "Remove Extra Spaces"))
@@ -234,7 +234,7 @@ def shortcut_bindings(app):
         ("<Control><Alt><Shift>Y", lambda *_: app.apply_text_transform(sentence_case, "Sentence Case")),
         ("<Control><Alt>Up", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z")),
         ("<Control><Alt>Down", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A")),
-        ("<Control><Alt>M", lambda *_: app.apply_text_transform(smart_typography, "Smart Typography")),
+        ("<Control><Alt>M", app.on_smart_typography),
         ("F7", app.on_check),
         ("<Control>slash", app.on_keyboard_shortcuts),
         ("F1", app.on_about),

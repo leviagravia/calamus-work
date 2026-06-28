@@ -28,10 +28,10 @@ def app_methods():
 
 
 class LowercaseLayerWiringTests(unittest.TestCase):
-    def test_dispatch_surface_is_statistics_uppercase_lowercase_only(self):
+    def test_dispatch_surface_includes_smart_typography(self):
         source = BIN.read_text(encoding="utf-8")
         dispatch_ids = re.findall(r"\.dispatch\(\s*['\"]([^'\"]+)['\"]", source, flags=re.S)
-        self.assertEqual(sorted(dispatch_ids), ["edit.lowercase", "edit.uppercase", "writing.statistics"])
+        self.assertEqual(sorted(dispatch_ids), ["edit.lowercase", "edit.uppercase", "writing.smart-typography", "writing.statistics"])
 
     def test_command_layer_lowercase_helper_is_compute_only(self):
         _source, methods = app_methods()
@@ -72,7 +72,6 @@ class LowercaseLayerWiringTests(unittest.TestCase):
             '"writing.sort-lines"',
             '"writing.reflow-paragraph"',
             '"writing.join-lines"',
-            '"writing.smart-typography"',
             '"writing.clean-pdf"',
         ]:
             self.assertNotIn(forbidden, source)

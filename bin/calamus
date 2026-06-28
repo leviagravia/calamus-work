@@ -1119,6 +1119,22 @@ class App(Gtk.Window):
             return text, False
         return transformed, transformed != text
 
+    def command_layer_smart_typography_text(self, text):
+        # Compute Smart Typography through CommandLayer without mutating Gtk.TextBuffer.
+        result = self.command_layer.dispatch(
+            "writing.smart-typography",
+            CommandContext(app=self, source="gui", data={"text": text}),
+        )
+        if result.success and isinstance(result.value, dict):
+            transformed = result.value.get("text", text)
+        elif result.success:
+            transformed = result.value
+        else:
+            return text, False
+        if not isinstance(transformed, str):
+            return text, False
+        return transformed, transformed != text
+
 
     def apply_text_transform(self, transform, command_name="Text Transform"):
         b = self.text.get_buffer()
@@ -1133,6 +1149,10 @@ class App(Gtk.Window):
             command_name in {"Lowercase", "Lower Case", "LOWERCASE"}
             or transform is str.lower
         )
+        use_layer_smart_typography = (
+            command_name == "Smart Typography"
+            or transform is smart_typography
+        )
         if use_layer_uppercase:
             new, changed = self.command_layer_uppercase_text(old)
             if not changed:
@@ -1140,6 +1160,11 @@ class App(Gtk.Window):
             _, select = command_transform_range(current, start, end, lambda _text: new)
         elif use_layer_lowercase:
             new, changed = self.command_layer_lowercase_text(old)
+            if not changed:
+                return False
+            _, select = command_transform_range(current, start, end, lambda _text: new)
+        elif use_layer_smart_typography:
+            new, changed = self.command_layer_smart_typography_text(old)
             if not changed:
                 return False
             _, select = command_transform_range(current, start, end, lambda _text: new)
@@ -1152,6 +1177,9 @@ class App(Gtk.Window):
             buf.delete(it1, it2)
             buf.insert(buf.get_iter_at_offset(start), new)
         return self.execute_command(command_name, edit, select_range=select)
+
+    def on_smart_typography(self, *_):
+        return self.apply_text_transform(smart_typography, "Smart Typography")
 
     def on_reflow_paragraph(self, *_):
         self.apply_text_transform(lambda t: reflow_paragraph(t, width=80), "Reflow Paragraph")
