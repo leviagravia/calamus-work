@@ -36,7 +36,7 @@ def _dispatch_ids() -> list[str]:
 
 class UppercaseLayerWiringTests(unittest.TestCase):
     def test_dispatch_surface_includes_smart_typography(self):
-        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.smart-typography", "writing.statistics"])
+        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.reflow-paragraph", "writing.smart-typography", "writing.statistics"])
 
     def test_apply_text_transform_is_uppercase_bridge_only(self):
         method = _app_method("apply_text_transform")
@@ -104,7 +104,6 @@ class UppercaseLayerWiringTests(unittest.TestCase):
             '"writing.remove-extra-spaces"',
             '"writing.remove-trailing-spaces"',
             '"writing.sort-lines"',
-            '"writing.reflow-paragraph"',
             '"writing.join-lines"',
             '"writing.clean-pdf"',
         ]

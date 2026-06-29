@@ -69,7 +69,7 @@ class StatusWordCountCanonicalizationTests(unittest.TestCase):
         self.assertEqual(chars, len(sample))
 
     def test_allowed_command_layer_dispatches_after_w32(self):
-        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.smart-typography", "writing.statistics"])
+        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.reflow-paragraph", "writing.smart-typography", "writing.statistics"])
 
     def test_no_other_unapproved_text_transform_wiring_added(self):
         source = _source()
@@ -77,7 +77,6 @@ class StatusWordCountCanonicalizationTests(unittest.TestCase):
             '"writing.remove-extra-spaces"',
             '"writing.remove-trailing-spaces"',
             '"writing.sort-lines"',
-            '"writing.reflow-paragraph"',
             '"writing.join-lines"',
             '"writing.clean-pdf"',
         ]
