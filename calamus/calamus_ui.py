@@ -99,7 +99,7 @@ def build_menu(app) -> None:
     add_item(revisem, "Manage Bookmarks…", app.on_manage_bookmarks)
     add_separator(revisem)
     add_item(revisem, "Paste Clean from PDF\tCtrl+Alt+V", app.on_paste_clean_pdf)
-    add_item(revisem, "Clean Selected Text from PDF\tCtrl+Alt+Shift+V", lambda *_: app.apply_text_transform(clean_pdf_text, "Clean PDF Text"))
+    add_item(revisem, "Clean Selected Text from PDF\tCtrl+Alt+Shift+V", app.on_clean_selected_pdf)
     add_item(revisem, "Smart Typography\tCtrl+Alt+M", app.on_smart_typography)
     add_item(revisem, "Reflow Paragraph\tCtrl+Alt+J", app.on_reflow_paragraph)
     add_item(revisem, "Join Lines\tCtrl+J", lambda *_: app.apply_text_transform(join_lines, "Join Lines"))
@@ -227,7 +227,7 @@ def shortcut_bindings(app):
         *( (f"<Control><Alt>{i}", (lambda *_args, n=i: app.insert_clip_number(n))) for i in range(1, 10) ),
         ("<Control><Alt>W", app.on_document_statistics),
         ("<Control><Alt>V", app.on_paste_clean_pdf),
-        ("<Control><Alt><Shift>V", lambda *_: app.apply_text_transform(clean_pdf_text, "Clean PDF Text")),
+        ("<Control><Alt><Shift>V", app.on_clean_selected_pdf),
         ("<Control><Alt>J", app.on_reflow_paragraph),
         ("<Control>J", lambda *_: app.apply_text_transform(join_lines, "Join Lines")),
         ("<Control><Alt>Y", lambda *_: app.apply_text_transform(title_case, "Title Case")),
