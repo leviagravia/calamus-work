@@ -20,6 +20,7 @@ EXPECTED_DISPATCH_IDS = [
     "edit.lowercase",
     "edit.uppercase",
     "writing.clean-pdf",
+    "writing.insert-date-time",
     "writing.join-lines",
     "writing.reflow-paragraph",
     "writing.remove-extra-spaces",
@@ -165,12 +166,9 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
                 self.assertEqual(result.value["text"], expected)
                 self.assertEqual(result.changed, expected != text)
 
-    def test_other_unwired_revise_transforms_remain_outside_dispatch_surface(self):
+    def test_insert_datetime_is_now_an_approved_dispatch(self):
         source = BIN.read_text(encoding="utf-8")
-        for forbidden in [
-            '"writing.insert-date-time"',
-        ]:
-            self.assertNotIn(forbidden, source)
+        self.assertIn('"writing.insert-date-time"', source)
 
 
 if __name__ == "__main__":

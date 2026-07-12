@@ -11,11 +11,13 @@ They do not touch undo/redo, dirty state, session state, or application lifecycl
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from calamus_command_context import CommandContext, CommandResult
 from calamus_writing import (
     clean_pdf_text,
+    current_date_string,
     document_statistics,
     join_lines,
     reflow_paragraph,
@@ -59,6 +61,20 @@ def handle_uppercase(context: CommandContext) -> CommandResult:
 
 def handle_lowercase(context: CommandContext) -> CommandResult:
     return _transform_text(context, str.lower)
+
+
+def handle_insert_date_time(context: CommandContext) -> CommandResult:
+    now = context.get("now")
+    fmt = context.get("format", "%Y-%m-%d %H:%M")
+    if not isinstance(now, datetime):
+        raise TypeError("CommandContext data['now'] must be a datetime")
+    if not isinstance(fmt, str):
+        raise TypeError("CommandContext data['format'] must be a string")
+    insertion = current_date_string(fmt=fmt, now=now)
+    return CommandResult.ok(
+        changed=bool(insertion),
+        value={"text": insertion},
+    )
 
 
 def handle_sort_lines(context: CommandContext) -> CommandResult:
@@ -119,6 +135,7 @@ PURE_HANDLER_BY_COMMAND_ID: dict[str, Callable[[CommandContext], CommandResult]]
     "edit.lowercase": handle_lowercase,
     "edit.uppercase": handle_uppercase,
     "writing.clean-pdf": handle_clean_pdf,
+    "writing.insert-date-time": handle_insert_date_time,
     "writing.join-lines": handle_join_lines,
     "writing.reflow-paragraph": handle_reflow_paragraph,
     "writing.remove-extra-spaces": handle_remove_extra_spaces,

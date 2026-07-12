@@ -21,6 +21,7 @@ EXPECTED_DISPATCH_IDS = [
     "edit.lowercase",
     "edit.uppercase",
     "writing.clean-pdf",
+    "writing.insert-date-time",
     "writing.join-lines",
     "writing.reflow-paragraph",
     "writing.remove-extra-spaces",
@@ -213,8 +214,8 @@ class LowercaseLayerWiringTests(unittest.TestCase):
                 self.assertEqual(result.value["text"], expected)
                 self.assertEqual(result.changed, changed)
 
-    def test_insert_datetime_remains_outside_dispatch_surface(self):
-        self.assertNotIn('"writing.insert-date-time"', _source())
+    def test_insert_datetime_is_now_an_approved_dispatch(self):
+        self.assertIn('"writing.insert-date-time"', _source())
 
 
 if __name__ == "__main__":

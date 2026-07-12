@@ -187,9 +187,9 @@ class SortLinesDescendingLayerWiringTests(unittest.TestCase):
         self.assertNotIn("selected_or_all_range", helper)
         self.assertNotIn("execute_command", helper)
 
-    def test_metadata_only_insert_datetime_remains_outside_gui_dispatch_surface(self):
+    def test_insert_datetime_is_now_an_approved_gui_dispatch(self):
         source = BIN.read_text(encoding="utf-8")
-        self.assertNotIn('"writing.insert-date-time"', source)
+        self.assertIn('"writing.insert-date-time"', source)
 
 
 if __name__ == "__main__":

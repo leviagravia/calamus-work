@@ -45,6 +45,7 @@ class CleanSelectedPdfLayerWiringTests(unittest.TestCase):
                 "edit.lowercase",
                 "edit.uppercase",
                 "writing.clean-pdf",
+                "writing.insert-date-time",
                 "writing.join-lines",
                 "writing.reflow-paragraph",
                 "writing.remove-extra-spaces",

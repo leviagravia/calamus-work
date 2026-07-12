@@ -1,8 +1,9 @@
 import unittest
+from datetime import datetime
 
 from calamus_command_catalog import build_low_risk_registry, low_risk_command_specs
 from calamus_command_context import CommandContext
-from calamus_command_handlers import handle_sort_lines, handled_command_ids
+from calamus_command_handlers import handle_insert_date_time, handle_sort_lines, handled_command_ids
 from calamus_command_layer import CommandLayer
 from calamus_writing import (
     clean_pdf_text,
@@ -22,6 +23,7 @@ EXPECTED_HANDLED_COMMAND_IDS = (
     "edit.lowercase",
     "edit.uppercase",
     "writing.clean-pdf",
+    "writing.insert-date-time",
     "writing.join-lines",
     "writing.reflow-paragraph",
     "writing.remove-extra-spaces",
@@ -60,8 +62,9 @@ class PureCommandHandlerTests(unittest.TestCase):
             self.assertIn("pure-handler", specs[command_id].flags)
             self.assertNotIn("metadata-only", specs[command_id].flags)
 
-        self.assertIsNone(specs["writing.insert-date-time"].handler)
-        self.assertIn("metadata-only", specs["writing.insert-date-time"].flags)
+        self.assertIsNotNone(specs["writing.insert-date-time"].handler)
+        self.assertIn("pure-handler", specs["writing.insert-date-time"].flags)
+        self.assertNotIn("metadata-only", specs["writing.insert-date-time"].flags)
 
     def test_uppercase_lowercase_handlers(self):
         self.assert_text_handler("edit.uppercase", "Abc è", "ABC È")
@@ -113,11 +116,39 @@ class PureCommandHandlerTests(unittest.TestCase):
         self.assertFalse(result.changed)
         self.assertEqual(result.value, {"statistics": document_statistics(text)})
 
-    def test_insert_date_time_remains_metadata_only_noop(self):
-        result = self.dispatch_text("writing.insert-date-time", "abc")
+    def test_insert_date_time_formats_explicit_moment(self):
+        now = datetime(2026, 7, 12, 19, 5)
+        result = self.layer.dispatch(
+            "writing.insert-date-time",
+            CommandContext(source="test", data={"now": now}),
+        )
         self.assertTrue(result.success)
-        self.assertFalse(result.changed)
-        self.assertIn("no handler", result.message)
+        self.assertTrue(result.changed)
+        self.assertEqual(result.value, {"text": "2026-07-12 19:05"})
+
+    def test_insert_date_time_uses_explicit_format(self):
+        now = datetime(2026, 7, 12, 19, 5, 9)
+        result = self.layer.dispatch(
+            "writing.insert-date-time",
+            CommandContext(source="test", data={"now": now, "format": "%d/%m/%Y %H:%M:%S"}),
+        )
+        self.assertTrue(result.success)
+        self.assertEqual(result.value, {"text": "12/07/2026 19:05:09"})
+
+    def test_insert_date_time_rejects_missing_or_invalid_context(self):
+        missing = self.layer.dispatch(
+            "writing.insert-date-time", CommandContext(source="test")
+        )
+        self.assertFalse(missing.success)
+        with self.assertRaisesRegex(TypeError, "now.*datetime"):
+            handle_insert_date_time(
+                CommandContext(source="test", data={"now": "2026-07-12"})
+            )
+        invalid_format = self.layer.dispatch(
+            "writing.insert-date-time",
+            CommandContext(source="test", data={"now": datetime(2026, 7, 12), "format": 123}),
+        )
+        self.assertFalse(invalid_format.success)
 
     def test_missing_or_empty_text_is_safe(self):
         result = self.layer.dispatch("edit.uppercase", CommandContext(source="test"))

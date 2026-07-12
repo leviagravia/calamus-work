@@ -7,8 +7,18 @@ WORD_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9']+")
 SENTENCE_END_RE = re.compile(r"[.!?…][\"'”’)]*$")
 
 
-def current_date_string(fmt="%Y-%m-%d %H:%M"):
-    return datetime.now().strftime(fmt)
+def current_date_string(fmt="%Y-%m-%d %H:%M", now=None):
+    """Format an explicit datetime, or the current local time when omitted.
+
+    CommandLayer callers pass ``now`` explicitly so formatting stays
+    deterministic and GTK-free.  The default preserves the legacy helper API.
+    """
+    moment = datetime.now() if now is None else now
+    if not isinstance(moment, datetime):
+        raise TypeError("now must be a datetime")
+    if not isinstance(fmt, str):
+        raise TypeError("fmt must be a string")
+    return moment.strftime(fmt)
 
 
 def preserve_final_newline(original, result):

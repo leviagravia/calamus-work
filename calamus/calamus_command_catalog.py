@@ -30,8 +30,9 @@ LOW_RISK_COMMANDS: tuple[CommandSpec, ...] = (
         menu_path="Writing",
         shortcut="",
         risk_class="low",
-        flags=("metadata-only", "writing", "text-insertion"),
-        description="Insert the current date/time. Kept metadata-only because it is time-dependent.",
+        flags=("writing", "text-insertion", "pure-handler"),
+        description="Format an explicit date/time supplied through CommandContext for insertion.",
+        handler=pure_handler_for("writing.insert-date-time"),
     ),
     CommandSpec(
         "writing.sort-lines",

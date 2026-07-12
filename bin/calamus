@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import re
 import sys
+from datetime import datetime
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -23,7 +24,7 @@ from calamus_history import TextHistory
 from calamus_external import open_character_map as external_open_character_map
 from calamus_clips import load_clips, save_clips, new_clip, clip_title_from_text
 from calamus_writing import (
-    current_date_string, sort_lines, clean_pdf_text, remove_extra_spaces,
+    sort_lines, clean_pdf_text, remove_extra_spaces,
     remove_trailing_spaces, join_lines, reflow_paragraph, smart_typography,
     title_case, sentence_case, document_statistics, list_templates, read_template,
 )
@@ -1640,13 +1641,32 @@ class App(Gtk.Window):
             self.save_settings()
         d.destroy()
 
+    def command_layer_insert_date_time_text(self, now, fmt="%Y-%m-%d %H:%M"):
+        # Format an explicit moment through CommandLayer without touching the editor buffer.
+        result = self.command_layer.dispatch(
+            "writing.insert-date-time",
+            CommandContext(
+                app=self,
+                source="gui",
+                data={"now": now, "format": fmt},
+            ),
+        )
+        if not result.success or not isinstance(result.value, dict):
+            return "", False
+        insertion = result.value.get("text", "")
+        if not isinstance(insertion, str):
+            return "", False
+        return insertion, bool(insertion)
+
     def on_insert_datetime(self, *_):
-        txt = current_date_string()
+        txt, changed = self.command_layer_insert_date_time_text(datetime.now())
+        if not changed:
+            return False
         cursor = self.get_cursor_offset()
         _, select = command_insert_at(self.buffer_text(), cursor, txt)
         def edit(buf):
             buf.insert_at_cursor(txt)
-        self.execute_command("Insert Date/Time", edit, select_range=select)
+        return self.execute_command("Insert Date/Time", edit, select_range=select)
 
     def on_replace_all_dialog(self, *_):
         self.on_find_replace()

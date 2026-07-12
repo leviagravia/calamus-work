@@ -69,15 +69,11 @@ class StatusWordCountCanonicalizationTests(unittest.TestCase):
         self.assertEqual(chars, len(sample))
 
     def test_allowed_command_layer_dispatches_after_w32(self):
-        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.clean-pdf", "writing.join-lines", "writing.reflow-paragraph", "writing.remove-extra-spaces", "writing.remove-trailing-spaces", "writing.sentence-case", "writing.smart-typography", "writing.sort-lines", "writing.statistics", "writing.title-case"])
+        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.clean-pdf", "writing.insert-date-time", "writing.join-lines", "writing.reflow-paragraph", "writing.remove-extra-spaces", "writing.remove-trailing-spaces", "writing.sentence-case", "writing.smart-typography", "writing.sort-lines", "writing.statistics", "writing.title-case"])
 
     def test_no_other_unapproved_text_transform_wiring_added(self):
         source = _source()
-        forbidden = [
-            '"writing.insert-date-time"',
-        ]
-        for command_id in forbidden:
-            self.assertNotIn(command_id, source)
+        self.assertIn('"writing.insert-date-time"', source)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ EXPECTED_DISPATCH_IDS = [
     "edit.lowercase",
     "edit.uppercase",
     "writing.clean-pdf",
+    "writing.insert-date-time",
     "writing.join-lines",
     "writing.reflow-paragraph",
     "writing.remove-extra-spaces",
@@ -167,9 +168,9 @@ class SentenceCaseLayerWiringTests(unittest.TestCase):
         for forbidden in ["Gtk", "Gdk", "open(", "write_text_file", "get_buffer"]:
             self.assertNotIn(forbidden, segment)
 
-    def test_metadata_only_insert_datetime_stays_outside_dispatch_surface(self):
+    def test_insert_datetime_is_now_an_approved_dispatch(self):
         source = BIN.read_text(encoding="utf-8")
-        self.assertNotIn('"writing.insert-date-time"', source)
+        self.assertIn('"writing.insert-date-time"', source)
 
 
 if __name__ == "__main__":
