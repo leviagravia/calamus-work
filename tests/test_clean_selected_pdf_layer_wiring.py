@@ -46,6 +46,7 @@ class CleanSelectedPdfLayerWiringTests(unittest.TestCase):
                 "edit.uppercase",
                 "writing.clean-pdf",
                 "writing.reflow-paragraph",
+                "writing.remove-extra-spaces",
                 "writing.smart-typography",
                 "writing.statistics",
             ],

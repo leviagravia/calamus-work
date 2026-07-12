@@ -103,7 +103,7 @@ def build_menu(app) -> None:
     add_item(revisem, "Smart Typography\tCtrl+Alt+M", app.on_smart_typography)
     add_item(revisem, "Reflow Paragraph\tCtrl+Alt+J", app.on_reflow_paragraph)
     add_item(revisem, "Join Lines\tCtrl+J", lambda *_: app.apply_text_transform(join_lines, "Join Lines"))
-    add_item(revisem, "Remove Extra Spaces", lambda *_: app.apply_text_transform(remove_extra_spaces, "Remove Extra Spaces"))
+    add_item(revisem, "Remove Extra Spaces", app.on_remove_extra_spaces)
     add_item(revisem, "Remove Trailing Spaces", lambda *_: app.apply_text_transform(remove_trailing_spaces, "Remove Trailing Spaces"))
     add_item(revisem, "Sort Alphabetically A-Z\tCtrl+Alt+Up", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z"))
     add_item(revisem, "Sort Alphabetically Z-A\tCtrl+Alt+Down", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A"))
