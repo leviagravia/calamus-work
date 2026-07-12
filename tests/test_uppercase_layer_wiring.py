@@ -70,18 +70,18 @@ class UppercaseLayerWiringTests(unittest.TestCase):
             ui,
         )
 
-    def test_lowercase_visible_paths_remain_deferred_and_unchanged(self):
+    def test_lowercase_visible_paths_are_explicit_after_separate_w43_step(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn(
-            'add_item(revisem, "Lowercase (convert selected)\\tCtrl+Alt+Shift+U", '
-            'lambda *_: app.replace_selection(str.lower))',
+            'add_item(revisem, "Lowercase (convert selected)\\tCtrl+Alt+Shift+U", app.on_lowercase)',
             ui,
         )
         self.assertIn(
-            '("<Control><Alt><Shift>U", lambda *_: app.replace_selection(str.lower))',
+            '("<Control><Alt><Shift>U", app.on_lowercase)',
             ui,
         )
-        self.assertNotIn("app.on_lowercase", ui)
+        self.assertEqual(ui.count("app.on_lowercase"), 2)
+        self.assertNotIn('lambda *_: app.replace_selection(str.lower)', ui)
 
     def test_dispatch_surface_is_unchanged_because_uppercase_id_already_existed(self):
         self.assertEqual(sorted(_dispatch_ids()), EXPECTED_DISPATCH_IDS)
@@ -123,7 +123,7 @@ class UppercaseLayerWiringTests(unittest.TestCase):
         self.assertNotIn("selected_or_all_range", method)
         self.assertNotIn("get_bounds()", method)
 
-    def test_replace_selection_routes_only_uppercase_before_mutation(self):
+    def test_replace_selection_routes_uppercase_before_lowercase_and_mutation(self):
         method = _app_methods()["replace_selection"]
         self.assertIn('command_name="Replace Selection"', method)
         self.assertIn("use_layer_uppercase", method)
@@ -134,14 +134,16 @@ class UppercaseLayerWiringTests(unittest.TestCase):
         self.assertIn("transform is str.upper", method)
         self.assertIn("replacement, changed = self.command_layer_uppercase_text(txt)", method)
         self.assertIn("else:\n            replacement = transform(txt)", method)
-        self.assertNotIn("command_layer_lowercase_text", method)
-        self.assertNotIn('"edit.lowercase"', method)
+        self.assertIn("command_layer_lowercase_text", method)
+        self.assertIn("elif use_layer_lowercase:", method)
 
         dispatch_pos = method.index("self.command_layer_uppercase_text(txt)")
+        lower_branch_pos = method.index("elif use_layer_lowercase:")
         plan_pos = method.index("command_replace_range(")
         edit_pos = method.index("def edit(buf):")
         execute_pos = method.index("return self.execute_command")
-        self.assertLess(dispatch_pos, plan_pos)
+        self.assertLess(dispatch_pos, lower_branch_pos)
+        self.assertLess(lower_branch_pos, plan_pos)
         self.assertLess(plan_pos, edit_pos)
         self.assertLess(edit_pos, execute_pos)
 

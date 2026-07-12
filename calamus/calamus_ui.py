@@ -87,7 +87,7 @@ def build_menu(app) -> None:
 
     revisem = top_menu(app, "Revise")
     add_item(revisem, "UPPERCASE (convert selected)\tCtrl+Alt+U", app.on_uppercase)
-    add_item(revisem, "Lowercase (convert selected)\tCtrl+Alt+Shift+U", lambda *_: app.replace_selection(str.lower))
+    add_item(revisem, "Lowercase (convert selected)\tCtrl+Alt+Shift+U", app.on_lowercase)
     add_item(revisem, "Title Case\tCtrl+Alt+Y", app.on_title_case)
     add_item(revisem, "Sentence case\tCtrl+Alt+Shift+Y", app.on_sentence_case)
     add_separator(revisem)
@@ -208,7 +208,7 @@ def shortcut_bindings(app):
         ("<Control>P", app.on_print),
         ("<Control>Q", app.on_quit),
         ("<Control><Alt>U", app.on_uppercase),
-        ("<Control><Alt><Shift>U", lambda *_: app.replace_selection(str.lower)),
+        ("<Control><Alt><Shift>U", app.on_lowercase),
         ("<Control>plus", lambda *_: app.change_font(1)),
         ("<Control>minus", lambda *_: app.change_font(-1)),
         ("<Alt>Z", app.toggle_word_wrap),
