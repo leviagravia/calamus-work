@@ -50,6 +50,7 @@ class ReflowParagraphLayerWiringTests(unittest.TestCase):
                 "writing.remove-trailing-spaces",
                 "writing.smart-typography",
                 "writing.statistics",
+    "writing.title-case",
             ],
         )
 

@@ -26,6 +26,7 @@ EXPECTED_DISPATCH_IDS = [
     "writing.remove-trailing-spaces",
     "writing.smart-typography",
     "writing.statistics",
+    "writing.title-case",
 ]
 
 
@@ -166,7 +167,6 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
         source = BIN.read_text(encoding="utf-8")
         for forbidden in [
             '"writing.sort-lines"',
-            '"writing.title-case"',
             '"writing.sentence-case"',
         ]:
             self.assertNotIn(forbidden, source)

@@ -88,7 +88,7 @@ def build_menu(app) -> None:
     revisem = top_menu(app, "Revise")
     add_item(revisem, "UPPERCASE (convert selected)\tCtrl+Alt+U", lambda *_: app.replace_selection(str.upper))
     add_item(revisem, "Lowercase (convert selected)\tCtrl+Alt+Shift+U", lambda *_: app.replace_selection(str.lower))
-    add_item(revisem, "Title Case\tCtrl+Alt+Y", lambda *_: app.apply_text_transform(title_case, "Title Case"))
+    add_item(revisem, "Title Case\tCtrl+Alt+Y", app.on_title_case)
     add_item(revisem, "Sentence case\tCtrl+Alt+Shift+Y", lambda *_: app.apply_text_transform(sentence_case, "Sentence Case"))
     add_separator(revisem)
     add_item(revisem, "Insert Date/Time\tCtrl+Alt+D", app.on_insert_datetime)
@@ -230,7 +230,7 @@ def shortcut_bindings(app):
         ("<Control><Alt><Shift>V", app.on_clean_selected_pdf),
         ("<Control><Alt>J", app.on_reflow_paragraph),
         ("<Control>J", app.on_join_lines),
-        ("<Control><Alt>Y", lambda *_: app.apply_text_transform(title_case, "Title Case")),
+        ("<Control><Alt>Y", app.on_title_case),
         ("<Control><Alt><Shift>Y", lambda *_: app.apply_text_transform(sentence_case, "Sentence Case")),
         ("<Control><Alt>Up", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z")),
         ("<Control><Alt>Down", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A")),

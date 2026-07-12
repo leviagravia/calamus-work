@@ -1216,6 +1216,23 @@ class App(Gtk.Window):
         return transformed, transformed != text
 
 
+    def command_layer_title_case_text(self, text):
+        # Compute Title Case through CommandLayer without mutating Gtk.TextBuffer.
+        result = self.command_layer.dispatch(
+            "writing.title-case",
+            CommandContext(app=self, source="gui", data={"text": text}),
+        )
+        if result.success and isinstance(result.value, dict):
+            transformed = result.value.get("text", text)
+        elif result.success:
+            transformed = result.value
+        else:
+            return text, False
+        if not isinstance(transformed, str):
+            return text, False
+        return transformed, transformed != text
+
+
     def apply_text_transform(self, transform, command_name="Text Transform"):
         b = self.text.get_buffer()
         start, end = self.selected_or_all_range()
@@ -1251,6 +1268,10 @@ class App(Gtk.Window):
         use_layer_remove_trailing_spaces = (
             command_name == "Remove Trailing Spaces"
             or transform is remove_trailing_spaces
+        )
+        use_layer_title_case = (
+            command_name == "Title Case"
+            or transform is title_case
         )
         if use_layer_uppercase:
             new, changed = self.command_layer_uppercase_text(old)
@@ -1292,6 +1313,11 @@ class App(Gtk.Window):
             if not changed:
                 return False
             _, select = command_transform_range(current, start, end, lambda _text: new)
+        elif use_layer_title_case:
+            new, changed = self.command_layer_title_case_text(old)
+            if not changed:
+                return False
+            _, select = command_transform_range(current, start, end, lambda _text: new)
         else:
             _, select = command_transform_range(current, start, end, transform)
             new = transform(old)
@@ -1319,6 +1345,9 @@ class App(Gtk.Window):
 
     def on_remove_trailing_spaces(self, *_):
         return self.apply_text_transform(remove_trailing_spaces, "Remove Trailing Spaces")
+
+    def on_title_case(self, *_):
+        return self.apply_text_transform(title_case, "Title Case")
 
     def _clipboard(self):
         return Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)

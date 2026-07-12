@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "calamus"))
 from calamus_command_catalog import build_low_risk_registry
 from calamus_command_context import CommandContext
 from calamus_command_layer import CommandLayer
-from calamus_writing import join_lines
+from calamus_writing import title_case
 
 
 EXPECTED_DISPATCH_IDS = [
@@ -43,29 +43,29 @@ def app_methods():
     return source, out
 
 
-class JoinLinesLayerWiringTests(unittest.TestCase):
-    def test_menu_and_shortcut_share_explicit_entrypoint(self):
+class TitleCaseLayerWiringTests(unittest.TestCase):
+    def test_menu_and_shortcut_use_one_explicit_entrypoint(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn(
-            'add_item(revisem, "Join Lines\\tCtrl+J", app.on_join_lines)',
+            'add_item(revisem, "Title Case\\tCtrl+Alt+Y", app.on_title_case)',
             ui,
         )
-        self.assertIn('("<Control>J", app.on_join_lines)', ui)
-        self.assertEqual(ui.count("app.on_join_lines"), 2)
+        self.assertIn('("<Control><Alt>Y", app.on_title_case)', ui)
+        self.assertEqual(ui.count("app.on_title_case"), 2)
         self.assertNotIn(
-            'app.apply_text_transform(join_lines, "Join Lines")',
+            'lambda *_: app.apply_text_transform(title_case, "Title Case")',
             ui,
         )
 
-    def test_dispatch_surface_adds_only_join_lines(self):
+    def test_dispatch_surface_adds_only_title_case(self):
         source = BIN.read_text(encoding="utf-8")
         dispatch_ids = re.findall(r"\.dispatch\(\s*['\"]([^'\"]+)['\"]", source, flags=re.S)
         self.assertEqual(sorted(dispatch_ids), EXPECTED_DISPATCH_IDS)
 
     def test_helper_is_compute_only(self):
         _source, methods = app_methods()
-        helper = methods["command_layer_join_lines_text"]
-        self.assertIn('"writing.join-lines"', helper)
+        helper = methods["command_layer_title_case_text"]
+        self.assertIn('"writing.title-case"', helper)
         self.assertIn(
             'CommandContext(app=self, source="gui", data={"text": text})',
             helper,
@@ -82,17 +82,18 @@ class JoinLinesLayerWiringTests(unittest.TestCase):
             "selected_or_all_range",
             "get_buffer",
             "Clipboard",
+            "write_text_file",
         ]:
             self.assertNotIn(forbidden, helper)
 
     def test_apply_text_transform_routes_command_before_mutation(self):
         _source, methods = app_methods()
         apply = methods["apply_text_transform"]
-        self.assertIn("use_layer_join_lines", apply)
-        self.assertIn('command_name == "Join Lines"', apply)
-        self.assertIn("transform is join_lines", apply)
-        self.assertIn("command_layer_join_lines_text(old)", apply)
-        branch_pos = apply.index("elif use_layer_join_lines:")
+        self.assertIn("use_layer_title_case", apply)
+        self.assertIn('command_name == "Title Case"', apply)
+        self.assertIn("transform is title_case", apply)
+        self.assertIn("command_layer_title_case_text(old)", apply)
+        branch_pos = apply.index("elif use_layer_title_case:")
         edit_pos = apply.index("def edit(buf):")
         execute_pos = apply.index("return self.execute_command")
         self.assertLess(branch_pos, edit_pos)
@@ -105,11 +106,11 @@ class JoinLinesLayerWiringTests(unittest.TestCase):
 
     def test_visible_entrypoint_preserves_existing_transform_pipeline(self):
         _source, methods = app_methods()
-        method = methods["on_join_lines"]
+        method = methods["on_title_case"]
         self.assertEqual(
             method.strip(),
-            'def on_join_lines(self, *_):\n'
-            '        return self.apply_text_transform(join_lines, "Join Lines")',
+            'def on_title_case(self, *_):\n'
+            '        return self.apply_text_transform(title_case, "Title Case")',
         )
         apply = methods["apply_text_transform"]
         self.assertIn("start, end = self.selected_or_all_range()", apply)
@@ -120,22 +121,19 @@ class JoinLinesLayerWiringTests(unittest.TestCase):
 
     def test_layer_dynamic_change_noop_and_existing_semantics(self):
         layer = CommandLayer(build_low_risk_registry())
-        dirty = "inter-\nrotto su due\nrighe\n\naltro paragrafo\n"
+        source = "l'ALBERO della VITA e già QUI"
         changed = layer.dispatch(
-            "writing.join-lines",
-            CommandContext(source="test", data={"text": dirty}),
+            "writing.title-case",
+            CommandContext(source="test", data={"text": source}),
         )
         self.assertTrue(changed.success)
         self.assertTrue(changed.changed)
-        self.assertEqual(changed.value["text"], join_lines(dirty))
-        self.assertEqual(
-            changed.value["text"],
-            "interrotto su due righe\n\naltro paragrafo\n",
-        )
+        self.assertEqual(changed.value["text"], title_case(source))
+        self.assertEqual(changed.value["text"], "L'albero Della Vita E Già Qui")
 
-        noop_text = "riga già unita\n"
+        noop_text = "L'albero Della Vita E Già Qui"
         noop = layer.dispatch(
-            "writing.join-lines",
+            "writing.title-case",
             CommandContext(source="test", data={"text": noop_text}),
         )
         self.assertTrue(noop.success)
@@ -146,30 +144,41 @@ class JoinLinesLayerWiringTests(unittest.TestCase):
         layer = CommandLayer(build_low_risk_registry())
         cases = [
             "",
-            "a",
-            "a\n",
-            "a\nb",
-            "a\r\nb\r\n",
-            "a-\nb",
-            "a-\nB",
-            "a\n\nb",
-            "a\n   \nb\n",
-            "  a  \n  b  ",
-            "uno\t\ndue",
-            "à-\nè",
-            "123-\n456",
+            "   ",
+            "hello world",
+            "HELLO WORLD",
+            "l'amore e l'amicizia",
+            "è già qui",
+            "à bientôt, garçon",
+            "uno\ndue",
+            "123 abc",
+            "a-b c_d",
+            "rock'n'roll",
             "\n\n",
         ]
         for text in cases:
             with self.subTest(text=repr(text)):
-                expected = join_lines(text)
+                expected = title_case(text)
                 result = layer.dispatch(
-                    "writing.join-lines",
+                    "writing.title-case",
                     CommandContext(source="test", data={"text": text}),
                 )
                 self.assertTrue(result.success)
                 self.assertEqual(result.value["text"], expected)
                 self.assertEqual(result.changed, expected != text)
+
+    def test_algorithm_and_command_layer_remain_gtk_and_file_free(self):
+        writing = (ROOT / "calamus" / "calamus_writing.py").read_text(encoding="utf-8")
+        tree = ast.parse(writing)
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "title_case"
+        )
+        segment = ast.get_source_segment(writing, function)
+        self.assertIn("re.sub", segment)
+        self.assertIn("m.group(1).upper() + m.group(2).lower()", segment)
+        for forbidden in ["Gtk", "Gdk", "open(", "write_text_file", "get_buffer"]:
+            self.assertNotIn(forbidden, segment)
 
     def test_other_unwired_revise_transforms_remain_outside_dispatch_surface(self):
         source = BIN.read_text(encoding="utf-8")
