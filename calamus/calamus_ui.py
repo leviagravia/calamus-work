@@ -105,7 +105,7 @@ def build_menu(app) -> None:
     add_item(revisem, "Join Lines\tCtrl+J", app.on_join_lines)
     add_item(revisem, "Remove Extra Spaces", app.on_remove_extra_spaces)
     add_item(revisem, "Remove Trailing Spaces", app.on_remove_trailing_spaces)
-    add_item(revisem, "Sort Alphabetically A-Z\tCtrl+Alt+Up", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z"))
+    add_item(revisem, "Sort Alphabetically A-Z\tCtrl+Alt+Up", app.on_sort_lines_ascending)
     add_item(revisem, "Sort Alphabetically Z-A\tCtrl+Alt+Down", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A"))
 
     favm = top_menu(app, "Favourites")
@@ -232,7 +232,7 @@ def shortcut_bindings(app):
         ("<Control>J", app.on_join_lines),
         ("<Control><Alt>Y", app.on_title_case),
         ("<Control><Alt><Shift>Y", lambda *_: app.apply_text_transform(sentence_case, "Sentence Case")),
-        ("<Control><Alt>Up", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z")),
+        ("<Control><Alt>Up", app.on_sort_lines_ascending),
         ("<Control><Alt>Down", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A")),
         ("<Control><Alt>M", app.on_smart_typography),
         ("F7", app.on_check),
