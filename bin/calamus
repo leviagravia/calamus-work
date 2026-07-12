@@ -1062,22 +1062,31 @@ class App(Gtk.Window):
         self.apply_font()
         self.save_settings()
 
-    def replace_selection(self, transform):
+    def replace_selection(self, transform, command_name="Replace Selection"):
         b = self.text.get_buffer()
         if not b.get_has_selection():
-            return
+            return False
         s, e = b.get_selection_bounds()
         start = s.get_offset()
         end = e.get_offset()
         txt = b.get_text(s, e, True)
-        replacement = transform(txt)
+        use_layer_uppercase = (
+            command_name in {"Uppercase", "Upper Case", "UPPERCASE"}
+            or transform is str.upper
+        )
+        if use_layer_uppercase:
+            replacement, changed = self.command_layer_uppercase_text(txt)
+            if not changed:
+                return False
+        else:
+            replacement = transform(txt)
         _, select = command_replace_range(self.buffer_text(), start, end, replacement)
         def edit(buf):
             it1 = buf.get_iter_at_offset(start)
             it2 = buf.get_iter_at_offset(end)
             buf.delete(it1, it2)
             buf.insert(buf.get_iter_at_offset(start), replacement)
-        self.execute_command("Replace Selection", edit, select_range=select)
+        return self.execute_command(command_name, edit, select_range=select)
 
     def selected_or_all_range(self):
         b = self.text.get_buffer()
@@ -1379,6 +1388,9 @@ class App(Gtk.Window):
             buf.delete(it1, it2)
             buf.insert(buf.get_iter_at_offset(start), new)
         return self.execute_command(command_name, edit, select_range=select)
+
+    def on_uppercase(self, *_):
+        return self.replace_selection(str.upper, "Uppercase")
 
     def on_smart_typography(self, *_):
         return self.apply_text_transform(smart_typography, "Smart Typography")
