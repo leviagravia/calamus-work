@@ -104,7 +104,7 @@ def build_menu(app) -> None:
     add_item(revisem, "Reflow Paragraph\tCtrl+Alt+J", app.on_reflow_paragraph)
     add_item(revisem, "Join Lines\tCtrl+J", app.on_join_lines)
     add_item(revisem, "Remove Extra Spaces", app.on_remove_extra_spaces)
-    add_item(revisem, "Remove Trailing Spaces", lambda *_: app.apply_text_transform(remove_trailing_spaces, "Remove Trailing Spaces"))
+    add_item(revisem, "Remove Trailing Spaces", app.on_remove_trailing_spaces)
     add_item(revisem, "Sort Alphabetically A-Z\tCtrl+Alt+Up", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z"))
     add_item(revisem, "Sort Alphabetically Z-A\tCtrl+Alt+Down", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A"))
 

@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "calamus"))
 from calamus_command_catalog import build_low_risk_registry
 from calamus_command_context import CommandContext
 from calamus_command_layer import CommandLayer
-from calamus_writing import remove_extra_spaces
+from calamus_writing import remove_trailing_spaces
 
 
 EXPECTED_DISPATCH_IDS = [
@@ -42,27 +42,28 @@ def app_methods():
     return source, out
 
 
-class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
+class RemoveTrailingSpacesLayerWiringTests(unittest.TestCase):
     def test_command_is_visible_and_uses_explicit_entrypoint(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn(
-            'add_item(revisem, "Remove Extra Spaces", app.on_remove_extra_spaces)',
+            'add_item(revisem, "Remove Trailing Spaces", app.on_remove_trailing_spaces)',
             ui,
         )
+        self.assertEqual(ui.count("app.on_remove_trailing_spaces"), 1)
         self.assertNotIn(
-            'add_item(revisem, "Remove Extra Spaces", lambda *_: app.apply_text_transform',
+            'add_item(revisem, "Remove Trailing Spaces", lambda *_: app.apply_text_transform',
             ui,
         )
 
-    def test_dispatch_surface_adds_only_remove_extra_spaces(self):
+    def test_dispatch_surface_adds_only_remove_trailing_spaces(self):
         source = BIN.read_text(encoding="utf-8")
         dispatch_ids = re.findall(r"\.dispatch\(\s*['\"]([^'\"]+)['\"]", source, flags=re.S)
         self.assertEqual(sorted(dispatch_ids), EXPECTED_DISPATCH_IDS)
 
     def test_helper_is_compute_only(self):
         _source, methods = app_methods()
-        helper = methods["command_layer_remove_extra_spaces_text"]
-        self.assertIn('"writing.remove-extra-spaces"', helper)
+        helper = methods["command_layer_remove_trailing_spaces_text"]
+        self.assertIn('"writing.remove-trailing-spaces"', helper)
         self.assertIn(
             'CommandContext(app=self, source="gui", data={"text": text})',
             helper,
@@ -78,17 +79,19 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
             "end_user_action",
             "selected_or_all_range",
             "get_buffer",
+            "Clipboard",
+            "write_text_file",
         ]:
             self.assertNotIn(forbidden, helper)
 
     def test_apply_text_transform_routes_command_before_mutation(self):
         _source, methods = app_methods()
         apply = methods["apply_text_transform"]
-        self.assertIn("use_layer_remove_extra_spaces", apply)
-        self.assertIn('command_name == "Remove Extra Spaces"', apply)
-        self.assertIn("transform is remove_extra_spaces", apply)
-        self.assertIn("command_layer_remove_extra_spaces_text(old)", apply)
-        branch_pos = apply.index("elif use_layer_remove_extra_spaces:")
+        self.assertIn("use_layer_remove_trailing_spaces", apply)
+        self.assertIn('command_name == "Remove Trailing Spaces"', apply)
+        self.assertIn("transform is remove_trailing_spaces", apply)
+        self.assertIn("command_layer_remove_trailing_spaces_text(old)", apply)
+        branch_pos = apply.index("elif use_layer_remove_trailing_spaces:")
         edit_pos = apply.index("def edit(buf):")
         execute_pos = apply.index("return self.execute_command")
         self.assertLess(branch_pos, edit_pos)
@@ -101,11 +104,11 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
 
     def test_visible_entrypoint_preserves_existing_transform_pipeline(self):
         _source, methods = app_methods()
-        method = methods["on_remove_extra_spaces"]
+        method = methods["on_remove_trailing_spaces"]
         self.assertEqual(
             method.strip(),
-            'def on_remove_extra_spaces(self, *_):\n'
-            '        return self.apply_text_transform(remove_extra_spaces, "Remove Extra Spaces")',
+            'def on_remove_trailing_spaces(self, *_):\n'
+            '        return self.apply_text_transform(remove_trailing_spaces, "Remove Trailing Spaces")',
         )
         apply = methods["apply_text_transform"]
         self.assertIn("start, end = self.selected_or_all_range()", apply)
@@ -114,21 +117,21 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
             apply,
         )
 
-    def test_layer_dynamic_change_noop_and_semantics(self):
+    def test_layer_dynamic_change_noop_and_existing_semantics(self):
         layer = CommandLayer(build_low_risk_registry())
-        dirty = "  alpha   beta\t\tgamma  \n  delta   epsilon  \n"
+        dirty = "alpha  \n beta\t\nempty   \nclean\n"
         changed = layer.dispatch(
-            "writing.remove-extra-spaces",
+            "writing.remove-trailing-spaces",
             CommandContext(source="test", data={"text": dirty}),
         )
         self.assertTrue(changed.success)
         self.assertTrue(changed.changed)
-        self.assertEqual(changed.value["text"], remove_extra_spaces(dirty))
-        self.assertEqual(changed.value["text"], "alpha beta gamma\ndelta epsilon\n")
+        self.assertEqual(changed.value["text"], remove_trailing_spaces(dirty))
+        self.assertEqual(changed.value["text"], "alpha\n beta\nempty\nclean\n")
 
-        noop_text = "alpha beta gamma\ndelta epsilon\n"
+        noop_text = "alpha\n beta\nempty\nclean\n"
         noop = layer.dispatch(
-            "writing.remove-extra-spaces",
+            "writing.remove-trailing-spaces",
             CommandContext(source="test", data={"text": noop_text}),
         )
         self.assertTrue(noop.success)
@@ -145,22 +148,36 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
             " a ",
             "a   b",
             "a\t\tb",
-            "  a   b  \n\n  c\t d  ",
-            "a  b\r\nc   d\r\n",
-            "a\u00a0\u00a0b",
+            "a  \n b\t\n",
+            "a  \r\nb\t\r\n",
+            "a\u00a0\n",
             "\n\n",
             "alpha beta\n",
+            "alpha beta   ",
         ]
         for text in cases:
             with self.subTest(text=repr(text)):
-                expected = remove_extra_spaces(text)
+                expected = remove_trailing_spaces(text)
                 result = layer.dispatch(
-                    "writing.remove-extra-spaces",
+                    "writing.remove-trailing-spaces",
                     CommandContext(source="test", data={"text": text}),
                 )
                 self.assertTrue(result.success)
                 self.assertEqual(result.value["text"], expected)
                 self.assertEqual(result.changed, expected != text)
+
+    def test_algorithm_and_command_layer_remain_gtk_and_file_free(self):
+        writing = (ROOT / "calamus" / "calamus_writing.py").read_text(encoding="utf-8")
+        tree = ast.parse(writing)
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "remove_trailing_spaces"
+        )
+        segment = ast.get_source_segment(writing, function)
+        self.assertIn("line.rstrip()", segment)
+        self.assertIn("preserve_final_newline(text, out)", segment)
+        for forbidden in ["Gtk", "Gdk", "open(", "write_text_file", "get_buffer"]:
+            self.assertNotIn(forbidden, segment)
 
     def test_other_unwired_revise_transforms_remain_outside_dispatch_surface(self):
         source = BIN.read_text(encoding="utf-8")

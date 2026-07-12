@@ -1199,6 +1199,22 @@ class App(Gtk.Window):
             return text, False
         return transformed, transformed != text
 
+    def command_layer_remove_trailing_spaces_text(self, text):
+        # Compute Remove Trailing Spaces through CommandLayer without mutating Gtk.TextBuffer.
+        result = self.command_layer.dispatch(
+            "writing.remove-trailing-spaces",
+            CommandContext(app=self, source="gui", data={"text": text}),
+        )
+        if result.success and isinstance(result.value, dict):
+            transformed = result.value.get("text", text)
+        elif result.success:
+            transformed = result.value
+        else:
+            return text, False
+        if not isinstance(transformed, str):
+            return text, False
+        return transformed, transformed != text
+
 
     def apply_text_transform(self, transform, command_name="Text Transform"):
         b = self.text.get_buffer()
@@ -1231,6 +1247,10 @@ class App(Gtk.Window):
         use_layer_join_lines = (
             command_name == "Join Lines"
             or transform is join_lines
+        )
+        use_layer_remove_trailing_spaces = (
+            command_name == "Remove Trailing Spaces"
+            or transform is remove_trailing_spaces
         )
         if use_layer_uppercase:
             new, changed = self.command_layer_uppercase_text(old)
@@ -1267,6 +1287,11 @@ class App(Gtk.Window):
             if not changed:
                 return False
             _, select = command_transform_range(current, start, end, lambda _text: new)
+        elif use_layer_remove_trailing_spaces:
+            new, changed = self.command_layer_remove_trailing_spaces_text(old)
+            if not changed:
+                return False
+            _, select = command_transform_range(current, start, end, lambda _text: new)
         else:
             _, select = command_transform_range(current, start, end, transform)
             new = transform(old)
@@ -1291,6 +1316,9 @@ class App(Gtk.Window):
 
     def on_join_lines(self, *_):
         return self.apply_text_transform(join_lines, "Join Lines")
+
+    def on_remove_trailing_spaces(self, *_):
+        return self.apply_text_transform(remove_trailing_spaces, "Remove Trailing Spaces")
 
     def _clipboard(self):
         return Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)

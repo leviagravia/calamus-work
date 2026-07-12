@@ -23,6 +23,7 @@ EXPECTED_DISPATCH_IDS = [
     "writing.join-lines",
     "writing.reflow-paragraph",
     "writing.remove-extra-spaces",
+    "writing.remove-trailing-spaces",
     "writing.smart-typography",
     "writing.statistics",
 ]
@@ -172,7 +173,6 @@ class JoinLinesLayerWiringTests(unittest.TestCase):
     def test_other_unwired_revise_transforms_remain_outside_dispatch_surface(self):
         source = BIN.read_text(encoding="utf-8")
         for forbidden in [
-            '"writing.remove-trailing-spaces"',
             '"writing.sort-lines"',
             '"writing.title-case"',
             '"writing.sentence-case"',
