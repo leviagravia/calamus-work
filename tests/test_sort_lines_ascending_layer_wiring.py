@@ -45,7 +45,7 @@ def app_methods():
 
 
 class SortLinesAscendingLayerWiringTests(unittest.TestCase):
-    def test_visible_menu_and_shortcut_use_one_explicit_entrypoint(self):
+    def test_visible_menu_and_shortcut_keep_explicit_ascending_entrypoint(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn(
             'add_item(revisem, "Sort Alphabetically A-Z\\tCtrl+Alt+Up", app.on_sort_lines_ascending)',
@@ -58,35 +58,21 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
             ui,
         )
 
-    def test_descending_visible_command_remains_untouched_and_unpromoted(self):
-        ui = UI.read_text(encoding="utf-8")
-        self.assertIn(
-            'add_item(revisem, "Sort Alphabetically Z-A\\tCtrl+Alt+Down", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A"))',
-            ui,
-        )
-        self.assertIn(
-            '("<Control><Alt>Down", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A"))',
-            ui,
-        )
-        source = BIN.read_text(encoding="utf-8")
-        self.assertNotIn("on_sort_lines_descending", source)
-        self.assertNotIn('command_name == "Sort Z-A"', source)
-
-    def test_dispatch_surface_adds_only_sort_lines(self):
+    def test_dispatch_surface_still_has_one_shared_sort_dispatch(self):
         source = BIN.read_text(encoding="utf-8")
         dispatch_ids = re.findall(r"\.dispatch\(\s*['\"]([^'\"]+)['\"]", source, flags=re.S)
         self.assertEqual(sorted(dispatch_ids), EXPECTED_DISPATCH_IDS)
         self.assertEqual(dispatch_ids.count("writing.sort-lines"), 1)
 
-    def test_helper_is_compute_only_and_ascending_specific(self):
+    def test_shared_helper_is_compute_only_and_parameterized(self):
         _source, methods = app_methods()
-        helper = methods["command_layer_sort_lines_ascending_text"]
+        helper = methods["command_layer_sort_lines_text"]
+        self.assertIn('def command_layer_sort_lines_text(self, text, reverse=False):', helper)
         self.assertIn('"writing.sort-lines"', helper)
         self.assertIn(
-            'CommandContext(app=self, source="gui", data={"text": text})',
+            'CommandContext(app=self, source="gui", data={"text": text, "reverse": reverse})',
             helper,
         )
-        self.assertNotIn("reverse", helper)
         for forbidden in [
             ".delete(",
             ".insert(",
@@ -103,14 +89,14 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
         ]:
             self.assertNotIn(forbidden, helper)
 
-    def test_apply_text_transform_routes_ascending_before_mutation(self):
+    def test_apply_text_transform_preserves_ascending_and_adds_explicit_direction(self):
         _source, methods = app_methods()
         apply = methods["apply_text_transform"]
-        self.assertIn("use_layer_sort_lines_ascending", apply)
-        self.assertIn('command_name == "Sort A-Z"', apply)
-        self.assertIn("command_layer_sort_lines_ascending_text(old)", apply)
-        self.assertNotIn('command_name == "Sort Z-A"', apply)
-        branch_pos = apply.index("elif use_layer_sort_lines_ascending:")
+        self.assertIn("use_layer_sort_lines", apply)
+        self.assertIn('command_name in {"Sort A-Z", "Sort Z-A"}', apply)
+        self.assertIn("command_layer_sort_lines_text(", apply)
+        self.assertIn('reverse=(command_name == "Sort Z-A")', apply)
+        branch_pos = apply.index("elif use_layer_sort_lines:")
         edit_pos = apply.index("def edit(buf):")
         execute_pos = apply.index("return self.execute_command")
         self.assertLess(branch_pos, edit_pos)
@@ -121,7 +107,7 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
             apply,
         )
 
-    def test_visible_entrypoint_preserves_existing_transform_pipeline(self):
+    def test_visible_ascending_entrypoint_preserves_existing_transform_pipeline(self):
         _source, methods = app_methods()
         method = methods["on_sort_lines_ascending"]
         self.assertEqual(
@@ -136,7 +122,7 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
             apply,
         )
 
-    def test_layer_dynamic_change_noop_and_existing_semantics(self):
+    def test_layer_default_remains_ascending_and_noop_safe(self):
         layer = CommandLayer(build_low_risk_registry())
         source = "zeta\nAlfa\nbeta\n"
         changed = layer.dispatch(
@@ -151,13 +137,13 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
         noop_text = "Alfa\nbeta\nzeta\n"
         noop = layer.dispatch(
             "writing.sort-lines",
-            CommandContext(source="test", data={"text": noop_text}),
+            CommandContext(source="test", data={"text": noop_text, "reverse": False}),
         )
         self.assertTrue(noop.success)
         self.assertFalse(noop.changed)
         self.assertEqual(noop.value["text"], noop_text)
 
-    def test_layer_matches_existing_pure_semantics_across_edge_cases(self):
+    def test_layer_ascending_matches_existing_pure_semantics_across_edge_cases(self):
         layer = CommandLayer(build_low_risk_registry())
         cases = [
             "",
@@ -176,13 +162,13 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
                 expected = sort_lines(text, reverse=False)
                 result = layer.dispatch(
                     "writing.sort-lines",
-                    CommandContext(source="test", data={"text": text}),
+                    CommandContext(source="test", data={"text": text, "reverse": False}),
                 )
                 self.assertTrue(result.success)
                 self.assertEqual(result.value["text"], expected)
                 self.assertEqual(result.changed, expected != text)
 
-    def test_algorithm_catalog_and_handler_are_still_pure_boundaries(self):
+    def test_algorithm_remains_pure_and_parameterized(self):
         writing = (ROOT / "calamus" / "calamus_writing.py").read_text(encoding="utf-8")
         tree = ast.parse(writing)
         function = next(

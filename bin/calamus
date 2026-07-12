@@ -1232,11 +1232,11 @@ class App(Gtk.Window):
             return text, False
         return transformed, transformed != text
 
-    def command_layer_sort_lines_ascending_text(self, text):
-        # Compute Sort Alphabetically A-Z through CommandLayer without mutating Gtk.TextBuffer.
+    def command_layer_sort_lines_text(self, text, reverse=False):
+        # Compute line sorting through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.sort-lines",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(app=self, source="gui", data={"text": text, "reverse": reverse}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1289,8 +1289,8 @@ class App(Gtk.Window):
             command_name == "Title Case"
             or transform is title_case
         )
-        use_layer_sort_lines_ascending = (
-            command_name == "Sort A-Z"
+        use_layer_sort_lines = (
+            command_name in {"Sort A-Z", "Sort Z-A"}
         )
         if use_layer_uppercase:
             new, changed = self.command_layer_uppercase_text(old)
@@ -1337,8 +1337,10 @@ class App(Gtk.Window):
             if not changed:
                 return False
             _, select = command_transform_range(current, start, end, lambda _text: new)
-        elif use_layer_sort_lines_ascending:
-            new, changed = self.command_layer_sort_lines_ascending_text(old)
+        elif use_layer_sort_lines:
+            new, changed = self.command_layer_sort_lines_text(
+                old, reverse=(command_name == "Sort Z-A")
+            )
             if not changed:
                 return False
             _, select = command_transform_range(current, start, end, lambda _text: new)
@@ -1375,6 +1377,9 @@ class App(Gtk.Window):
 
     def on_sort_lines_ascending(self, *_):
         return self.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z")
+
+    def on_sort_lines_descending(self, *_):
+        return self.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A")
 
     def _clipboard(self):
         return Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)

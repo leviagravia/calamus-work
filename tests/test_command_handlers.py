@@ -2,7 +2,7 @@ import unittest
 
 from calamus_command_catalog import build_low_risk_registry, low_risk_command_specs
 from calamus_command_context import CommandContext
-from calamus_command_handlers import handled_command_ids
+from calamus_command_handlers import handle_sort_lines, handled_command_ids
 from calamus_command_layer import CommandLayer
 from calamus_writing import (
     clean_pdf_text,
@@ -82,6 +82,23 @@ class PureCommandHandlerTests(unittest.TestCase):
         for command_id, (text, function) in samples.items():
             with self.subTest(command_id=command_id):
                 self.assert_text_handler(command_id, text, function(text))
+
+    def test_sort_lines_handler_uses_reverse_from_context(self):
+        text = "a\nc\nb\n"
+        result = self.dispatch_text("writing.sort-lines", text, reverse=True)
+        self.assertEqual(result.value, {"text": sort_lines(text, reverse=True)})
+        self.assertTrue(result.changed)
+
+    def test_sort_lines_handler_rejects_non_boolean_reverse(self):
+        context = CommandContext(
+            source="test", data={"text": "b\na", "reverse": 1}
+        )
+        with self.assertRaisesRegex(TypeError, "reverse.*boolean"):
+            handle_sort_lines(context)
+
+        result = self.layer.dispatch("writing.sort-lines", context)
+        self.assertFalse(result.success)
+        self.assertEqual(result.message, "Command failed: writing.sort-lines")
 
     def test_reflow_handler_uses_width_from_context(self):
         text = "uno due tre quattro cinque sei sette otto"

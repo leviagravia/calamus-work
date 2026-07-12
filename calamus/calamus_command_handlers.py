@@ -62,7 +62,12 @@ def handle_lowercase(context: CommandContext) -> CommandResult:
 
 
 def handle_sort_lines(context: CommandContext) -> CommandResult:
-    return _transform_text(context, sort_lines)
+    original = _context_text(context)
+    reverse = context.get("reverse", False)
+    if not isinstance(reverse, bool):
+        raise TypeError("CommandContext data['reverse'] must be a boolean")
+    transformed = sort_lines(original, reverse=reverse)
+    return _text_result(original, transformed)
 
 
 def handle_clean_pdf(context: CommandContext) -> CommandResult:
