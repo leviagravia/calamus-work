@@ -49,6 +49,7 @@ class CleanSelectedPdfLayerWiringTests(unittest.TestCase):
                 "writing.reflow-paragraph",
                 "writing.remove-extra-spaces",
                 "writing.remove-trailing-spaces",
+                "writing.sentence-case",
                 "writing.smart-typography",
                 "writing.sort-lines",
                 "writing.statistics",

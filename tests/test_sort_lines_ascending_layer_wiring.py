@@ -24,6 +24,7 @@ EXPECTED_DISPATCH_IDS = [
     "writing.reflow-paragraph",
     "writing.remove-extra-spaces",
     "writing.remove-trailing-spaces",
+    "writing.sentence-case",
     "writing.smart-typography",
     "writing.sort-lines",
     "writing.statistics",
@@ -181,9 +182,9 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
         for forbidden in ["Gtk", "Gdk", "open(", "write_text_file", "get_buffer"]:
             self.assertNotIn(forbidden, segment)
 
-    def test_sentence_case_remains_outside_gui_dispatch_surface(self):
+    def test_metadata_only_insert_datetime_remains_outside_gui_dispatch_surface(self):
         source = BIN.read_text(encoding="utf-8")
-        self.assertNotIn('"writing.sentence-case"', source)
+        self.assertNotIn('"writing.insert-date-time"', source)
 
 
 if __name__ == "__main__":

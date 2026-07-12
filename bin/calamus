@@ -1249,6 +1249,23 @@ class App(Gtk.Window):
         return transformed, transformed != text
 
 
+    def command_layer_sentence_case_text(self, text):
+        # Compute Sentence Case through CommandLayer without mutating Gtk.TextBuffer.
+        result = self.command_layer.dispatch(
+            "writing.sentence-case",
+            CommandContext(app=self, source="gui", data={"text": text}),
+        )
+        if result.success and isinstance(result.value, dict):
+            transformed = result.value.get("text", text)
+        elif result.success:
+            transformed = result.value
+        else:
+            return text, False
+        if not isinstance(transformed, str):
+            return text, False
+        return transformed, transformed != text
+
+
     def apply_text_transform(self, transform, command_name="Text Transform"):
         b = self.text.get_buffer()
         start, end = self.selected_or_all_range()
@@ -1291,6 +1308,10 @@ class App(Gtk.Window):
         )
         use_layer_sort_lines = (
             command_name in {"Sort A-Z", "Sort Z-A"}
+        )
+        use_layer_sentence_case = (
+            command_name == "Sentence Case"
+            or transform is sentence_case
         )
         if use_layer_uppercase:
             new, changed = self.command_layer_uppercase_text(old)
@@ -1344,6 +1365,11 @@ class App(Gtk.Window):
             if not changed:
                 return False
             _, select = command_transform_range(current, start, end, lambda _text: new)
+        elif use_layer_sentence_case:
+            new, changed = self.command_layer_sentence_case_text(old)
+            if not changed:
+                return False
+            _, select = command_transform_range(current, start, end, lambda _text: new)
         else:
             _, select = command_transform_range(current, start, end, transform)
             new = transform(old)
@@ -1374,6 +1400,9 @@ class App(Gtk.Window):
 
     def on_title_case(self, *_):
         return self.apply_text_transform(title_case, "Title Case")
+
+    def on_sentence_case(self, *_):
+        return self.apply_text_transform(sentence_case, "Sentence Case")
 
     def on_sort_lines_ascending(self, *_):
         return self.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z")

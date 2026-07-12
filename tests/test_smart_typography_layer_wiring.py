@@ -41,7 +41,7 @@ class SmartTypographyLayerWiringTests(unittest.TestCase):
         dispatch_ids = re.findall(r"\.dispatch\(\s*['\"]([^'\"]+)['\"]", source, flags=re.S)
         self.assertEqual(
             sorted(dispatch_ids),
-            ["edit.lowercase", "edit.uppercase", "writing.clean-pdf", "writing.join-lines", "writing.reflow-paragraph", "writing.remove-extra-spaces", "writing.remove-trailing-spaces", "writing.smart-typography", "writing.sort-lines", "writing.statistics", "writing.title-case"],
+            ["edit.lowercase", "edit.uppercase", "writing.clean-pdf", "writing.join-lines", "writing.reflow-paragraph", "writing.remove-extra-spaces", "writing.remove-trailing-spaces", "writing.sentence-case", "writing.smart-typography", "writing.sort-lines", "writing.statistics", "writing.title-case"],
         )
 
     def test_smart_typography_helper_is_compute_only(self):

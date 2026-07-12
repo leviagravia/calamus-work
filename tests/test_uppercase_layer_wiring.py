@@ -36,7 +36,7 @@ def _dispatch_ids() -> list[str]:
 
 class UppercaseLayerWiringTests(unittest.TestCase):
     def test_dispatch_surface_includes_smart_typography(self):
-        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.clean-pdf", "writing.join-lines", "writing.reflow-paragraph", "writing.remove-extra-spaces", "writing.remove-trailing-spaces", "writing.smart-typography", "writing.sort-lines", "writing.statistics", "writing.title-case"])
+        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.clean-pdf", "writing.join-lines", "writing.reflow-paragraph", "writing.remove-extra-spaces", "writing.remove-trailing-spaces", "writing.sentence-case", "writing.smart-typography", "writing.sort-lines", "writing.statistics", "writing.title-case"])
 
     def test_apply_text_transform_is_uppercase_bridge_only(self):
         method = _app_method("apply_text_transform")
@@ -101,7 +101,7 @@ class UppercaseLayerWiringTests(unittest.TestCase):
     def test_forbidden_transforms_not_wired_in_bin(self):
         source = _source()
         forbidden = [
-            '"writing.sentence-case"',
+            '"writing.insert-date-time"',
         ]
         for token in forbidden:
             self.assertNotIn(token, source)

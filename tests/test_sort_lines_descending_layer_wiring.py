@@ -187,14 +187,9 @@ class SortLinesDescendingLayerWiringTests(unittest.TestCase):
         self.assertNotIn("selected_or_all_range", helper)
         self.assertNotIn("execute_command", helper)
 
-    def test_sentence_case_remains_the_next_unwired_pure_revise_transform(self):
+    def test_metadata_only_insert_datetime_remains_outside_gui_dispatch_surface(self):
         source = BIN.read_text(encoding="utf-8")
-        ui = UI.read_text(encoding="utf-8")
-        self.assertNotIn('"writing.sentence-case"', source)
-        self.assertIn(
-            'add_item(revisem, "Sentence case\\tCtrl+Alt+Shift+Y", lambda *_: app.apply_text_transform(sentence_case, "Sentence Case"))',
-            ui,
-        )
+        self.assertNotIn('"writing.insert-date-time"', source)
 
 
 if __name__ == "__main__":

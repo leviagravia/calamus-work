@@ -24,6 +24,7 @@ EXPECTED_DISPATCH_IDS = [
     "writing.reflow-paragraph",
     "writing.remove-extra-spaces",
     "writing.remove-trailing-spaces",
+    "writing.sentence-case",
     "writing.smart-typography",
     "writing.sort-lines",
     "writing.statistics",
@@ -167,7 +168,7 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
     def test_other_unwired_revise_transforms_remain_outside_dispatch_surface(self):
         source = BIN.read_text(encoding="utf-8")
         for forbidden in [
-            '"writing.sentence-case"',
+            '"writing.insert-date-time"',
         ]:
             self.assertNotIn(forbidden, source)
 

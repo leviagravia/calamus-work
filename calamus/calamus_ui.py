@@ -89,7 +89,7 @@ def build_menu(app) -> None:
     add_item(revisem, "UPPERCASE (convert selected)\tCtrl+Alt+U", lambda *_: app.replace_selection(str.upper))
     add_item(revisem, "Lowercase (convert selected)\tCtrl+Alt+Shift+U", lambda *_: app.replace_selection(str.lower))
     add_item(revisem, "Title Case\tCtrl+Alt+Y", app.on_title_case)
-    add_item(revisem, "Sentence case\tCtrl+Alt+Shift+Y", lambda *_: app.apply_text_transform(sentence_case, "Sentence Case"))
+    add_item(revisem, "Sentence case\tCtrl+Alt+Shift+Y", app.on_sentence_case)
     add_separator(revisem)
     add_item(revisem, "Insert Date/Time\tCtrl+Alt+D", app.on_insert_datetime)
     add_separator(revisem)
@@ -231,7 +231,7 @@ def shortcut_bindings(app):
         ("<Control><Alt>J", app.on_reflow_paragraph),
         ("<Control>J", app.on_join_lines),
         ("<Control><Alt>Y", app.on_title_case),
-        ("<Control><Alt><Shift>Y", lambda *_: app.apply_text_transform(sentence_case, "Sentence Case")),
+        ("<Control><Alt><Shift>Y", app.on_sentence_case),
         ("<Control><Alt>Up", app.on_sort_lines_ascending),
         ("<Control><Alt>Down", app.on_sort_lines_descending),
         ("<Control><Alt>M", app.on_smart_typography),

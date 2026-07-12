@@ -56,13 +56,13 @@ class StatisticsLayerWiringTests(unittest.TestCase):
             self.assertNotIn(token, method)
 
     def test_allowed_command_layer_dispatches_include_smart_typography(self):
-        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.clean-pdf", "writing.join-lines", "writing.reflow-paragraph", "writing.remove-extra-spaces", "writing.remove-trailing-spaces", "writing.smart-typography", "writing.sort-lines", "writing.statistics", "writing.title-case"])
+        self.assertEqual(sorted(_dispatch_ids()), ["edit.lowercase", "edit.uppercase", "writing.clean-pdf", "writing.join-lines", "writing.reflow-paragraph", "writing.remove-extra-spaces", "writing.remove-trailing-spaces", "writing.sentence-case", "writing.smart-typography", "writing.sort-lines", "writing.statistics", "writing.title-case"])
 
     def test_only_approved_text_transforms_are_wired_to_layer(self):
         source = _source()
         self.assertIn('"edit.uppercase"', source)
         forbidden = [
-            '"writing.sentence-case"',
+            '"writing.insert-date-time"',
         ]
         for token in forbidden:
             self.assertNotIn(token, source)

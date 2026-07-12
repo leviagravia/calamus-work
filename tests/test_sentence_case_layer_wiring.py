@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "calamus"))
 from calamus_command_catalog import build_low_risk_registry
 from calamus_command_context import CommandContext
 from calamus_command_layer import CommandLayer
-from calamus_writing import title_case
+from calamus_writing import sentence_case
 
 
 EXPECTED_DISPATCH_IDS = [
@@ -45,57 +45,49 @@ def app_methods():
     return source, out
 
 
-class TitleCaseLayerWiringTests(unittest.TestCase):
+class SentenceCaseLayerWiringTests(unittest.TestCase):
     def test_menu_and_shortcut_use_one_explicit_entrypoint(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn(
-            'add_item(revisem, "Title Case\\tCtrl+Alt+Y", app.on_title_case)',
+            'add_item(revisem, "Sentence case\\tCtrl+Alt+Shift+Y", app.on_sentence_case)',
             ui,
         )
-        self.assertIn('("<Control><Alt>Y", app.on_title_case)', ui)
-        self.assertEqual(ui.count("app.on_title_case"), 2)
+        self.assertIn('("<Control><Alt><Shift>Y", app.on_sentence_case)', ui)
+        self.assertEqual(ui.count("app.on_sentence_case"), 2)
         self.assertNotIn(
-            'lambda *_: app.apply_text_transform(title_case, "Title Case")',
+            'lambda *_: app.apply_text_transform(sentence_case, "Sentence Case")',
             ui,
         )
 
-    def test_dispatch_surface_adds_only_title_case(self):
+    def test_dispatch_surface_adds_only_sentence_case(self):
         source = BIN.read_text(encoding="utf-8")
         dispatch_ids = re.findall(r"\.dispatch\(\s*['\"]([^'\"]+)['\"]", source, flags=re.S)
         self.assertEqual(sorted(dispatch_ids), EXPECTED_DISPATCH_IDS)
 
     def test_helper_is_compute_only(self):
         _source, methods = app_methods()
-        helper = methods["command_layer_title_case_text"]
-        self.assertIn('"writing.title-case"', helper)
+        helper = methods["command_layer_sentence_case_text"]
+        self.assertIn('"writing.sentence-case"', helper)
         self.assertIn(
             'CommandContext(app=self, source="gui", data={"text": text})',
             helper,
         )
         for forbidden in [
-            ".delete(",
-            ".insert(",
-            "set_text(",
-            "mark_modified",
-            "finalize_command_edit",
-            "execute_command",
-            "begin_user_action",
-            "end_user_action",
-            "selected_or_all_range",
-            "get_buffer",
-            "Clipboard",
-            "write_text_file",
+            ".delete(", ".insert(", "set_text(", "mark_modified",
+            "finalize_command_edit", "execute_command", "begin_user_action",
+            "end_user_action", "selected_or_all_range", "get_buffer",
+            "Clipboard", "write_text_file",
         ]:
             self.assertNotIn(forbidden, helper)
 
     def test_apply_text_transform_routes_command_before_mutation(self):
         _source, methods = app_methods()
         apply = methods["apply_text_transform"]
-        self.assertIn("use_layer_title_case", apply)
-        self.assertIn('command_name == "Title Case"', apply)
-        self.assertIn("transform is title_case", apply)
-        self.assertIn("command_layer_title_case_text(old)", apply)
-        branch_pos = apply.index("elif use_layer_title_case:")
+        self.assertIn("use_layer_sentence_case", apply)
+        self.assertIn('command_name == "Sentence Case"', apply)
+        self.assertIn("transform is sentence_case", apply)
+        self.assertIn("command_layer_sentence_case_text(old)", apply)
+        branch_pos = apply.index("elif use_layer_sentence_case:")
         edit_pos = apply.index("def edit(buf):")
         execute_pos = apply.index("return self.execute_command")
         self.assertLess(branch_pos, edit_pos)
@@ -108,11 +100,11 @@ class TitleCaseLayerWiringTests(unittest.TestCase):
 
     def test_visible_entrypoint_preserves_existing_transform_pipeline(self):
         _source, methods = app_methods()
-        method = methods["on_title_case"]
+        method = methods["on_sentence_case"]
         self.assertEqual(
             method.strip(),
-            'def on_title_case(self, *_):\n'
-            '        return self.apply_text_transform(title_case, "Title Case")',
+            'def on_sentence_case(self, *_):\n'
+            '        return self.apply_text_transform(sentence_case, "Sentence Case")',
         )
         apply = methods["apply_text_transform"]
         self.assertIn("start, end = self.selected_or_all_range()", apply)
@@ -123,19 +115,19 @@ class TitleCaseLayerWiringTests(unittest.TestCase):
 
     def test_layer_dynamic_change_noop_and_existing_semantics(self):
         layer = CommandLayer(build_low_risk_registry())
-        source = "l'ALBERO della VITA e già QUI"
+        source = "È GIÀ QUI. POI ARRIVA L'AMICO!"
         changed = layer.dispatch(
-            "writing.title-case",
+            "writing.sentence-case",
             CommandContext(source="test", data={"text": source}),
         )
         self.assertTrue(changed.success)
         self.assertTrue(changed.changed)
-        self.assertEqual(changed.value["text"], title_case(source))
-        self.assertEqual(changed.value["text"], "L'albero Della Vita E Già Qui")
+        self.assertEqual(changed.value["text"], sentence_case(source))
+        self.assertEqual(changed.value["text"], "È già qui. Poi arriva l'amico!")
 
-        noop_text = "L'albero Della Vita E Già Qui"
+        noop_text = "È già qui. Poi arriva l'amico!"
         noop = layer.dispatch(
-            "writing.title-case",
+            "writing.sentence-case",
             CommandContext(source="test", data={"text": noop_text}),
         )
         self.assertTrue(noop.success)
@@ -145,24 +137,16 @@ class TitleCaseLayerWiringTests(unittest.TestCase):
     def test_layer_matches_existing_pure_semantics_across_edge_cases(self):
         layer = CommandLayer(build_low_risk_registry())
         cases = [
-            "",
-            "   ",
-            "hello world",
-            "HELLO WORLD",
-            "l'amore e l'amicizia",
-            "è già qui",
-            "à bientôt, garçon",
-            "uno\ndue",
-            "123 abc",
-            "a-b c_d",
-            "rock'n'roll",
-            "\n\n",
+            "", "   ", "CIAO. MONDO", "ciao? sì! bene… ottimo",
+            "UNO\nDUE", "UNO.\nDUE", "UNO.\n\nDUE",
+            "È GIÀ QUI. POI ARRIVA L'AMICO!", "123 ABC. 456 DEF",
+            "\nCIAO", '"CIAO." MONDO', "CIAO!\tMONDO", "CIAO… MONDO",
         ]
         for text in cases:
             with self.subTest(text=repr(text)):
-                expected = title_case(text)
+                expected = sentence_case(text)
                 result = layer.dispatch(
-                    "writing.title-case",
+                    "writing.sentence-case",
                     CommandContext(source="test", data={"text": text}),
                 )
                 self.assertTrue(result.success)
@@ -174,20 +158,18 @@ class TitleCaseLayerWiringTests(unittest.TestCase):
         tree = ast.parse(writing)
         function = next(
             node for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name == "title_case"
+            if isinstance(node, ast.FunctionDef) and node.name == "sentence_case"
         )
         segment = ast.get_source_segment(writing, function)
+        self.assertIn("text.lower()", segment)
         self.assertIn("re.sub", segment)
-        self.assertIn("m.group(1).upper() + m.group(2).lower()", segment)
+        self.assertIn("m.group(2).upper()", segment)
         for forbidden in ["Gtk", "Gdk", "open(", "write_text_file", "get_buffer"]:
             self.assertNotIn(forbidden, segment)
 
-    def test_other_unwired_revise_transforms_remain_outside_dispatch_surface(self):
+    def test_metadata_only_insert_datetime_stays_outside_dispatch_surface(self):
         source = BIN.read_text(encoding="utf-8")
-        for forbidden in [
-            '"writing.insert-date-time"',
-        ]:
-            self.assertNotIn(forbidden, source)
+        self.assertNotIn('"writing.insert-date-time"', source)
 
 
 if __name__ == "__main__":
