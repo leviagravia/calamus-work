@@ -102,7 +102,7 @@ def build_menu(app) -> None:
     add_item(revisem, "Clean Selected Text from PDF\tCtrl+Alt+Shift+V", app.on_clean_selected_pdf)
     add_item(revisem, "Smart Typography\tCtrl+Alt+M", app.on_smart_typography)
     add_item(revisem, "Reflow Paragraph\tCtrl+Alt+J", app.on_reflow_paragraph)
-    add_item(revisem, "Join Lines\tCtrl+J", lambda *_: app.apply_text_transform(join_lines, "Join Lines"))
+    add_item(revisem, "Join Lines\tCtrl+J", app.on_join_lines)
     add_item(revisem, "Remove Extra Spaces", app.on_remove_extra_spaces)
     add_item(revisem, "Remove Trailing Spaces", lambda *_: app.apply_text_transform(remove_trailing_spaces, "Remove Trailing Spaces"))
     add_item(revisem, "Sort Alphabetically A-Z\tCtrl+Alt+Up", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z"))
@@ -229,7 +229,7 @@ def shortcut_bindings(app):
         ("<Control><Alt>V", app.on_paste_clean_pdf),
         ("<Control><Alt><Shift>V", app.on_clean_selected_pdf),
         ("<Control><Alt>J", app.on_reflow_paragraph),
-        ("<Control>J", lambda *_: app.apply_text_transform(join_lines, "Join Lines")),
+        ("<Control>J", app.on_join_lines),
         ("<Control><Alt>Y", lambda *_: app.apply_text_transform(title_case, "Title Case")),
         ("<Control><Alt><Shift>Y", lambda *_: app.apply_text_transform(sentence_case, "Sentence Case")),
         ("<Control><Alt>Up", lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z")),
