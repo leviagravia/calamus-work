@@ -17,6 +17,7 @@ from calamus_config import (
 )
 from calamus_state import StateManager
 from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
+from calamus_file_lifecycle import prepare_save_plan
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
@@ -904,18 +905,19 @@ class App(Gtk.Window):
         self.save_as()
 
     def save_file(self):
-        if not self.current_file:
+        plan = prepare_save_plan(
+            self.current_file,
+            self.buffer_text(),
+            trim_trailing_on_save=getattr(self, "trim_trailing_on_save", False),
+        )
+        if plan.requires_destination:
             return self.save_as()
         try:
-            text = self.buffer_text()
-            if getattr(self, "trim_trailing_on_save", False):
-                trimmed = remove_trailing_spaces(text)
-                if trimmed != text:
-                    self.loading = True
-                    self.text.get_buffer().set_text(trimmed)
-                    self.loading = False
-                    text = trimmed
-            self.document.save(self.current_file, text)
+            if plan.replaces_buffer_text:
+                self.loading = True
+                self.text.get_buffer().set_text(plan.text_to_write)
+                self.loading = False
+            self.document.save(plan.target_path, plan.text_to_write)
             self.current_file = self.document.file_path
             self.modified = self.document.modified
             self.add_recent_file(self.current_file)
