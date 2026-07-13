@@ -83,10 +83,11 @@ class PasteCleanPdfWiringTests(unittest.TestCase):
         for token in forbidden:
             self.assertNotIn(token, helper)
 
-    def test_plain_text_paste_is_not_changed_by_this_step(self):
+    def test_plain_text_paste_now_reuses_the_same_pure_plan_boundary(self):
         method = app_method_source("on_paste_plain_text")
-        self.assertIn('self.execute_command("Paste Plain Text", edit)', method)
-        self.assertNotIn("command_paste_text_plan", method)
+        self.assertIn("command_paste_text_plan", method)
+        self.assertIn('"Paste Plain Text"', method)
+        self.assertNotIn("clean_pdf_text(text)", method)
 
 
 if __name__ == "__main__":

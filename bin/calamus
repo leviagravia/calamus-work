@@ -1481,14 +1481,29 @@ class App(Gtk.Window):
         text = clipboard.wait_for_text()
         if text is None:
             return
+        b = self.text.get_buffer()
+        cursor = b.get_iter_at_mark(b.get_insert()).get_offset()
+        selection = None
+        if b.get_has_selection():
+            s, e = b.get_selection_bounds()
+            selection = (s.get_offset(), e.get_offset())
+        start, end, insertion, _inserted_range = command_paste_text_plan(
+            self.buffer_text(),
+            text,
+            cursor,
+            selection=selection,
+        )
+        caret = start + len(insertion)
         def edit(buf):
-            if buf.get_has_selection():
-                s, e = buf.get_selection_bounds()
-                buf.delete(s, e)
-                buf.insert(s, text)
-            else:
-                buf.insert_at_cursor(text)
-        self.execute_command("Paste Plain Text", edit)
+            it1 = buf.get_iter_at_offset(start)
+            it2 = buf.get_iter_at_offset(end)
+            buf.delete(it1, it2)
+            buf.insert(buf.get_iter_at_offset(start), insertion)
+        return self.execute_command(
+            "Paste Plain Text",
+            edit,
+            select_range=(caret, caret),
+        )
 
     def on_duplicate_line_or_selection(self, *_):
         b = self.text.get_buffer()
