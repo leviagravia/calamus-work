@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from calamus_file_lifecycle import SavePlan, prepare_save_plan
+from calamus_file_lifecycle import SavePlan, prepare_save_as_plan, prepare_save_plan
 from calamus_model import Document
 
 
@@ -45,6 +45,32 @@ class SaveLifecyclePlanTests(unittest.TestCase):
             trim_trailing_on_save=True,
         )
         self.assertFalse(plan.replaces_buffer_text)
+
+
+    def test_save_as_cancelled_selection_returns_no_plan(self):
+        self.assertIsNone(prepare_save_as_plan(None, "Body"))
+        self.assertIsNone(prepare_save_as_plan("", "Body"))
+
+    def test_save_as_accepted_destination_reuses_save_plan_contract(self):
+        plan = prepare_save_as_plan("/tmp/copy.txt", "Body\n")
+        self.assertIsInstance(plan, SavePlan)
+        self.assertFalse(plan.requires_destination)
+        self.assertEqual(plan.target_path, "/tmp/copy.txt")
+        self.assertEqual(plan.original_text, "Body\n")
+        self.assertEqual(plan.text_to_write, "Body\n")
+
+    def test_save_as_preserves_trim_trailing_policy(self):
+        plan = prepare_save_as_plan(
+            "/tmp/copy.txt",
+            "alpha  \nbeta\t\n",
+            trim_trailing_on_save=True,
+        )
+        self.assertEqual(plan.text_to_write, "alpha\nbeta\n")
+        self.assertTrue(plan.replaces_buffer_text)
+
+    def test_save_as_rejects_non_string_destination(self):
+        with self.assertRaises(TypeError):
+            prepare_save_as_plan(123, "Body")
 
     def test_plan_integrates_with_existing_document_write_boundary(self):
         with tempfile.TemporaryDirectory() as td:

@@ -33,15 +33,15 @@ class SaveCommandWiringTests(unittest.TestCase):
         self.assertIn("trim_trailing_on_save=getattr(", method)
         self.assertIn("if plan.requires_destination:", method)
         self.assertIn("return self.save_as()", method)
-        self.assertIn("self.document.save(plan.target_path, plan.text_to_write)", method)
+        self.assertIn("return self.execute_save_plan(plan)", method)
 
     def test_save_file_no_longer_computes_trailing_cleanup_inline(self):
         method = _method_source("save_file")
         self.assertNotIn("remove_trailing_spaces(", method)
         self.assertNotIn("trimmed =", method)
 
-    def test_save_file_keeps_gtk_and_io_boundaries_in_app(self):
-        method = _method_source("save_file")
+    def test_shared_save_executor_keeps_gtk_and_io_boundaries_in_app(self):
+        method = _method_source("execute_save_plan")
         self.assertIn("self.text.get_buffer().set_text(plan.text_to_write)", method)
         self.assertIn("self.document.save(", method)
         self.assertIn("self.error(str(e))", method)
@@ -57,11 +57,11 @@ class SaveCommandWiringTests(unittest.TestCase):
         self.assertNotIn("write_text_file", lifecycle)
         self.assertNotIn("open(", lifecycle)
 
-    def test_save_as_open_new_and_quit_are_not_rewired_by_phase1_save(self):
-        self.assertNotIn("prepare_save_plan", _method_source("save_as"))
-        self.assertNotIn("prepare_save_plan", _method_source("on_open"))
-        self.assertNotIn("prepare_save_plan", _method_source("on_new"))
-        self.assertNotIn("prepare_save_plan", _method_source("on_quit"))
+    def test_open_new_and_quit_remain_outside_save_planning(self):
+        for method_name in ("on_open", "on_new", "on_quit"):
+            method = _method_source(method_name)
+            self.assertNotIn("prepare_save_plan", method)
+            self.assertNotIn("prepare_save_as_plan", method)
 
     def test_no_command_layer_identity_is_added_for_file_save(self):
         lifecycle = LIFECYCLE.read_text(encoding="utf-8")

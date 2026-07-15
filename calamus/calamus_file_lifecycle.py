@@ -57,3 +57,27 @@ def prepare_save_plan(
         original_text=text,
         text_to_write=text_to_write,
     )
+
+
+def prepare_save_as_plan(
+    selected_path: str | None,
+    text: str,
+    *,
+    trim_trailing_on_save: bool = False,
+) -> SavePlan | None:
+    """Return a Save plan for an accepted Save As destination.
+
+    ``None`` or an empty path represents a cancelled chooser and produces no
+    plan.  The selected destination is otherwise treated as an explicit target
+    without mutating application or document identity before the physical write
+    succeeds.
+    """
+    if selected_path is None or selected_path == "":
+        return None
+    if not isinstance(selected_path, str):
+        raise TypeError("selected_path must be a string or None")
+    return prepare_save_plan(
+        selected_path,
+        text,
+        trim_trailing_on_save=trim_trailing_on_save,
+    )
