@@ -17,7 +17,7 @@ from calamus_config import (
 )
 from calamus_state import StateManager
 from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
-from calamus_file_lifecycle import prepare_save_as_plan, prepare_save_plan
+from calamus_file_lifecycle import prepare_open_plan, prepare_save_as_plan, prepare_save_plan
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
@@ -884,19 +884,34 @@ class App(Gtk.Window):
 
     def open_path(self, path, silent=False):
         try:
-            large_file = is_large_text_file(path)
-            text = self.document.load(path)
-            self.set_buffer(text, modified=False)
-            self.current_file = self.document.file_path
-            self.modified = self.document.modified
-            self.add_recent_file(path)
-            self.update_title()
-            self.save_settings()
-            if large_file and not silent:
-                self.info("Large file mode", f"This file is larger than {LARGE_FILE_BYTES // 1_000_000} MB. Undo history is limited to keep Calamus responsive.")
-        except (OSError, UnicodeError) as e:
+            plan = prepare_open_plan(
+                path,
+                read_text_file(path),
+                large_file=is_large_text_file(path),
+            )
+            self.execute_open_plan(plan, silent=silent)
+        except (OSError, UnicodeError, TypeError, ValueError) as e:
             if not silent:
                 self.error(str(e))
+
+    def execute_open_plan(self, plan, silent=False):
+        # Commit editor/document identity only after Gtk accepts loaded text.
+        self.loading = True
+        try:
+            self.text.get_buffer().set_text(plan.text)
+        finally:
+            self.loading = False
+        self.document.file_path = plan.target_path
+        self.document.set_text(plan.text, modified=False)
+        self.current_file = self.document.file_path
+        self.modified = self.document.modified
+        self.reset_undo_history()
+        self.add_recent_file(self.current_file)
+        self.update_title()
+        self.save_settings()
+        if plan.large_file and not silent:
+            self.info("Large file mode", f"This file is larger than {LARGE_FILE_BYTES // 1_000_000} MB. Undo history is limited to keep Calamus responsive.")
+        return True
 
     def on_save(self, *_):
         self.save_file()

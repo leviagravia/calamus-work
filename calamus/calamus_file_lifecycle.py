@@ -1,15 +1,52 @@
 """Pure file-lifecycle planning for Calamus.
 
-GTK dialogs, Gtk.TextBuffer mutation, physical file writes, error reporting,
-recent-file persistence, and title updates remain owned by the App boundary.
-This module only decides what the visible Save command should do and which
-text should be written.
+GTK dialogs, Gtk.TextBuffer mutation, physical file reads/writes, error
+reporting, recent-file persistence, and title updates remain owned by the App
+boundary.  This module describes deterministic Open, Save, and Save As state
+transitions without performing desktop or filesystem operations.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from calamus_writing import remove_trailing_spaces
+
+
+@dataclass(frozen=True)
+class OpenPlan:
+    """Deterministic loaded-document transition for File -> Open."""
+
+    target_path: str
+    text: str
+    large_file: bool = False
+
+
+def prepare_open_plan(
+    selected_path: str,
+    text: str,
+    *,
+    large_file: bool = False,
+) -> OpenPlan:
+    """Return the pure state-transition plan for an already-read document.
+
+    File selection, disk reads, Gtk.TextBuffer mutation, recent-file updates,
+    title changes, settings persistence, and error dialogs remain in ``App``.
+    The plan prevents document identity from changing before the selected file
+    has been read successfully and the editor buffer has accepted its text.
+    """
+    if not isinstance(selected_path, str):
+        raise TypeError("selected_path must be a string")
+    if selected_path == "":
+        raise ValueError("selected_path must not be empty")
+    if not isinstance(text, str):
+        raise TypeError("text must be a string")
+    if not isinstance(large_file, bool):
+        raise TypeError("large_file must be a boolean")
+    return OpenPlan(
+        target_path=selected_path,
+        text=text,
+        large_file=large_file,
+    )
 
 
 @dataclass(frozen=True)
