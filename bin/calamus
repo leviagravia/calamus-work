@@ -18,6 +18,7 @@ from calamus_config import (
 from calamus_state import StateManager
 from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
 from calamus_file_lifecycle import prepare_new_plan, prepare_open_plan, prepare_save_as_plan, prepare_save_plan
+from calamus_recent_files import prepare_open_recent_plan
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
@@ -900,10 +901,11 @@ class App(Gtk.Window):
                 read_text_file(path),
                 large_file=is_large_text_file(path),
             )
-            self.execute_open_plan(plan, silent=silent)
+            return self.execute_open_plan(plan, silent=silent)
         except (OSError, UnicodeError, TypeError, ValueError) as e:
             if not silent:
                 self.error(str(e))
+            return False
 
     def execute_open_plan(self, plan, silent=False):
         # Commit editor/document identity only after Gtk accepts loaded text.
@@ -1861,13 +1863,19 @@ class App(Gtk.Window):
 
     def open_recent_path(self, path):
         if not self.may_continue():
-            return
-        if os.path.exists(path):
-            self.open_path(path)
-        else:
+            return False
+        plan = prepare_open_recent_plan(
+            path,
+            self.load_recent_files(),
+            path_exists=os.path.exists(path),
+        )
+        if plan.should_open and self.open_path(path):
+            return True
+        if not plan.should_open:
             self.error("Recent file not found:\n" + path)
-            self.save_recent_files([x for x in self.load_recent_files() if x != path])
-            self.populate_recent_menu()
+        self.save_recent_files(list(plan.remaining_paths_after_failure))
+        self.populate_recent_menu()
+        return False
 
     def on_clear_recent(self, *_):
         self.save_recent_files([])
