@@ -2,7 +2,7 @@
 
 GTK dialogs, Gtk.TextBuffer mutation, physical file reads/writes, error
 reporting, recent-file persistence, and title updates remain owned by the App
-boundary.  This module describes deterministic Open, Save, and Save As state
+boundary.  This module describes deterministic New, Open, Save, and Save As state
 transitions without performing desktop or filesystem operations.
 """
 from __future__ import annotations
@@ -10,6 +10,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from calamus_writing import remove_trailing_spaces
+
+
+@dataclass(frozen=True)
+class NewPlan:
+    """Deterministic transition for File -> New."""
+
+    text: str = ""
+    target_path: str | None = None
+    modified: bool = False
+
+
+def prepare_new_plan() -> NewPlan:
+    """Return the pure state-transition plan for a new empty document.
+
+    The save prompt, Gtk.TextBuffer mutation, document identity commit, Undo
+    reset, and title update remain in ``App``.  Keeping the transition as an
+    immutable plan prevents the previous document identity from being cleared
+    before the editor buffer has accepted the empty replacement text.
+    """
+    return NewPlan()
 
 
 @dataclass(frozen=True)

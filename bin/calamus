@@ -17,7 +17,7 @@ from calamus_config import (
 )
 from calamus_state import StateManager
 from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
-from calamus_file_lifecycle import prepare_open_plan, prepare_save_as_plan, prepare_save_plan
+from calamus_file_lifecycle import prepare_new_plan, prepare_open_plan, prepare_save_as_plan, prepare_save_plan
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
@@ -869,11 +869,22 @@ class App(Gtk.Window):
     def on_new(self, *_):
         if not self.may_continue():
             return
-        self.document.clear()
-        self.current_file = None
-        self.set_buffer("", modified=False)
-        self.modified = False
+        self.execute_new_plan(prepare_new_plan())
+
+    def execute_new_plan(self, plan):
+        # Commit the empty document identity only after Gtk accepts the text.
+        self.loading = True
+        try:
+            self.text.get_buffer().set_text(plan.text)
+        finally:
+            self.loading = False
+        self.document.file_path = plan.target_path
+        self.document.set_text(plan.text, modified=plan.modified)
+        self.current_file = self.document.file_path
+        self.modified = self.document.modified
+        self.reset_undo_history()
         self.update_title()
+        return True
 
     def on_open(self, *_):
         if not self.may_continue():
