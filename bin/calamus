@@ -20,6 +20,7 @@ from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_fil
 from calamus_file_lifecycle import prepare_new_plan, prepare_open_plan, prepare_save_as_plan, prepare_save_plan
 from calamus_recent_files import prepare_open_recent_plan
 from calamus_recent_files import prepare_clear_recent_plan
+from calamus_favorites import prepare_open_favorite_plan
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
@@ -1745,9 +1746,21 @@ class App(Gtk.Window):
                 label = os.path.basename(path) or path
                 item = Gtk.MenuItem(label=label)
                 item.set_tooltip_text(path)
-                item.connect("activate", lambda _w, p=path: self.open_recent_path(p))
+                item.connect("activate", lambda _w, p=path: self.open_favourite_path(p))
                 self.favourites_menu.append(item)
         self.favourites_menu.show_all()
+
+    def open_favourite_path(self, path):
+        if not self.may_continue():
+            return False
+        plan = prepare_open_favorite_plan(
+            path,
+            path_is_file=os.path.isfile(path),
+        )
+        if not plan.should_open:
+            self.error("Favourite file not found or is not a regular file:\n" + path)
+            return False
+        return self.open_path(plan.target_path)
 
     def on_add_favourite(self, *_):
         if not self.current_file:
