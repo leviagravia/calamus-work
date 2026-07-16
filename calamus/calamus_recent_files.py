@@ -59,3 +59,37 @@ def prepare_open_recent_plan(
             item for item in clean if item != selected_path
         ),
     )
+
+@dataclass(frozen=True)
+class ClearRecentPlan:
+    """Deterministic plan for clearing the current recent-file history."""
+
+    previous_paths: tuple[str, ...]
+    remaining_paths: tuple[str, ...] = ()
+
+    @property
+    def should_clear(self) -> bool:
+        """Whether the history contains at least one entry to remove."""
+        return bool(self.previous_paths)
+
+
+def prepare_clear_recent_plan(
+    recent_paths: list[str] | tuple[str, ...],
+) -> ClearRecentPlan:
+    """Plan the visible ``Clear Recent Files`` action.
+
+    Persistence and menu refresh remain application boundaries.  The plan
+    normalizes the current snapshot so the caller can distinguish a real clear
+    operation from an already-empty no-op before writing state.
+    """
+    if not isinstance(recent_paths, (list, tuple)):
+        raise TypeError("recent_paths must be a list or tuple")
+
+    clean: list[str] = []
+    for item in recent_paths:
+        if not isinstance(item, str):
+            raise TypeError("recent_paths entries must be strings")
+        if item and item not in clean:
+            clean.append(item)
+
+    return ClearRecentPlan(previous_paths=tuple(clean))
