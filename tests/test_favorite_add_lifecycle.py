@@ -41,6 +41,26 @@ class FavoriteAddLifecycleTests(unittest.TestCase):
             ("/tmp/current.txt", "/tmp/a.txt", "/tmp/b.txt"),
         )
 
+    def test_unavailable_canonical_entries_are_preserved_in_order(self):
+        plan = prepare_add_favorite_plan(
+            "/tmp/current.txt",
+            ["/tmp/missing.txt", "/tmp/available.txt"],
+        )
+        self.assertEqual(
+            plan.updated_paths,
+            ("/tmp/current.txt", "/tmp/missing.txt", "/tmp/available.txt"),
+        )
+
+    def test_readding_entry_does_not_drop_other_unavailable_entries(self):
+        plan = prepare_add_favorite_plan(
+            "/tmp/available.txt",
+            ["/tmp/missing-a.txt", "/tmp/available.txt", "/tmp/missing-b.txt"],
+        )
+        self.assertEqual(
+            plan.updated_paths,
+            ("/tmp/available.txt", "/tmp/missing-a.txt", "/tmp/missing-b.txt"),
+        )
+
     def test_tuple_input_is_supported(self):
         plan = prepare_add_favorite_plan("/tmp/a.txt", ("/tmp/b.txt",))
         self.assertEqual(plan.updated_paths, ("/tmp/a.txt", "/tmp/b.txt"))

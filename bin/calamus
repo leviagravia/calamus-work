@@ -1773,7 +1773,7 @@ class App(Gtk.Window):
             return False
         plan = prepare_add_favorite_plan(
             os.path.abspath(self.current_file),
-            self.load_favourites(),
+            self.load_favourite_store(),
         )
         if not self.save_favourites(list(plan.updated_paths)):
             self.error("Could not add file to Favourites.")

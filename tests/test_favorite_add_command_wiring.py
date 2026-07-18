@@ -55,9 +55,12 @@ class _FakeApp:
     def info(self, message):
         self.events.append(("info", message))
 
-    def load_favourites(self):
-        self.events.append(("load",))
+    def load_favourite_store(self):
+        self.events.append(("load-store",))
         return list(self._favorites)
+
+    def load_favourites(self):
+        raise AssertionError("Add must not read the availability-filtered menu view")
 
     def save_favourites(self, items):
         self.events.append(("save", tuple(items)))
@@ -101,7 +104,8 @@ class FavoriteAddCommandWiringTests(unittest.TestCase):
         self.assertIn("if not self.current_file:", method)
         self.assertIn("prepare_add_favorite_plan", method)
         self.assertIn("os.path.abspath(self.current_file)", method)
-        self.assertIn("self.load_favourites()", method)
+        self.assertIn("self.load_favourite_store()", method)
+        self.assertNotIn("self.load_favourites()", method)
         self.assertIn("self.save_favourites(list(plan.updated_paths))", method)
         self.assertIn('self.error("Could not add file to Favourites.")', method)
         self.assertIn("self.populate_favourites_menu()", method)
@@ -144,8 +148,30 @@ class FavoriteAddCommandWiringTests(unittest.TestCase):
         self.assertEqual(
             app.events,
             [
-                ("load",),
+                ("load-store",),
                 ("save", ("/tmp/current.txt", "/tmp/a.txt")),
+                ("populate",),
+                ("info", "Added to Favourites:\n/tmp/current.txt"),
+            ],
+        )
+
+    def test_add_preserves_temporarily_unavailable_canonical_favorites(self):
+        from calamus_favorites import prepare_add_favorite_plan
+
+        method = _compiled_method(
+            "on_add_favourite",
+            {"prepare_add_favorite_plan": prepare_add_favorite_plan, "os": os},
+        )
+        app = _FakeApp(
+            current_file="/tmp/current.txt",
+            favorites=["/tmp/missing.txt", "/tmp/available.txt"],
+        )
+        self.assertTrue(method(app))
+        self.assertEqual(
+            app.events,
+            [
+                ("load-store",),
+                ("save", ("/tmp/current.txt", "/tmp/missing.txt", "/tmp/available.txt")),
                 ("populate",),
                 ("info", "Added to Favourites:\n/tmp/current.txt"),
             ],
@@ -178,7 +204,7 @@ class FavoriteAddCommandWiringTests(unittest.TestCase):
         self.assertEqual(
             app.events,
             [
-                ("load",),
+                ("load-store",),
                 ("save", ("/tmp/current.txt", "/tmp/a.txt")),
                 ("error", "Could not add file to Favourites."),
             ],

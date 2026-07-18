@@ -61,7 +61,7 @@ class AddFavoritePlan:
 
     @property
     def was_already_present(self) -> bool:
-        """Whether the target already existed anywhere in the prior store view."""
+        """Whether the target already existed anywhere in the canonical store."""
         return self.favorite_path in self.previous_paths
 
 
@@ -71,11 +71,12 @@ def prepare_add_favorite_plan(
 ) -> AddFavoritePlan:
     """Plan insertion of the current file at the front of Favorites.
 
-    The visible command historically moves an existing Favorite to the front and
-    reports it as added. W53 preserves that interaction while making the state
-    transition deterministic: duplicates and empty entries are removed, the
-    selected file occurs exactly once at index zero, and persistence/UI commit
-    remains the responsibility of the application boundary.
+    The visible command moves an existing Favorite to the front and reports it
+    as added. The input must be the canonical persisted store, not an
+    availability-filtered menu view: temporarily unavailable intentional entries
+    are preserved while duplicates and empty entries are removed, the selected
+    file occurs exactly once at index zero, and persistence/UI commit remains the
+    responsibility of the application boundary.
     """
     if not isinstance(current_path, str):
         raise TypeError("current_path must be a string")
