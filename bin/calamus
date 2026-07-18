@@ -1736,16 +1736,20 @@ class App(Gtk.Window):
 
     def populate_favourites_menu(self):
         if not hasattr(self, "favourites_menu"):
-            return
-        children = list(self.favourites_menu.get_children())
-        # Keep the first 4 fixed entries: Add, Edit, Reload, separator.
-        for child in children[4:]:
-            self.favourites_menu.remove(child)
+            return ()
+
+        current_children = list(self.favourites_menu.get_children())
+        for child in getattr(self, "_favourite_dynamic_items", ()):
+            if child in current_children:
+                self.favourites_menu.remove(child)
+
         items = self.load_favourites()
+        dynamic_items = []
         if not items:
             item = Gtk.MenuItem(label="No favourites")
             item.set_sensitive(False)
             self.favourites_menu.append(item)
+            dynamic_items.append(item)
         else:
             for path in items:
                 label = os.path.basename(path) or path
@@ -1753,7 +1757,11 @@ class App(Gtk.Window):
                 item.set_tooltip_text(path)
                 item.connect("activate", lambda _w, p=path: self.open_favourite_path(p))
                 self.favourites_menu.append(item)
+                dynamic_items.append(item)
+
+        self._favourite_dynamic_items = dynamic_items
         self.favourites_menu.show_all()
+        return tuple(items)
 
     def open_favourite_path(self, path):
         if not self.may_continue():
@@ -1833,6 +1841,7 @@ class App(Gtk.Window):
 
     def on_reload_favourites(self, *_):
         self.populate_favourites_menu()
+        return True
 
     def text_stats(self):
         text = self.buffer_text()
