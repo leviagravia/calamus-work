@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import stat
+import tempfile
 
 SUPPORTED_TEMPLATE_SUFFIXES = (".txt", ".md")
 DEFAULT_TEMPLATE_NAME = "blank-note.txt"
@@ -83,3 +85,126 @@ def prepare_new_from_template_plan(template_path: str, text: str) -> NewFromTemp
     if not is_supported_template_path(normalized):
         raise ValueError("template must be a .txt or .md file")
     return NewFromTemplatePlan(source_path=normalized, text=text)
+
+
+@dataclass(frozen=True)
+class SaveTemplatePlan:
+    """Immutable copy-to-template-store plan for the active buffer."""
+
+    store_dir: str
+    target_path: str
+    text: str
+    replaces_existing: bool
+
+
+def suggest_template_filename(current_file: str | None) -> str:
+    """Return a safe direct-child filename suggestion for the save dialog."""
+    if current_file is not None and not isinstance(current_file, str):
+        raise TypeError("current_file must be a string or None")
+    basename = os.path.basename(current_file) if current_file else ""
+    if not basename or basename in (".", ".."):
+        return "template.txt"
+    stem, suffix = os.path.splitext(basename)
+    if suffix.lower() in SUPPORTED_TEMPLATE_SUFFIXES:
+        return basename
+    stem = stem or "template"
+    return f"{stem}.txt"
+
+
+def prepare_save_template_plan(
+    config_dir: str,
+    selected_path: str | None,
+    text: str,
+) -> SaveTemplatePlan | None:
+    """Validate an accepted destination inside the canonical template store.
+
+    The chooser, overwrite confirmation, active-buffer read, menu refresh,
+    notifications, and document state remain App responsibilities.  The target
+    must be a direct child of the canonical store and must use a supported
+    suffix.  Existing symlinks and non-regular targets are rejected.
+    """
+    if selected_path is None or selected_path == "":
+        return None
+    if not isinstance(selected_path, str):
+        raise TypeError("selected_path must be a string or None")
+    if not isinstance(text, str):
+        raise TypeError("text must be a string")
+
+    templates_dir = ensure_templates_dir(config_dir)
+    target_path = os.path.abspath(os.path.expanduser(selected_path))
+    target_parent = os.path.dirname(target_path)
+    if target_parent != templates_dir:
+        raise ValueError("Template must be saved directly in the Calamus templates folder")
+
+    name = os.path.basename(target_path)
+    if not name or name in (".", ".."):
+        raise ValueError("Template filename must not be empty")
+    if not is_supported_template_path(name):
+        raise ValueError("Template filename must end in .txt or .md")
+
+    replaces_existing = os.path.lexists(target_path)
+    if replaces_existing and (os.path.islink(target_path) or not os.path.isfile(target_path)):
+        raise ValueError("Template target must be a regular file and not a symbolic link")
+
+    return SaveTemplatePlan(
+        store_dir=templates_dir,
+        target_path=target_path,
+        text=text,
+        replaces_existing=replaces_existing,
+    )
+
+
+def write_template_atomic(plan: SaveTemplatePlan) -> str:
+    """Write *plan* atomically in its existing canonical store directory."""
+    if not isinstance(plan, SaveTemplatePlan):
+        raise TypeError("plan must be a SaveTemplatePlan")
+
+    target_path = plan.target_path
+    parent = os.path.dirname(target_path)
+    if parent != plan.store_dir:
+        raise ValueError("Template target is outside its canonical store")
+    if not os.path.isdir(parent):
+        raise FileNotFoundError(f"Template folder is not available: {parent}")
+    if os.path.lexists(target_path) and (
+        os.path.islink(target_path) or not os.path.isfile(target_path)
+    ):
+        raise ValueError("Template target must be a regular file and not a symbolic link")
+
+    existing_mode = None
+    if os.path.isfile(target_path) and not os.path.islink(target_path):
+        existing_mode = stat.S_IMODE(os.stat(target_path, follow_symlinks=False).st_mode)
+
+    fd, temporary_path = tempfile.mkstemp(
+        prefix=".calamus-template-",
+        suffix=".tmp",
+        dir=parent,
+        text=True,
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+            handle.write(plan.text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if existing_mode is not None:
+            os.chmod(temporary_path, existing_mode)
+        os.replace(temporary_path, target_path)
+        temporary_path = ""
+
+        directory_flags = os.O_RDONLY
+        if hasattr(os, "O_DIRECTORY"):
+            directory_flags |= os.O_DIRECTORY
+        try:
+            directory_fd = os.open(parent, directory_flags)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError:
+            # The file replacement has already committed. Directory fsync is a
+            # best-effort durability enhancement and must not report a false
+            # application-level failure after a successful atomic replace.
+            pass
+        return target_path
+    finally:
+        if temporary_path and os.path.exists(temporary_path):
+            os.unlink(temporary_path)

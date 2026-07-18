@@ -67,6 +67,25 @@ def choose_save_file(parent):
     return filename
 
 
+def choose_save_template(parent, templates_dir, suggested_name):
+    """Choose a direct template-store destination for a .txt or .md template."""
+    dialog = Gtk.FileChooserDialog(
+        "Save as Template", parent, Gtk.FileChooserAction.SAVE,
+        (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.OK),
+    )
+    dialog.set_do_overwrite_confirmation(True)
+    dialog.set_current_folder(templates_dir)
+    dialog.set_current_name(suggested_name)
+    template_filter = Gtk.FileFilter()
+    template_filter.set_name("Text templates (*.txt, *.md)")
+    template_filter.add_pattern("*.txt")
+    template_filter.add_pattern("*.md")
+    dialog.add_filter(template_filter)
+    filename = dialog.get_filename() if dialog.run() == Gtk.ResponseType.OK else None
+    dialog.destroy()
+    return filename
+
+
 SHORTCUT_ROWS = shortcut_rows()
 
 

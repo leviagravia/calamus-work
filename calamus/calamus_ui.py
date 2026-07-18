@@ -57,6 +57,7 @@ def build_menu(app) -> None:
     app.populate_recent_menu()
     add_item(filem, "Save\tCtrl+S", app.on_save)
     add_item(filem, "Save As…\tCtrl+Shift+S", app.on_save_as)
+    add_item(filem, "Save as Template…", app.on_save_as_template)
 
     app.favourites_item = Gtk.MenuItem(label="Favorites")
     favm = Gtk.Menu()

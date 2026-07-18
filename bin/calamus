@@ -24,7 +24,13 @@ from calamus_favorites import prepare_open_favorite_plan
 from calamus_favorites import prepare_add_favorite_plan
 from calamus_favorites import parse_favorite_edit_text, prepare_edit_favorite_plan
 from calamus_templates import (
-    list_templates, read_template, prepare_new_from_template_plan,
+    ensure_templates_dir,
+    list_templates,
+    prepare_new_from_template_plan,
+    prepare_save_template_plan,
+    read_template,
+    suggest_template_filename,
+    write_template_atomic,
 )
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
@@ -45,6 +51,7 @@ from calamus_spellcheck import (
 )
 from calamus_dialogs import (
     SHORTCUT_ROWS, ask_save as dialog_ask_save, choose_open_file, choose_save_file,
+    choose_save_template,
     prompt_go_to_line, run_find_replace_dialog, run_spelling_dialog,
     show_about, show_error, show_info, show_keyboard_shortcuts, show_large_info,
 )
@@ -1676,6 +1683,34 @@ class App(Gtk.Window):
         self.update_title()
         return True
 
+
+
+    def on_save_as_template(self, *_):
+        """Copy the active buffer into the template store without saving the document."""
+        try:
+            templates_dir = ensure_templates_dir(self.state.config_dir)
+            selected_path = choose_save_template(
+                self,
+                templates_dir,
+                suggest_template_filename(self.current_file),
+            )
+            if selected_path is None:
+                return False
+            plan = prepare_save_template_plan(
+                self.state.config_dir,
+                selected_path,
+                self.buffer_text(),
+            )
+            if plan is None:
+                return False
+            write_template_atomic(plan)
+        except (OSError, UnicodeError, TypeError, ValueError) as e:
+            self.error(str(e))
+            return False
+
+        self.populate_template_menu()
+        self.info(f"Template saved: {os.path.basename(plan.target_path)}")
+        return True
 
     def on_word_wrap(self, item):
         self.word_wrap = item.get_active()
