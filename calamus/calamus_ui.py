@@ -57,6 +57,18 @@ def build_menu(app) -> None:
     app.populate_recent_menu()
     add_item(filem, "Save\tCtrl+S", app.on_save)
     add_item(filem, "Save As…\tCtrl+Shift+S", app.on_save_as)
+
+    app.favourites_item = Gtk.MenuItem(label="Favorites")
+    favm = Gtk.Menu()
+    app.favourites_item.set_submenu(favm)
+    filem.append(app.favourites_item)
+    add_item(favm, "Add to Favourites\tCtrl+Alt+B", app.on_add_favourite)
+    add_item(favm, "Edit Favourites…\tCtrl+Shift+D", app.on_edit_favourites)
+    add_item(favm, "Reload Favourites\tCtrl+Alt+R", app.on_reload_favourites)
+    add_separator(favm)
+    app.favourites_menu = favm
+    app.populate_favourites_menu()
+
     add_separator(filem)
     add_item(filem, "Print Preview…\tCtrl+Shift+P", app.on_print_preview)
     add_item(filem, "Print…\tCtrl+P", app.on_print)
@@ -107,14 +119,6 @@ def build_menu(app) -> None:
     add_item(revisem, "Remove Trailing Spaces", app.on_remove_trailing_spaces)
     add_item(revisem, "Sort Alphabetically A-Z\tCtrl+Alt+Up", app.on_sort_lines_ascending)
     add_item(revisem, "Sort Alphabetically Z-A\tCtrl+Alt+Down", app.on_sort_lines_descending)
-
-    favm = top_menu(app, "Favourites")
-    add_item(favm, "Add to Favourites\tCtrl+Alt+B", app.on_add_favourite)
-    add_item(favm, "Edit Favourites…\tCtrl+Shift+D", app.on_edit_favourites)
-    add_item(favm, "Reload Favourites\tCtrl+Alt+R", app.on_reload_favourites)
-    add_separator(favm)
-    app.favourites_menu = favm
-    app.populate_favourites_menu()
 
     viewm = top_menu(app, "View")
     add_item(viewm, "Focus Mode\tF9", app.toggle_focus_mode)
