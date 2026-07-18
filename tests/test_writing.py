@@ -34,13 +34,6 @@ class WritingToolsTests(unittest.TestCase):
         self.assertEqual(stats["words"], 3)
         self.assertEqual(stats["paragraphs"], 2)
 
-    def test_templates(self):
-        with tempfile.TemporaryDirectory() as td:
-            items = w.list_templates(td)
-            self.assertTrue(any(name == "blank-note.txt" for name, _ in items))
-            name, path = items[0]
-            self.assertIsInstance(w.read_template(path), str)
-
     def test_clips_roundtrip(self):
         with tempfile.TemporaryDirectory() as td:
             item = clips.new_clip("Greeting", "Hello")

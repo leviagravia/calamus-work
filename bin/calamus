@@ -23,6 +23,9 @@ from calamus_recent_files import prepare_clear_recent_plan
 from calamus_favorites import prepare_open_favorite_plan
 from calamus_favorites import prepare_add_favorite_plan
 from calamus_favorites import parse_favorite_edit_text, prepare_edit_favorite_plan
+from calamus_templates import (
+    list_templates, read_template, prepare_new_from_template_plan,
+)
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
@@ -32,7 +35,7 @@ from calamus_clips import load_clips, save_clips, new_clip, clip_title_from_text
 from calamus_writing import (
     sort_lines, clean_pdf_text, remove_extra_spaces,
     remove_trailing_spaces, join_lines, reflow_paragraph, smart_typography,
-    title_case, sentence_case, document_statistics, list_templates, read_template,
+    title_case, sentence_case, document_statistics,
 )
 from calamus_spellcheck import (
     hunspell_dict as spell_hunspell_dict,
@@ -1649,14 +1652,29 @@ class App(Gtk.Window):
 
     def on_new_from_template(self, path):
         if not self.may_continue():
-            return
+            return False
         try:
-            self.current_file = None
-            self.set_buffer(read_template(path))
-            self.modified = False
-            self.update_title()
-        except OSError as e:
+            plan = prepare_new_from_template_plan(path, read_template(path))
+            return self.execute_new_from_template_plan(plan)
+        except (OSError, UnicodeError, TypeError, ValueError) as e:
             self.error(str(e))
+            return False
+
+    def execute_new_from_template_plan(self, plan):
+        # The template is only a text source.  Commit a new untitled identity
+        # only after Gtk has accepted the replacement text.
+        self.loading = True
+        try:
+            self.text.get_buffer().set_text(plan.text)
+        finally:
+            self.loading = False
+        self.document.file_path = plan.target_path
+        self.document.set_text(plan.text, modified=plan.modified)
+        self.current_file = self.document.file_path
+        self.modified = self.document.modified
+        self.reset_undo_history()
+        self.update_title()
+        return True
 
 
     def on_word_wrap(self, item):

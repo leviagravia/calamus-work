@@ -1,4 +1,3 @@
-import os
 import re
 import textwrap
 from datetime import datetime
@@ -142,28 +141,3 @@ def document_statistics(text, words_per_minute=200):
         "lines": lines,
         "reading_minutes": reading_minutes,
     }
-
-
-def ensure_templates_dir(config_dir):
-    path = os.path.join(config_dir, "templates")
-    os.makedirs(path, exist_ok=True)
-    sample = os.path.join(path, "blank-note.txt")
-    if not os.path.exists(sample):
-        with open(sample, "w", encoding="utf-8") as f:
-            f.write("Title\n=====\n\n")
-    return path
-
-
-def list_templates(config_dir):
-    path = ensure_templates_dir(config_dir)
-    items = []
-    for name in sorted(os.listdir(path)):
-        full = os.path.join(path, name)
-        if os.path.isfile(full) and name.lower().endswith((".txt", ".md")):
-            items.append((name, full))
-    return items
-
-
-def read_template(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
