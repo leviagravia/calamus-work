@@ -98,3 +98,83 @@ def prepare_add_favorite_plan(
         previous_paths=tuple(previous),
         updated_paths=tuple(updated),
     )
+
+
+@dataclass(frozen=True)
+class EditFavoritePlan:
+    """Deterministic canonical-store update from the Edit Favourites dialog."""
+
+    previous_paths: tuple[str, ...]
+    submitted_paths: tuple[str, ...]
+    updated_paths: tuple[str, ...]
+    rejected_paths: tuple[str, ...]
+
+    @property
+    def changed(self) -> bool:
+        """Whether the canonical persisted list changes after validation."""
+        return self.updated_paths != self.previous_paths
+
+
+def parse_favorite_edit_text(text: str) -> tuple[str, ...]:
+    """Return stable, trimmed, non-empty dialog entries without exact duplicates."""
+    if not isinstance(text, str):
+        raise TypeError("text must be a string")
+
+    entries: list[str] = []
+    for line in text.splitlines():
+        item = line.strip()
+        if item and item not in entries:
+            entries.append(item)
+    return tuple(entries)
+
+
+def prepare_edit_favorite_plan(
+    existing_paths: list[str] | tuple[str, ...],
+    resolved_entries: list[tuple[str, bool]] | tuple[tuple[str, bool], ...],
+) -> EditFavoritePlan:
+    """Plan an explicit edit of the canonical Favorite-file store.
+
+    ``resolved_entries`` is produced by the application boundary after expanding
+    and absolutizing each submitted path and checking ``os.path.isfile``.  This
+    pure function preserves submitted order, stores each accepted regular file
+    once, records rejected non-files once, and never probes the filesystem.
+    """
+    if not isinstance(existing_paths, (list, tuple)):
+        raise TypeError("existing_paths must be a list or tuple")
+    if not isinstance(resolved_entries, (list, tuple)):
+        raise TypeError("resolved_entries must be a list or tuple")
+
+    previous: list[str] = []
+    for item in existing_paths:
+        if not isinstance(item, str):
+            raise TypeError("every existing Favorite path must be a string")
+        if item and item not in previous:
+            previous.append(item)
+
+    submitted: list[str] = []
+    updated: list[str] = []
+    rejected: list[str] = []
+    for entry in resolved_entries:
+        if not isinstance(entry, tuple) or len(entry) != 2:
+            raise TypeError("every resolved entry must be a (path, is_file) tuple")
+        path, is_file = entry
+        if not isinstance(path, str):
+            raise TypeError("every resolved Favorite path must be a string")
+        if path == "":
+            raise ValueError("resolved Favorite paths must not be empty")
+        if not isinstance(is_file, bool):
+            raise TypeError("resolved Favorite availability must be boolean")
+        if path not in submitted:
+            submitted.append(path)
+        if is_file:
+            if path not in updated:
+                updated.append(path)
+        elif path not in rejected:
+            rejected.append(path)
+
+    return EditFavoritePlan(
+        previous_paths=tuple(previous),
+        submitted_paths=tuple(submitted),
+        updated_paths=tuple(updated),
+        rejected_paths=tuple(rejected),
+    )

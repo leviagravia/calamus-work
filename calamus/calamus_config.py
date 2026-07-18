@@ -105,8 +105,19 @@ def add_recent_file(path: str, limit: int = 10) -> list[str]:
     return items[:limit]
 
 
+def load_favourite_store(limit: int = 50) -> list[str]:
+    """Load the canonical Favorite path list without availability filtering."""
+    clean: list[str] = []
+    for item in load_json_file(FAVOURITES_FILE, []):
+        if isinstance(item, str) and item and item not in clean:
+            clean.append(item)
+        if len(clean) >= limit:
+            break
+    return clean
+
+
 def load_favourites(limit: int = 50) -> list[str]:
-    return _clean_existing_paths(load_json_file(FAVOURITES_FILE, []), limit)
+    return _clean_existing_paths(load_favourite_store(limit), limit)
 
 
 def save_favourites(items: list[str], limit: int = 50) -> bool:

@@ -22,6 +22,7 @@ from calamus_recent_files import prepare_open_recent_plan
 from calamus_recent_files import prepare_clear_recent_plan
 from calamus_favorites import prepare_open_favorite_plan
 from calamus_favorites import prepare_add_favorite_plan
+from calamus_favorites import parse_favorite_edit_text, prepare_edit_favorite_plan
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
@@ -1724,6 +1725,9 @@ class App(Gtk.Window):
     def on_replace_all_dialog(self, *_):
         self.on_find_replace()
 
+    def load_favourite_store(self):
+        return self.state.load_favourite_store(limit=50)
+
     def load_favourites(self):
         return self.state.load_favourites(limit=50)
 
@@ -1778,6 +1782,27 @@ class App(Gtk.Window):
         self.info("Added to Favourites:\n" + plan.favorite_path)
         return True
 
+    def apply_favourite_edits(self, text):
+        submitted = parse_favorite_edit_text(text)
+        resolved = []
+        for item in submitted:
+            path = os.path.abspath(os.path.expanduser(item))
+            resolved.append((path, os.path.isfile(path)))
+        plan = prepare_edit_favorite_plan(
+            self.load_favourite_store(),
+            resolved,
+        )
+        if not self.save_favourites(list(plan.updated_paths)):
+            self.error("Could not save Favourites.")
+            return False
+        self.populate_favourites_menu()
+        if plan.rejected_paths:
+            self.error(
+                "These favourite entries are not regular files and were skipped:\n"
+                + "\n".join(plan.rejected_paths[:10])
+            )
+        return True
+
     def on_edit_favourites(self, *_):
         d = Gtk.Dialog(title="Edit Favourites", transient_for=self, modal=True)
         d.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Save", Gtk.ResponseType.OK)
@@ -1791,23 +1816,20 @@ class App(Gtk.Window):
         label.set_xalign(0)
         view = Gtk.TextView()
         view.set_wrap_mode(Gtk.WrapMode.NONE)
-        view.get_buffer().set_text("\n".join(self.load_favourites()))
+        view.get_buffer().set_text("\n".join(self.load_favourite_store()))
         scroll = Gtk.ScrolledWindow()
         scroll.set_size_request(520, 260)
         scroll.add(view)
         box.pack_start(label, False, False, 0)
         box.pack_start(scroll, True, True, 0)
         d.show_all()
+        result = False
         if d.run() == Gtk.ResponseType.OK:
             b = view.get_buffer()
             s, e = b.get_bounds()
-            items = [line.strip() for line in b.get_text(s, e, True).splitlines() if line.strip()]
-            missing = [x for x in items if not os.path.exists(x)]
-            if missing:
-                self.error("These favourite files do not exist and were skipped:\n" + "\n".join(missing[:10]))
-            self.save_favourites([x for x in items if os.path.exists(x)])
-            self.populate_favourites_menu()
+            result = self.apply_favourite_edits(b.get_text(s, e, True))
         d.destroy()
+        return result
 
     def on_reload_favourites(self, *_):
         self.populate_favourites_menu()

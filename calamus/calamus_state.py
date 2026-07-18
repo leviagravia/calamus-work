@@ -23,6 +23,7 @@ from calamus_config import (
     load_recent_files,
     save_recent_files,
     add_recent_file,
+    load_favourite_store,
     load_favourites,
     save_favourites,
 )
@@ -85,10 +86,16 @@ class StateManager:
         self.save_recent_files(items, limit)
         return items[:limit]
 
+    def load_favourite_store(self, limit: int = 50) -> list[str]:
+        """Load canonical Favorite paths, including temporarily unavailable ones."""
+        if self.config_dir == CONFIG_DIR:
+            return load_favourite_store(limit)
+        return _dedupe_paths(load_json_file(self.favourites_file, []))[:limit]
+
     def load_favourites(self, limit: int = 50) -> list[str]:
         if self.config_dir == CONFIG_DIR:
             return load_favourites(limit)
-        return _clean_existing_paths(load_json_file(self.favourites_file, []), limit)
+        return _clean_existing_paths(self.load_favourite_store(limit), limit)
 
     def save_favourites(self, items: list[str], limit: int = 50) -> bool:
         if self.config_dir == CONFIG_DIR:
