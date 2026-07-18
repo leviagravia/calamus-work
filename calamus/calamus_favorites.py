@@ -49,3 +49,52 @@ def prepare_open_favorite_plan(
         selected_path=selected_path,
         target_path=selected_path if path_is_file else None,
     )
+
+
+@dataclass(frozen=True)
+class AddFavoritePlan:
+    """Deterministic persistence plan for the current document Favorite."""
+
+    favorite_path: str
+    previous_paths: tuple[str, ...]
+    updated_paths: tuple[str, ...]
+
+    @property
+    def was_already_present(self) -> bool:
+        """Whether the target already existed anywhere in the prior store view."""
+        return self.favorite_path in self.previous_paths
+
+
+def prepare_add_favorite_plan(
+    current_path: str,
+    existing_paths: list[str] | tuple[str, ...],
+) -> AddFavoritePlan:
+    """Plan insertion of the current file at the front of Favorites.
+
+    The visible command historically moves an existing Favorite to the front and
+    reports it as added. W53 preserves that interaction while making the state
+    transition deterministic: duplicates and empty entries are removed, the
+    selected file occurs exactly once at index zero, and persistence/UI commit
+    remains the responsibility of the application boundary.
+    """
+    if not isinstance(current_path, str):
+        raise TypeError("current_path must be a string")
+    if current_path == "":
+        raise ValueError("current_path must not be empty")
+    if not isinstance(existing_paths, (list, tuple)):
+        raise TypeError("existing_paths must be a list or tuple")
+
+    previous: list[str] = []
+    for item in existing_paths:
+        if not isinstance(item, str):
+            raise TypeError("every existing Favorite path must be a string")
+        if item and item not in previous:
+            previous.append(item)
+
+    updated = [current_path]
+    updated.extend(path for path in previous if path != current_path)
+    return AddFavoritePlan(
+        favorite_path=current_path,
+        previous_paths=tuple(previous),
+        updated_paths=tuple(updated),
+    )
