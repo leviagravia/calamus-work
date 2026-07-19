@@ -133,7 +133,7 @@ def build_menu(app) -> None:
     optm.append(app.word_wrap_item)
     add_item(optm, "Font…\tCtrl+Shift+F", app.on_font)
     app.transparent_item = Gtk.CheckMenuItem(label="Transparent Mode\tCtrl+Shift+T")
-    app.transparent_item.set_active(int(app.settings.get("opacity", app.DEFAULT_OPACITY if hasattr(app, "DEFAULT_OPACITY") else 88)) < 100)
+    app.transparent_item.set_active(app.opacity_percent < 100)
     app.transparent_item.connect("toggled", app.on_transparent_mode)
     optm.append(app.transparent_item)
     app.always_item = Gtk.CheckMenuItem(label="Always on Top\tCtrl+Shift+A")

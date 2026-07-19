@@ -87,13 +87,21 @@ from calamus_appearance_preferences import (
     load_appearance_preference,
 )
 from calamus_appearance_gateway import execute_appearance_preference_request
+from calamus_opacity import (
+    apply_widget_opacity,
+    load_opacity_preference,
+    opacity_settings_overrides,
+)
+from calamus_opacity_gateway import (
+    execute_opacity_preference_request,
+    execute_transparent_mode_request,
+)
 from calamus_appearance import (
     apply_line_gutter_typography,
     build_application_css,
     install_application_css,
     measure_line_gutter_width,
 )
-DEFAULT_OPACITY = 88
 DEFAULT_FONT = DEFAULT_FONT_SIZE
 MIN_FONT = MIN_FONT_SIZE
 MAX_FONT = MAX_FONT_SIZE
@@ -125,6 +133,10 @@ class App(Gtk.Window):
         appearance_preference = load_appearance_preference(self.settings)
         self.appearance_mode = appearance_preference.mode
         self._syncing_appearance_items = False
+        opacity_preference = load_opacity_preference(self.settings)
+        self.opacity_percent = opacity_preference.percent
+        self._syncing_opacity_item = False
+        self._opacity_widget_api = Gtk.Widget
         self.document = Document(file_path=self.settings.get("last_file") or None)
         self.current_file = self.document.file_path
 
@@ -156,7 +168,7 @@ class App(Gtk.Window):
         self.set_resizable(True)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_keep_above(self.always_on_top)
-        self.set_opacity(clamp_int(self.settings.get("opacity"), DEFAULT_OPACITY, 30, 100) / 100.0)
+        apply_widget_opacity(self, self.opacity_percent, widget_api=self._opacity_widget_api)
         self.set_icon_name(APP_ICON)
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -321,7 +333,7 @@ class App(Gtk.Window):
         data = {
             "width": width,
             "height": height,
-            "opacity": int(self.get_opacity() * 100),
+            **opacity_settings_overrides(self.opacity_percent),
             "font_size": self.font_size,
             "font_family": self.font_family,
             "word_wrap": self.word_wrap_item.get_active() if hasattr(self, "word_wrap_item") else self.word_wrap,
@@ -798,9 +810,7 @@ class App(Gtk.Window):
         self.save_settings()
 
     def set_opacity_value(self, v):
-        self.set_opacity(v/100.0)
-        self.update_title()
-        self.save_settings()
+        return execute_opacity_preference_request(self, v)
 
     def change_font(self, delta):
         self.font_size = max(MIN_FONT, min(MAX_FONT, self.font_size + delta))
@@ -1474,10 +1484,9 @@ class App(Gtk.Window):
             self.word_wrap_item.set_active(not self.word_wrap_item.get_active())
 
     def on_transparent_mode(self, item):
-        if item.get_active():
-            self.set_opacity_value(int(self.settings.get("opacity", DEFAULT_OPACITY)) if int(self.settings.get("opacity", DEFAULT_OPACITY)) < 100 else DEFAULT_OPACITY)
-        else:
-            self.set_opacity_value(100)
+        if self._syncing_opacity_item:
+            return False
+        return execute_transparent_mode_request(self, item.get_active())
 
     def toggle_transparent_mode(self, *_):
         if hasattr(self, "transparent_item"):
