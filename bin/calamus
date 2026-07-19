@@ -24,11 +24,16 @@ from calamus_favorites import prepare_open_favorite_plan
 from calamus_favorites import prepare_add_favorite_plan
 from calamus_favorites import parse_favorite_edit_text, prepare_edit_favorite_plan
 from calamus_templates import (
+    delete_template_file,
     ensure_templates_dir,
+    list_managed_templates,
     list_templates,
+    prepare_delete_template_plan,
     prepare_new_from_template_plan,
+    prepare_rename_template_plan,
     prepare_save_template_plan,
     read_template,
+    rename_template_file,
     suggest_template_filename,
     write_template_atomic,
 )
@@ -51,7 +56,7 @@ from calamus_spellcheck import (
 )
 from calamus_dialogs import (
     SHORTCUT_ROWS, ask_save as dialog_ask_save, choose_open_file, choose_save_file,
-    choose_save_template,
+    choose_save_template, run_manage_templates_dialog,
     prompt_go_to_line, run_find_replace_dialog, run_spelling_dialog,
     show_about, show_error, show_info, show_keyboard_shortcuts, show_large_info,
 )
@@ -1711,6 +1716,52 @@ class App(Gtk.Window):
         self.populate_template_menu()
         self.info(f"Template saved: {os.path.basename(plan.target_path)}")
         return True
+
+    def on_manage_templates(self, *_):
+        """Open the bounded rename/delete manager for canonical templates."""
+        try:
+            entries = list_managed_templates(self.state.config_dir)
+        except (OSError, TypeError, ValueError) as e:
+            self.error(str(e))
+            return False
+        return run_manage_templates_dialog(
+            self,
+            entries,
+            self.rename_managed_template,
+            self.delete_managed_template,
+        )
+
+    def rename_managed_template(self, source_path, new_name):
+        """Rename one user template, then refresh the derived template menu."""
+        try:
+            plan = prepare_rename_template_plan(
+                self.state.config_dir,
+                source_path,
+                new_name,
+            )
+            if plan is None:
+                return None
+            rename_template_file(plan)
+        except (OSError, TypeError, ValueError) as e:
+            self.error(str(e))
+            return None
+
+        self.populate_template_menu()
+        self.info(f"Template renamed: {plan.target_name}")
+        return list_managed_templates(self.state.config_dir)
+
+    def delete_managed_template(self, target_path):
+        """Delete one user template, then refresh the derived template menu."""
+        try:
+            plan = prepare_delete_template_plan(self.state.config_dir, target_path)
+            delete_template_file(plan)
+        except (OSError, TypeError, ValueError) as e:
+            self.error(str(e))
+            return None
+
+        self.populate_template_menu()
+        self.info(f"Template deleted: {plan.target_name}")
+        return list_managed_templates(self.state.config_dir)
 
     def on_word_wrap(self, item):
         self.word_wrap = item.get_active()

@@ -86,6 +86,154 @@ def choose_save_template(parent, templates_dir, suggested_name):
     return filename
 
 
+def _prompt_template_name(parent, current_name):
+    dialog = Gtk.Dialog(title="Rename Template", transient_for=parent, modal=True)
+    dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, "Rename", Gtk.ResponseType.OK)
+    box = dialog.get_content_area()
+    box.set_spacing(8)
+    _margins(box)
+    label = Gtk.Label(label="Template name (.txt or .md):")
+    label.set_xalign(0)
+    entry = Gtk.Entry()
+    entry.set_text(current_name)
+    entry.select_region(0, len(current_name))
+    entry.set_activates_default(True)
+    box.pack_start(label, False, False, 0)
+    box.pack_start(entry, False, False, 0)
+    dialog.set_default_response(Gtk.ResponseType.OK)
+    dialog.show_all()
+    response = dialog.run()
+    value = entry.get_text() if response == Gtk.ResponseType.OK else None
+    dialog.destroy()
+    return value
+
+
+def _confirm_template_delete(parent, name):
+    dialog = Gtk.MessageDialog(
+        parent,
+        0,
+        Gtk.MessageType.WARNING,
+        Gtk.ButtonsType.NONE,
+        "Delete template?",
+    )
+    dialog.format_secondary_text(
+        f"Delete '{name}' permanently from the Calamus templates folder?"
+    )
+    dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, "Delete", Gtk.ResponseType.OK)
+    response = dialog.run()
+    dialog.destroy()
+    return response == Gtk.ResponseType.OK
+
+
+def run_manage_templates_dialog(parent, entries, rename_callback, delete_callback):
+    """Manage template names without editing the active document or template text.
+
+    Callbacks return a refreshed iterable after a successful filesystem action,
+    or ``None`` when an action was cancelled or failed.
+    """
+    dialog = Gtk.Dialog(title="Manage Templates", transient_for=parent, modal=True)
+    dialog.add_buttons(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
+    dialog.set_default_size(560, 360)
+    box = dialog.get_content_area()
+    box.set_spacing(8)
+    _margins(box)
+
+    explanation = Gtk.Label(
+        label=(
+            "Rename or delete user templates. The default blank-note.txt name "
+            "is protected, but its contents can be replaced with Save as Template."
+        )
+    )
+    explanation.set_xalign(0)
+    explanation.set_line_wrap(True)
+    box.pack_start(explanation, False, False, 0)
+
+    store = Gtk.ListStore(str, str, bool, str)
+    tree = Gtk.TreeView(model=store)
+    tree.set_headers_visible(True)
+    selection = tree.get_selection()
+    selection.set_mode(Gtk.SelectionMode.SINGLE)
+    name_renderer = Gtk.CellRendererText()
+    tree.append_column(Gtk.TreeViewColumn("Template", name_renderer, text=0))
+    status_renderer = Gtk.CellRendererText()
+    tree.append_column(Gtk.TreeViewColumn("Status", status_renderer, text=3))
+
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    scroll.add(tree)
+    box.pack_start(scroll, True, True, 0)
+
+    actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    rename_button = Gtk.Button(label="Rename…")
+    delete_button = Gtk.Button(label="Delete…")
+    actions.pack_start(rename_button, False, False, 0)
+    actions.pack_start(delete_button, False, False, 0)
+    box.pack_start(actions, False, False, 0)
+
+    def refill(actual_entries):
+        store.clear()
+        for item in actual_entries:
+            store.append(
+                [item.name, item.path, bool(item.protected), "Default" if item.protected else ""]
+            )
+        rename_button.set_sensitive(False)
+        delete_button.set_sensitive(False)
+
+    def selected_row():
+        model, tree_iter = selection.get_selected()
+        if tree_iter is None:
+            return None
+        return {
+            "name": model[tree_iter][0],
+            "path": model[tree_iter][1],
+            "protected": bool(model[tree_iter][2]),
+        }
+
+    def update_actions(_selection=None):
+        row = selected_row()
+        enabled = row is not None and not row["protected"]
+        rename_button.set_sensitive(enabled)
+        delete_button.set_sensitive(enabled)
+
+    def on_rename(_button):
+        row = selected_row()
+        if row is None or row["protected"]:
+            return
+        new_name = _prompt_template_name(dialog, row["name"])
+        if new_name is None:
+            return
+        dialog.hide()
+        try:
+            refreshed = rename_callback(row["path"], new_name)
+            if refreshed is not None:
+                refill(refreshed)
+        finally:
+            dialog.show_all()
+
+    def on_delete(_button):
+        row = selected_row()
+        if row is None or row["protected"]:
+            return
+        if not _confirm_template_delete(dialog, row["name"]):
+            return
+        dialog.hide()
+        try:
+            refreshed = delete_callback(row["path"])
+            if refreshed is not None:
+                refill(refreshed)
+        finally:
+            dialog.show_all()
+
+    selection.connect("changed", update_actions)
+    rename_button.connect("clicked", on_rename)
+    delete_button.connect("clicked", on_delete)
+    refill(entries)
+    dialog.show_all()
+    dialog.run()
+    dialog.destroy()
+    return True
+
+
 SHORTCUT_ROWS = shortcut_rows()
 
 

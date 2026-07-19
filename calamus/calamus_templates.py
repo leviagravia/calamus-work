@@ -47,15 +47,42 @@ def is_supported_template_path(path: str) -> bool:
     return isinstance(path, str) and path.lower().endswith(SUPPORTED_TEMPLATE_SUFFIXES)
 
 
-def list_templates(config_dir: str) -> list[tuple[str, str]]:
-    """List regular supported template files from the canonical store."""
+@dataclass(frozen=True)
+class ManagedTemplateEntry:
+    """A regular template exposed by the manager UI."""
+
+    name: str
+    path: str
+    protected: bool = False
+
+
+def list_managed_templates(config_dir: str) -> list[ManagedTemplateEntry]:
+    """List direct regular templates, excluding symbolic links.
+
+    ``blank-note.txt`` is the store-owned default.  Its contents may be
+    overwritten through Save as Template, but its stable name is protected
+    because :func:`ensure_templates_dir` recreates it whenever it is missing.
+    """
     templates_dir = ensure_templates_dir(config_dir)
-    items: list[tuple[str, str]] = []
-    for name in sorted(os.listdir(templates_dir)):
+    items: list[ManagedTemplateEntry] = []
+    for name in sorted(os.listdir(templates_dir), key=str.casefold):
         full = os.path.abspath(os.path.join(templates_dir, name))
+        if os.path.islink(full):
+            continue
         if os.path.isfile(full) and is_supported_template_path(name):
-            items.append((name, full))
+            items.append(
+                ManagedTemplateEntry(
+                    name=name,
+                    path=full,
+                    protected=name == DEFAULT_TEMPLATE_NAME,
+                )
+            )
     return items
+
+
+def list_templates(config_dir: str) -> list[tuple[str, str]]:
+    """List regular supported templates for the dynamic New submenu."""
+    return [(entry.name, entry.path) for entry in list_managed_templates(config_dir)]
 
 
 def read_template(path: str) -> str:
@@ -208,3 +235,149 @@ def write_template_atomic(plan: SaveTemplatePlan) -> str:
     finally:
         if temporary_path and os.path.exists(temporary_path):
             os.unlink(temporary_path)
+
+@dataclass(frozen=True)
+class RenameTemplatePlan:
+    """Immutable direct-child rename within the canonical template store."""
+
+    store_dir: str
+    source_path: str
+    target_path: str
+    source_name: str
+    target_name: str
+
+
+@dataclass(frozen=True)
+class DeleteTemplatePlan:
+    """Immutable deletion of one user-owned template."""
+
+    store_dir: str
+    target_path: str
+    target_name: str
+
+
+def _validate_template_filename(name: str) -> str:
+    if not isinstance(name, str):
+        raise TypeError("template name must be a string")
+    normalized = name.strip()
+    if not normalized or normalized in (".", ".."):
+        raise ValueError("Template name must not be empty")
+    if normalized != os.path.basename(normalized) or "/" in normalized or "\\" in normalized:
+        raise ValueError("Template name must not contain a folder path")
+    if not is_supported_template_path(normalized):
+        raise ValueError("Template name must end in .txt or .md")
+    return normalized
+
+
+def _validate_managed_template_source(store_dir: str, path: str) -> tuple[str, str]:
+    if not isinstance(path, str):
+        raise TypeError("template path must be a string")
+    if path == "":
+        raise ValueError("template path must not be empty")
+    normalized = os.path.abspath(os.path.expanduser(path))
+    if os.path.dirname(normalized) != store_dir:
+        raise ValueError("Template is outside the Calamus templates folder")
+    name = os.path.basename(normalized)
+    _validate_template_filename(name)
+    if os.path.islink(normalized) or not os.path.isfile(normalized):
+        raise ValueError("Template must be a regular file and not a symbolic link")
+    return normalized, name
+
+
+def _fsync_template_store(store_dir: str) -> None:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    try:
+        directory_fd = os.open(store_dir, flags)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except OSError:
+        # The filesystem mutation has already committed.  Directory fsync is
+        # a best-effort durability enhancement, not a reason to report a false
+        # application-level failure after success.
+        pass
+
+
+def prepare_rename_template_plan(
+    config_dir: str,
+    source_path: str,
+    new_name: str | None,
+) -> RenameTemplatePlan | None:
+    """Validate a no-overwrite rename inside the canonical template store."""
+    if new_name is None:
+        return None
+    store_dir = ensure_templates_dir(config_dir)
+    source_path, source_name = _validate_managed_template_source(store_dir, source_path)
+    if source_name == DEFAULT_TEMPLATE_NAME:
+        raise ValueError("The default blank-note.txt template cannot be renamed")
+    target_name = _validate_template_filename(new_name)
+    if target_name == source_name:
+        return None
+    target_path = os.path.abspath(os.path.join(store_dir, target_name))
+    if os.path.dirname(target_path) != store_dir:
+        raise ValueError("Template target is outside the Calamus templates folder")
+    if os.path.lexists(target_path):
+        raise FileExistsError(f"A template named '{target_name}' already exists")
+    return RenameTemplatePlan(
+        store_dir=store_dir,
+        source_path=source_path,
+        target_path=target_path,
+        source_name=source_name,
+        target_name=target_name,
+    )
+
+
+def rename_template_file(plan: RenameTemplatePlan) -> str:
+    """Apply a validated no-overwrite rename and return the new path."""
+    if not isinstance(plan, RenameTemplatePlan):
+        raise TypeError("plan must be a RenameTemplatePlan")
+    store_dir = os.path.abspath(plan.store_dir)
+    source_path, source_name = _validate_managed_template_source(store_dir, plan.source_path)
+    if source_name == DEFAULT_TEMPLATE_NAME:
+        raise ValueError("The default blank-note.txt template cannot be renamed")
+    target_name = _validate_template_filename(plan.target_name)
+    target_path = os.path.abspath(plan.target_path)
+    if source_path != os.path.abspath(plan.source_path):
+        raise ValueError("Template source does not match its validated plan")
+    if target_path != os.path.abspath(os.path.join(store_dir, target_name)):
+        raise ValueError("Template target does not match its validated plan")
+    if os.path.dirname(target_path) != store_dir:
+        raise ValueError("Template target is outside the Calamus templates folder")
+    if os.path.lexists(target_path):
+        raise FileExistsError(f"A template named '{target_name}' already exists")
+    os.rename(source_path, target_path)
+    _fsync_template_store(store_dir)
+    return target_path
+
+
+def prepare_delete_template_plan(config_dir: str, target_path: str) -> DeleteTemplatePlan:
+    """Validate deletion of one non-default regular template."""
+    store_dir = ensure_templates_dir(config_dir)
+    target_path, target_name = _validate_managed_template_source(store_dir, target_path)
+    if target_name == DEFAULT_TEMPLATE_NAME:
+        raise ValueError("The default blank-note.txt template cannot be deleted")
+    return DeleteTemplatePlan(
+        store_dir=store_dir,
+        target_path=target_path,
+        target_name=target_name,
+    )
+
+
+def delete_template_file(plan: DeleteTemplatePlan) -> str:
+    """Delete one validated template and return its former path."""
+    if not isinstance(plan, DeleteTemplatePlan):
+        raise TypeError("plan must be a DeleteTemplatePlan")
+    store_dir = os.path.abspath(plan.store_dir)
+    target_path, target_name = _validate_managed_template_source(store_dir, plan.target_path)
+    if target_name == DEFAULT_TEMPLATE_NAME:
+        raise ValueError("The default blank-note.txt template cannot be deleted")
+    if target_path != os.path.abspath(plan.target_path):
+        raise ValueError("Template target does not match its validated plan")
+    if target_name != plan.target_name:
+        raise ValueError("Template name does not match its validated plan")
+    os.unlink(target_path)
+    _fsync_template_store(store_dir)
+    return target_path

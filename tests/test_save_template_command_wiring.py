@@ -226,12 +226,11 @@ class SaveTemplateCommandWiringTests(unittest.TestCase):
         self.assertEqual(before, after)
         self.assertEqual(events, [('write', plan), ('refresh',), ('info', 'Template saved: note.txt')])
 
-    def test_w60_does_not_add_manage_templates_or_touch_new_from_template(self):
-        ui = UI.read_text(encoding='utf-8')
-        self.assertNotIn('Manage Templates…', ui)
+    def test_save_as_template_remains_separate_from_new_from_template(self):
         new_method = _method_source('on_new_from_template')
         self.assertNotIn('prepare_save_template_plan', new_method)
         self.assertNotIn('write_template_atomic', new_method)
+        self.assertNotIn('on_manage_templates', new_method)
 
 
 if __name__ == '__main__':
