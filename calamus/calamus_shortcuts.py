@@ -22,8 +22,6 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("File", "Print Preview", "Ctrl+Shift+P"),
     ShortcutSpec("File", "Print", "Ctrl+P"),
     ShortcutSpec("File", "Open file by drag-and-drop", "Drop .txt into window"),
-    ShortcutSpec("File", "Save Session", "Ctrl+Alt+S"),
-    ShortcutSpec("File", "Reopen Last Session", "Ctrl+Alt+O"),
     ShortcutSpec("File", "Quit", "Ctrl+Q"),
     ShortcutSpec("Edit", "Undo", "Ctrl+Z"),
     ShortcutSpec("Edit", "Redo", "Ctrl+Y / Ctrl+Shift+Z"),

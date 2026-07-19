@@ -6,13 +6,21 @@ from calamus_state import StateManager
 
 
 class StateManagerTests(unittest.TestCase):
-    def test_settings_and_session_roundtrip(self):
+    def test_settings_roundtrip(self):
         with tempfile.TemporaryDirectory() as td:
             state = StateManager(td)
             self.assertTrue(state.save_settings({"font_size": 12}))
             self.assertEqual(state.load_settings()["font_size"], 12)
-            self.assertTrue(state.save_session({"files": [{"path": "/tmp/a"}]}))
-            self.assertEqual(state.load_session()["files"][0]["path"], "/tmp/a")
+
+    def test_legacy_session_file_is_left_untouched(self):
+        with tempfile.TemporaryDirectory() as td:
+            legacy = os.path.join(td, "session.json")
+            payload = '{"legacy": true}\n'
+            with open(legacy, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+            StateManager(td)
+            with open(legacy, "r", encoding="utf-8") as handle:
+                self.assertEqual(handle.read(), payload)
 
     def test_recent_and_favourites_are_deduped_existing_paths(self):
         with tempfile.TemporaryDirectory() as td:

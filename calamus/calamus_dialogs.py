@@ -339,7 +339,6 @@ Main focus:
 Key features:
 - Find and replace
 - Spell checking
-- Session restore
 - Recent files and favourites
 - Clip Collection for reusable text blocks
 - Clean Paste from PDF

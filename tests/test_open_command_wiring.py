@@ -195,9 +195,9 @@ class OpenCommandWiringTests(unittest.TestCase):
         self.assertTrue(execute(silent, plan, silent=True))
         self.assertNotIn("info", [event[0] for event in silent.events])
 
-    def test_recent_and_session_callers_remain_on_existing_open_path_gateway(self):
+    def test_recent_caller_remains_on_existing_open_path_gateway(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn("self.open_path(path, silent=True)", launcher)
+        self.assertNotIn("def on_restore_session", launcher)
         recent = _method_source("open_recent_path")
         self.assertIn("self.open_path(path)", recent)
         self.assertNotIn("prepare_open_plan", recent)

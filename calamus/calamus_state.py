@@ -1,8 +1,8 @@
 """Persistent application state for Calamus.
 
-This module centralizes settings, session data, recent files, favourites,
-clips, and template paths. It intentionally remains a thin layer over the
-existing JSON stores so user data stays backward compatible.
+This module centralizes settings, recent files, favourites, clips, and
+template paths. It intentionally remains a thin layer over the existing JSON
+stores so user data stays backward compatible.
 """
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from typing import Any
 from calamus_config import (
     CONFIG_DIR,
     SETTINGS_FILE,
-    SESSION_FILE,
     RECENT_FILE,
     FAVOURITES_FILE,
     clamp_int,
@@ -36,7 +35,6 @@ class StateManager:
     def __init__(self, config_dir: str = CONFIG_DIR):
         self.config_dir = config_dir
         self.settings_file = os.path.join(config_dir, "settings.json")
-        self.session_file = os.path.join(config_dir, "session.json")
         self.recent_file = os.path.join(config_dir, "recent.json")
         self.favourites_file = os.path.join(config_dir, "favourites.json")
 
@@ -55,15 +53,6 @@ class StateManager:
         if self.config_dir == CONFIG_DIR:
             return save_settings(data)
         return save_json_file(self.settings_file, data)
-
-    def load_session(self) -> dict[str, Any]:
-        data = load_json_file(self.session_file, {})
-        return data if isinstance(data, dict) else {}
-
-    def save_session(self, data: dict[str, Any]) -> bool:
-        if not isinstance(data, dict):
-            return False
-        return save_json_file(self.session_file, data)
 
     def load_recent_files(self, limit: int = 10) -> list[str]:
         if self.config_dir == CONFIG_DIR:

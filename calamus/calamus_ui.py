@@ -75,9 +75,6 @@ def build_menu(app) -> None:
     add_item(filem, "Print Preview…\tCtrl+Shift+P", app.on_print_preview)
     add_item(filem, "Print…\tCtrl+P", app.on_print)
     add_separator(filem)
-    add_item(filem, "Save Session\tCtrl+Alt+S", app.on_save_session)
-    add_item(filem, "Reopen Last Session\tCtrl+Alt+O", app.on_restore_session)
-    add_separator(filem)
     add_item(filem, "Quit\tCtrl+Q", app.on_quit)
 
     editm = top_menu(app, "Edit")
@@ -190,8 +187,6 @@ def shortcut_bindings(app):
         ("<Control>O", app.on_open),
         ("<Control>S", app.on_save),
         ("<Control><Shift>S", app.on_save_as),
-        ("<Control><Alt>S", app.on_save_session),
-        ("<Control><Alt>O", app.on_restore_session),
         ("<Control>F", app.on_find_replace),
         ("<Control>H", app.on_find_replace),
         ("<Control><Shift>H", app.on_replace_all_dialog),

@@ -7,7 +7,6 @@ from typing import Any
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "calamus")
 SETTINGS_FILE = os.path.join(CONFIG_DIR, "settings.json")
-SESSION_FILE = os.path.join(CONFIG_DIR, "session.json")
 RECENT_FILE = os.path.join(CONFIG_DIR, "recent.json")
 FAVOURITES_FILE = os.path.join(CONFIG_DIR, "favourites.json")
 
