@@ -69,16 +69,26 @@ APP_TITLE = "Calamus Copy"
 APP_ICON = "calamus"
 RUNTIME_ABOUT_NAME = "Calamus-Working-Copy"
 from calamus_version import APP_VERSION as VERSION
-from calamus_layout import CLIP_PANEL_DEFAULT_WIDTH, LINE_GUTTER_MIN_WIDTH, LINE_GUTTER_MAX_WIDTH
+from calamus_layout import CLIP_PANEL_DEFAULT_WIDTH, LINE_GUTTER_MIN_WIDTH
 from calamus_logging import log_nonfatal
 from calamus_editor import build_editor_widgets, apply_text_wrap_policy
 from calamus_clip_panel import build_clip_panel, calculate_clip_panel_width
 from calamus_navigation import line_to_buffer_index
 from calamus_view_preferences import load_text_wrap_preference, prepare_text_wrap_plan
+from calamus_typography import (
+    DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE,
+    load_font_preference, prepare_font_preference_plan,
+)
+from calamus_appearance import (
+    apply_line_gutter_typography,
+    build_application_css,
+    install_application_css,
+    measure_line_gutter_width,
+)
 DEFAULT_OPACITY = 88
-DEFAULT_FONT = 12
-MIN_FONT = 8
-MAX_FONT = 32
+DEFAULT_FONT = DEFAULT_FONT_SIZE
+MIN_FONT = MIN_FONT_SIZE
+MAX_FONT = MAX_FONT_SIZE
 DEFAULT_WINDOW_WIDTH = 900
 DEFAULT_WINDOW_HEIGHT = 650
 MIN_WINDOW_WIDTH = 520
@@ -95,8 +105,9 @@ class App(Gtk.Window):
 
         width = clamp_int(self.settings.get("width"), DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
         height = clamp_int(self.settings.get("height"), DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT)
-        self.font_size = clamp_int(self.settings.get("font_size"), DEFAULT_FONT, MIN_FONT, MAX_FONT)
-        self.font_family = self.settings.get("font_family", "Monospace") if isinstance(self.settings.get("font_family", "Monospace"), str) else "Monospace"
+        font_preference = load_font_preference(self.settings)
+        self.font_size = font_preference.size
+        self.font_family = font_preference.family
         self.word_wrap = load_text_wrap_preference(self.settings)
         self.always_on_top = bool(self.settings.get("always_on_top", False))
         self.spell_lang = self.settings.get("spell_lang", "it") if isinstance(self.settings.get("spell_lang", "it"), str) else "it"
@@ -642,233 +653,29 @@ class App(Gtk.Window):
         self.status.set_text(f"{name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln}{undo_note}")
 
     def apply_font(self):
-        bg_css = ""
-        if self.white_background:
-            bg_css = """
-            /* White mode: keep editor and menus readable on dark GTK themes. */
-            window, box, scrolledwindow, viewport, textview, textview text {
-                background-color: #ffffff;
-                color: #000000;
-            }
-            menubar, menubar > menuitem, menu, menuitem {
-                background-color: #f5f5f5;
-                color: #000000;
-            }
-            menubar > menuitem:hover, menubar > menuitem:prelight,
-            menuitem:hover, menuitem:prelight {
-                background-color: #dcdcdc;
-                color: #000000;
-            }
-            menuitem label, menubar menuitem label, label {
-                color: #000000;
-            }
-            #line-numbers {
-                background-color: #f2f2f2;
-                color: #555555;
-            }
-
-            /* Dialogs and spellcheck controls: force a complete light palette so
-               dark Mint themes cannot produce dark buttons with dark text. */
-            dialog, messagedialog, dialog box, messagedialog box,
-            notebook, notebook header, notebook stack, stack, frame,
-            notebook > header, notebook > stack, notebook > frame,
-            notebook tab, notebook tab label,
-            #calamus-about-dialog, #calamus-about-dialog *,
-            #calamus-about-notebook, #calamus-about-notebook *,
-            #calamus-about-page, #calamus-about-page *,
-            #calamus-license-view, #calamus-license-view text {
-                background-color: #ffffff;
-                color: #000000;
-                background-image: none;
-                text-shadow: none;
-                box-shadow: none;
-            }
-            notebook tab {
-                background-color: #e9e9e9;
-                color: #000000;
-                border-color: #b8b8b8;
-                padding: 6px 10px;
-            }
-            notebook tab:checked, notebook tab:hover, notebook tab:prelight {
-                background-color: #dcdcdc;
-                color: #000000;
-            }
-            notebook tab label, notebook label,
-            dialog label, messagedialog label,
-            #calamus-about-dialog label {
-                color: #000000;
-                background-image: none;
-                text-shadow: none;
-            }
-            button {
-                color: #000000;
-                background-color: #f7f7f7;
-                background-image: none;
-                border-color: #a8a8a8;
-                text-shadow: none;
-                box-shadow: none;
-            }
-            button:hover, button:prelight {
-                color: #000000;
-                background-color: #e9e9e9;
-                background-image: none;
-            }
-            button:active, button:checked {
-                color: #000000;
-                background-color: #d8d8d8;
-                background-image: none;
-            }
-            button, button *, button label,
-            button:hover label, button:prelight label,
-            button:active label, button:checked label {
-                color: #000000;
-                text-shadow: none;
-                -gtk-icon-shadow: none;
-            }
-            entry {
-                color: #000000;
-                background-color: #ffffff;
-                background-image: none;
-                border-color: #9a9a9a;
-                caret-color: #000000;
-            }
-            entry selection {
-                color: #ffffff;
-                background-color: #2b62b8;
-            }
-            list, listbox, row {
-                color: #000000;
-                background-color: #ffffff;
-                background-image: none;
-            }
-            row label {
-                color: #000000;
-            }
-            row:selected, row:selected label {
-                color: #ffffff;
-                background-color: #2b62b8;
-                background-image: none;
-            }
-            scrolledwindow, viewport {
-                background-color: #ffffff;
-            }
-            separator {
-                background-color: #cfcfcf;
-            }
-            """
-        elif self.dark_mode:
-            bg_css = """
-            window, box, scrolledwindow, viewport, textview, textview text {
-                background-color: #1e1e1e;
-                color: #f5f5f5;
-            }
-            menubar, menubar > menuitem, menu, menuitem {
-                background-color: #242424;
-                color: #f5f5f5;
-            }
-            menubar > menuitem:hover, menubar > menuitem:prelight,
-            menuitem:hover, menuitem:prelight {
-                background-color: #3a3a3a;
-                color: #ffffff;
-            }
-            menuitem label, menubar menuitem label, label {
-                color: #f5f5f5;
-            }
-            #line-numbers {
-                background-color: #252525;
-                color: #bdbdbd;
-            }
-            dialog, messagedialog, dialog box, messagedialog box,
-            notebook, notebook header, notebook stack, stack, frame,
-            notebook > header, notebook > stack, notebook > frame,
-            notebook tab, notebook tab label,
-            #calamus-about-dialog, #calamus-about-dialog *,
-            #calamus-about-notebook, #calamus-about-notebook *,
-            #calamus-about-page, #calamus-about-page *,
-            #calamus-license-view, #calamus-license-view text {
-                background-color: #1e1e1e;
-                color: #f5f5f5;
-                background-image: none;
-                text-shadow: none;
-                box-shadow: none;
-            }
-            notebook tab {
-                background-color: #333333;
-                color: #f5f5f5;
-                border-color: #777777;
-                padding: 6px 10px;
-            }
-            notebook tab:checked, notebook tab:hover, notebook tab:prelight {
-                background-color: #444444;
-                color: #ffffff;
-            }
-            notebook tab label, notebook label,
-            dialog label, messagedialog label,
-            #calamus-about-dialog label {
-                color: #f5f5f5;
-                background-image: none;
-                text-shadow: none;
-            }
-            button {
-                color: #f5f5f5;
-                background-color: #333333;
-                background-image: none;
-                border-color: #777777;
-                text-shadow: none;
-                box-shadow: none;
-            }
-            button:hover, button:prelight {
-                color: #ffffff;
-                background-color: #444444;
-                background-image: none;
-            }
-            button:active, button:checked {
-                color: #ffffff;
-                background-color: #555555;
-                background-image: none;
-            }
-            button, button *, button label,
-            button:hover label, button:prelight label,
-            button:active label, button:checked label {
-                color: #f5f5f5;
-                text-shadow: none;
-                -gtk-icon-shadow: none;
-            }
-            entry {
-                color: #ffffff;
-                background-color: #2a2a2a;
-                background-image: none;
-                border-color: #777777;
-                caret-color: #ffffff;
-            }
-            entry selection, row:selected, row:selected label {
-                color: #ffffff;
-                background-color: #2b62b8;
-                background-image: none;
-            }
-            list, listbox, row {
-                color: #f5f5f5;
-                background-color: #242424;
-                background-image: none;
-            }
-            row label {
-                color: #f5f5f5;
-            }
-            separator {
-                background-color: #555555;
-            }
-            """
-        css = f"""
-        textview {{ font-family: "{self.font_family}"; font-size: {self.font_size}pt; }}
-        textview text {{ font-family: "{self.font_family}"; font-size: {self.font_size}pt; }}
-        {bg_css}
-        """
-        self.css.load_from_data(css.encode())
+        css = build_application_css(
+            self.font_family,
+            self.font_size,
+            self.white_background,
+            self.dark_mode,
+        )
+        install_application_css(
+            self.css,
+            Gdk.Screen.get_default(),
+            css,
+            style_context=Gtk.StyleContext,
+            priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
         if hasattr(self, "line_numbers"):
             self.line_numbers.set_name("line-numbers")
+            apply_line_gutter_typography(
+                self.line_numbers,
+                self.font_family,
+                self.font_size,
+                pango=Pango,
+            )
             self.line_numbers.set_visible(self.show_line_numbers)
             self.update_line_numbers()
-        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), self.css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.update_title()
 
     def ask_save(self):
@@ -1738,19 +1545,42 @@ class App(Gtk.Window):
             self.line_item.set_active(not self.line_item.get_active())
 
     def on_font(self, *_):
-        d = Gtk.FontChooserDialog(title="Font", transient_for=self)
-        d.set_font(f"{self.font_family} {self.font_size}")
-        if d.run() == Gtk.ResponseType.OK:
-            desc = Pango.FontDescription(d.get_font())
-            family = desc.get_family()
-            size = desc.get_size() // Pango.SCALE if desc.get_size() > 0 else self.font_size
-            if family:
-                self.font_family = family
-            if size:
-                self.font_size = max(MIN_FONT, min(MAX_FONT, int(size)))
+        dialog = Gtk.FontChooserDialog(title="Font", transient_for=self)
+        dialog.set_font(f"{self.font_family} {self.font_size}")
+        try:
+            if dialog.run() != Gtk.ResponseType.OK:
+                return False
+            description = Pango.FontDescription(dialog.get_font())
+            requested_family = description.get_family()
+            requested_size = (
+                description.get_size() // Pango.SCALE
+                if description.get_size() > 0
+                else self.font_size
+            )
+            try:
+                plan = prepare_font_preference_plan(
+                    self.font_family,
+                    self.font_size,
+                    requested_family,
+                    int(requested_size),
+                )
+            except (TypeError, ValueError) as exc:
+                self.error(str(exc))
+                return False
+            if not plan.changed:
+                return False
+            if not self.save_settings({
+                "font_family": plan.requested.family,
+                "font_size": plan.requested.size,
+            }):
+                self.error("Could not save the Font preference.")
+                return False
+            self.font_family = plan.requested.family
+            self.font_size = plan.requested.size
             self.apply_font()
-            self.save_settings()
-        d.destroy()
+            return True
+        finally:
+            dialog.destroy()
 
     def command_layer_insert_date_time_text(self, now, fmt="%Y-%m-%d %H:%M"):
         # Format an explicit moment through CommandLayer without touching the editor buffer.
@@ -1923,10 +1753,14 @@ class App(Gtk.Window):
             return
         _words, _chars, lines = self.text_stats()
         self.line_numbers.set_text("\n".join(str(i) for i in range(1, lines + 1)))
-        # Compact dynamic gutter: enough for digit count, never a wide sidebar.
+        # Measure with the gutter widget's effective CSS font so a Font change
+        # updates line-number size and geometry together with the editor.
         try:
-            digits = max(1, len(str(max(1, lines))))
-            width = max(LINE_GUTTER_MIN_WIDTH, min(LINE_GUTTER_MAX_WIDTH, 12 + digits * 9))
+            width = measure_line_gutter_width(
+                self.line_numbers,
+                lines,
+                minimum_width=LINE_GUTTER_MIN_WIDTH,
+            )
             parent = self.line_numbers.get_parent()
             if parent is not None:
                 parent.set_size_request(width, 1)
