@@ -3,18 +3,23 @@ from __future__ import annotations
 
 from typing import Any
 
+from calamus_appearance_preferences import (
+    APPEARANCE_DARK,
+    APPEARANCE_LIGHT,
+    APPEARANCE_MODES,
+)
+
 
 def build_application_css(
     font_family: str,
     font_size: int,
-    white_background: bool,
-    dark_mode: bool,
+    appearance_mode: str,
 ) -> str:
     """Build the current Calamus application CSS without touching GTK.
 
     Typography and palette rendering are kept outside the App monolith.  The
-    white/dark booleans remain backward compatible with the current settings
-    format; when both are false the desktop theme supplies the palette.
+    palette mode is a canonical light/dark/system value; system delegates the
+    palette to the desktop theme while retaining Calamus typography.
     """
     if not isinstance(font_family, str) or not font_family.strip():
         raise ValueError("font family must be a non-empty string")
@@ -22,14 +27,14 @@ def build_application_css(
         raise TypeError("font size must be an integer")
     if font_size <= 0:
         raise ValueError("font size must be positive")
-    if not isinstance(white_background, bool) or not isinstance(dark_mode, bool):
-        raise TypeError("appearance mode flags must be booleans")
+    if not isinstance(appearance_mode, str) or appearance_mode not in APPEARANCE_MODES:
+        raise ValueError("appearance mode must be light, dark, or system")
     # Pango family names are data, not CSS. Escape the two characters that can
     # terminate or alter a quoted CSS font-family value.
     font_family = font_family.strip().replace("\\", "\\\\").replace('"', '\\"')
 
     bg_css = ""
-    if white_background:
+    if appearance_mode == APPEARANCE_LIGHT:
         bg_css = """
         /* White mode: keep editor and menus readable on dark GTK themes. */
         window, box, scrolledwindow, viewport, textview, textview text {
@@ -142,7 +147,7 @@ def build_application_css(
             background-color: #cfcfcf;
         }
         """
-    elif dark_mode:
+    elif appearance_mode == APPEARANCE_DARK:
         bg_css = """
         window, box, scrolledwindow, viewport, textview, textview text {
             background-color: #1e1e1e;
@@ -296,7 +301,7 @@ def measure_line_gutter_width(
 ) -> int:
     """Measure gutter geometry from the widget's effective editor font.
 
-    The line-number label receives the same CSS typography as the TextView.
+    The line-number label receives the same explicit Pango typography as the TextView.
     Its width must therefore come from a Pango layout created by that widget,
     not from a fixed pixels-per-digit approximation that becomes stale after
     a font change.

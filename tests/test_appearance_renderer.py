@@ -1,5 +1,6 @@
 import unittest
 
+from calamus_appearance_preferences import APPEARANCE_DARK, APPEARANCE_LIGHT, APPEARANCE_SYSTEM
 from calamus_appearance import (
     apply_line_gutter_typography,
     build_application_css,
@@ -28,7 +29,7 @@ class AppearanceRendererTests(unittest.TestCase):
         _StyleContext.calls = []
 
     def test_css_contains_font_and_white_palette(self):
-        css = build_application_css("Literata", 17, True, False)
+        css = build_application_css("Literata", 17, APPEARANCE_LIGHT)
         self.assertIn('font-family: "Literata"', css)
         self.assertIn("font-size: 17pt", css)
         self.assertIn("background-color: #ffffff", css)
@@ -38,7 +39,7 @@ class AppearanceRendererTests(unittest.TestCase):
         self.assertEqual(css.count("font-size: 17pt"), 1)
 
     def test_editor_css_and_custom_gutter_typography_are_separate_boundaries(self):
-        css = build_application_css("Serif", 18, False, False)
+        css = build_application_css("Serif", 18, APPEARANCE_SYSTEM)
         selector = "textview,\n    textview text"
         self.assertIn(selector, css)
         self.assertNotIn("#line-numbers {\n        font-family", css)
@@ -46,25 +47,27 @@ class AppearanceRendererTests(unittest.TestCase):
         self.assertIn("font-size: 18pt;", css)
 
     def test_css_contains_dark_palette(self):
-        css = build_application_css("Monospace", 12, False, True)
+        css = build_application_css("Monospace", 12, APPEARANCE_DARK)
         self.assertIn("background-color: #1e1e1e", css)
         self.assertIn("color: #f5f5f5", css)
 
     def test_neutral_palette_does_not_force_application_background(self):
-        css = build_application_css("Monospace", 12, False, False)
+        css = build_application_css("Monospace", 12, APPEARANCE_SYSTEM)
         self.assertIn('font-family: "Monospace"', css)
         self.assertNotIn("White mode", css)
         self.assertNotIn("background-color: #1e1e1e", css)
 
     def test_font_family_is_escaped_as_css_data(self):
-        css = build_application_css('Family "Quoted" \\ Name', 12, False, False)
+        css = build_application_css('Family "Quoted" \\ Name', 12, APPEARANCE_SYSTEM)
         self.assertIn('font-family: "Family \\"Quoted\\" \\\\ Name"', css)
 
     def test_renderer_rejects_invalid_font_inputs(self):
         with self.assertRaises(ValueError):
-            build_application_css("", 12, True, False)
+            build_application_css("", 12, APPEARANCE_LIGHT)
         with self.assertRaises(TypeError):
-            build_application_css("Monospace", True, True, False)
+            build_application_css("Monospace", True, APPEARANCE_LIGHT)
+        with self.assertRaises(ValueError):
+            build_application_css("Monospace", 12, "sepia")
 
     def test_installer_is_explicit_gtk_boundary(self):
         provider = _Provider()

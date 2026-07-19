@@ -79,6 +79,14 @@ from calamus_typography import (
     DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE,
     load_font_preference, prepare_font_preference_plan,
 )
+from calamus_appearance_preferences import (
+    APPEARANCE_DARK,
+    APPEARANCE_LIGHT,
+    APPEARANCE_SYSTEM,
+    appearance_settings_overrides,
+    load_appearance_preference,
+)
+from calamus_appearance_gateway import execute_appearance_preference_request
 from calamus_appearance import (
     apply_line_gutter_typography,
     build_application_css,
@@ -114,11 +122,9 @@ class App(Gtk.Window):
         # Inline spell-check is deliberately disabled in 1.3.0.
         # F7 now runs an external, interactive Hunspell check.
         self.inline_spell_enabled = False
-        self.white_background = bool(self.settings.get("white_background", True))
-        self.dark_mode = bool(self.settings.get("dark_mode", False))
-        self.theme_name = self.settings.get("theme_name", "Classic Light") if isinstance(self.settings.get("theme_name", "Classic Light"), str) else "Classic Light"
-        if self.white_background and self.dark_mode:
-            self.dark_mode = False
+        appearance_preference = load_appearance_preference(self.settings)
+        self.appearance_mode = appearance_preference.mode
+        self._syncing_appearance_items = False
         self.document = Document(file_path=self.settings.get("last_file") or None)
         self.current_file = self.document.file_path
 
@@ -323,8 +329,7 @@ class App(Gtk.Window):
             "spell_lang": self.spell_lang,
             "inline_spell": False,
             "always_on_top": self.always_item.get_active() if hasattr(self, "always_item") else False,
-            "white_background": self.white_item.get_active() if hasattr(self, "white_item") else self.white_background,
-            "dark_mode": self.dark_item.get_active() if hasattr(self, "dark_item") else self.dark_mode,
+            **appearance_settings_overrides(self.appearance_mode),
             "line_numbers": self.line_item.get_active() if hasattr(self, "line_item") else self.show_line_numbers,
             "trim_trailing_on_save": self.trim_trailing_on_save_item.get_active() if hasattr(self, "trim_trailing_on_save_item") else self.trim_trailing_on_save,
         }
@@ -508,59 +513,6 @@ class App(Gtk.Window):
             self.queue_insert_scroll()
             self.update_title()
 
-    def theme_css(self):
-        themes = {
-            "Classic Light": ("#ffffff", "#000000", "#f5f5f5", "#555555"),
-            "Soft Cream": ("#fff8e7", "#2b2418", "#f4ead2", "#6a5a3a"),
-            "Sepia": ("#f3ead7", "#3b2f22", "#e4d2b2", "#6c5738"),
-            "Solarized Light": ("#fdf6e3", "#586e75", "#eee8d5", "#657b83"),
-            "Solarized Dark": ("#002b36", "#eee8d5", "#073642", "#93a1a1"),
-            "Slate Dark": ("#20242a", "#e8e8e8", "#2d333b", "#aeb6c2"),
-        }
-        bg, fg, panel, muted = themes.get(getattr(self, "theme_name", "Classic Light"), themes["Classic Light"])
-        return '''
-        textview, textview text { background-color: %s; color: %s; }
-        #line-numbers { background-color: %s; color: %s; }
-        .calamus-clip-button { min-width: 44px; min-height: 20px; padding: 1px 6px; }
-        #calamus-clip-title { font-weight: bold; }
-        ''' % (bg, fg, panel, muted)
-
-    def set_theme_name(self, name):
-        self.theme_name = name
-        if name in ("Solarized Dark", "Slate Dark"):
-            self.white_background = False
-            self.dark_mode = True
-        else:
-            self.white_background = True
-            self.dark_mode = False
-        self.apply_font()
-        self.save_settings()
-        self.update_title()
-
-    def on_theme_selection(self, *_):
-        d = Gtk.Dialog(title="Theme Selection", transient_for=self, modal=True)
-        d.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Apply", Gtk.ResponseType.OK)
-        box = d.get_content_area()
-        box.set_spacing(6)
-        box.set_margin_start(12); box.set_margin_end(12); box.set_margin_top(12); box.set_margin_bottom(12)
-        names = ["Classic Light", "Soft Cream", "Sepia", "Solarized Light", "Solarized Dark", "Slate Dark"]
-        group = None
-        buttons = []
-        for name in names:
-            rb = Gtk.RadioButton.new_with_label_from_widget(group, name) if group else Gtk.RadioButton.new_with_label(None, name)
-            if group is None:
-                group = rb
-            rb.set_active(name == getattr(self, "theme_name", "Classic Light"))
-            box.pack_start(rb, False, False, 0)
-            buttons.append((name, rb))
-        d.show_all()
-        if d.run() == Gtk.ResponseType.OK:
-            for name, rb in buttons:
-                if rb.get_active():
-                    self.set_theme_name(name)
-                    break
-        d.destroy()
-
     def on_opacity_selection(self, *_):
         d = Gtk.Dialog(title="Opacity", transient_for=self, modal=True)
         d.add_buttons("Cancel", Gtk.ResponseType.CANCEL)
@@ -646,7 +598,7 @@ class App(Gtk.Window):
         lang = self.spell_lang.upper()
         top_active = self.always_item.get_active() if hasattr(self, "always_item") else bool(self.settings.get("always_on_top", True))
         top = "top ON" if top_active else "top OFF"
-        bg = "dark bg" if self.dark_mode else ("white bg" if self.white_background else "default bg")
+        bg = {APPEARANCE_DARK: "dark bg", APPEARANCE_LIGHT: "white bg"}.get(self.appearance_mode, "default bg")
         words, chars, lines = self.text_stats()
         ln = "lines ON" if self.show_line_numbers else "lines OFF"
         undo_note = " | undo limited" if getattr(self.history, "disabled_reason", None) else ""
@@ -656,8 +608,7 @@ class App(Gtk.Window):
         css = build_application_css(
             self.font_family,
             self.font_size,
-            self.white_background,
-            self.dark_mode,
+            self.appearance_mode,
         )
         install_application_css(
             self.css,
@@ -828,20 +779,16 @@ class App(Gtk.Window):
         self.save_settings()
 
     def on_white_background(self, item):
-        self.white_background = item.get_active()
-        if self.white_background and hasattr(self, "dark_item") and self.dark_item.get_active():
-            self.dark_item.set_active(False)
-            self.dark_mode = False
-        self.apply_font()
-        self.save_settings()
+        if self._syncing_appearance_items:
+            return False
+        requested = APPEARANCE_LIGHT if item.get_active() else APPEARANCE_SYSTEM
+        return execute_appearance_preference_request(self, requested)
 
     def on_dark_mode(self, item):
-        self.dark_mode = item.get_active()
-        if self.dark_mode and hasattr(self, "white_item") and self.white_item.get_active():
-            self.white_item.set_active(False)
-            self.white_background = False
-        self.apply_font()
-        self.save_settings()
+        if self._syncing_appearance_items:
+            return False
+        requested = APPEARANCE_DARK if item.get_active() else APPEARANCE_SYSTEM
+        return execute_appearance_preference_request(self, requested)
 
     def on_line_numbers(self, item):
         self.show_line_numbers = item.get_active()
