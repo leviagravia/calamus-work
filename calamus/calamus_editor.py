@@ -100,5 +100,26 @@ def build_editor_widgets(word_wrap: bool):
     return editor_box, line_numbers, scroller, text
 
 
+def apply_text_wrap_policy(text, scroller, enabled: bool) -> bool:
+    """Apply soft wrap without giving the TextView a virtual line width.
+
+    Gtk.TextView performs soft wrapping from its allocated viewport width.  The
+    surrounding scroller therefore keeps its normal AUTOMATIC policies; forcing
+    the horizontal policy to NEVER can leave the child allocated to the natural
+    width of a long line, so changing wrap-mode produces no visible reflow.
+    """
+    if not isinstance(enabled, bool):
+        raise TypeError("enabled must be boolean")
+    text.set_wrap_mode(Gtk.WrapMode.WORD_CHAR if enabled else Gtk.WrapMode.NONE)
+    scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    if enabled:
+        adjustment = scroller.get_hadjustment()
+        if adjustment is not None:
+            adjustment.set_value(adjustment.get_lower())
+    scroller.queue_resize()
+    text.queue_resize()
+    return enabled
+
+
 def assert_textview_direct_child(scroller, text) -> bool:
     return scroller.get_child() is text

@@ -71,9 +71,10 @@ RUNTIME_ABOUT_NAME = "Calamus-Working-Copy"
 from calamus_version import APP_VERSION as VERSION
 from calamus_layout import CLIP_PANEL_DEFAULT_WIDTH, LINE_GUTTER_MIN_WIDTH, LINE_GUTTER_MAX_WIDTH
 from calamus_logging import log_nonfatal
-from calamus_editor import build_editor_widgets
+from calamus_editor import build_editor_widgets, apply_text_wrap_policy
 from calamus_clip_panel import build_clip_panel, calculate_clip_panel_width
 from calamus_navigation import line_to_buffer_index
+from calamus_view_preferences import load_text_wrap_preference, prepare_text_wrap_plan
 DEFAULT_OPACITY = 88
 DEFAULT_FONT = 12
 MIN_FONT = 8
@@ -96,7 +97,7 @@ class App(Gtk.Window):
         height = clamp_int(self.settings.get("height"), DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT)
         self.font_size = clamp_int(self.settings.get("font_size"), DEFAULT_FONT, MIN_FONT, MAX_FONT)
         self.font_family = self.settings.get("font_family", "Monospace") if isinstance(self.settings.get("font_family", "Monospace"), str) else "Monospace"
-        self.word_wrap = bool(self.settings.get("word_wrap", True))
+        self.word_wrap = load_text_wrap_preference(self.settings)
         self.always_on_top = bool(self.settings.get("always_on_top", False))
         self.spell_lang = self.settings.get("spell_lang", "it") if isinstance(self.settings.get("spell_lang", "it"), str) else "it"
         # Inline spell-check is deliberately disabled in 1.3.0.
@@ -217,15 +218,12 @@ class App(Gtk.Window):
             log_nonfatal("window geometry hints failed", exc)
 
     def apply_wrap_policy(self):
-        """Make word wrap depend on the visible editor width, not virtual line width."""
+        """Apply soft wrap against the actual editor viewport width."""
         if not hasattr(self, "scroller") or not hasattr(self, "text"):
             return False
-        hpolicy = Gtk.PolicyType.NEVER if getattr(self, "word_wrap", True) else Gtk.PolicyType.AUTOMATIC
-        self.scroller.set_policy(hpolicy, Gtk.PolicyType.AUTOMATIC)
-        self.text.set_wrap_mode(Gtk.WrapMode.WORD_CHAR if getattr(self, "word_wrap", True) else Gtk.WrapMode.NONE)
+        apply_text_wrap_policy(self.text, self.scroller, bool(getattr(self, "word_wrap", True)))
         if hasattr(self, "editor_box"):
             self.editor_box.queue_resize()
-        self.text.queue_resize()
         return False
 
     def queue_wrap_reflow(self):
@@ -298,7 +296,7 @@ class App(Gtk.Window):
     def load_settings(self):
         return self.state.load_settings()
 
-    def save_settings(self):
+    def save_settings(self, overrides=None):
         self.state.ensure_dir()
         width, height = self.get_size()
         width = clamp_int(width, DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
@@ -319,7 +317,14 @@ class App(Gtk.Window):
             "line_numbers": self.line_item.get_active() if hasattr(self, "line_item") else self.show_line_numbers,
             "trim_trailing_on_save": self.trim_trailing_on_save_item.get_active() if hasattr(self, "trim_trailing_on_save_item") else self.trim_trailing_on_save,
         }
-        self.state.save_settings(data)
+        if overrides is not None:
+            if not isinstance(overrides, dict):
+                raise TypeError("settings overrides must be a dict")
+            data.update(overrides)
+        saved = self.state.save_settings(data)
+        if saved:
+            self.settings = data
+        return saved
 
     def build_menu(self):
         ui_build_menu(self)
@@ -1688,10 +1693,27 @@ class App(Gtk.Window):
         return list_managed_templates(self.state.config_dir)
 
     def on_word_wrap(self, item):
-        self.word_wrap = item.get_active()
-        self.apply_wrap_policy()
-        self.save_settings()
+        if getattr(self, "_syncing_word_wrap_item", False):
+            return False
+        try:
+            plan = prepare_text_wrap_plan(self.word_wrap, bool(item.get_active()))
+        except (TypeError, ValueError) as e:
+            self.error(str(e))
+            return False
+        if not plan.changed:
+            return False
+        if not self.save_settings({"word_wrap": plan.enabled}):
+            self._syncing_word_wrap_item = True
+            try:
+                item.set_active(plan.previous_enabled)
+            finally:
+                self._syncing_word_wrap_item = False
+            self.error("Could not save the Word Wrap preference.")
+            return False
+        self.word_wrap = plan.enabled
+        self.queue_wrap_reflow()
         self.update_title()
+        return True
 
     def toggle_word_wrap(self, *_):
         if hasattr(self, "word_wrap_item"):
