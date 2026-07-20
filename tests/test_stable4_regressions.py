@@ -59,10 +59,14 @@ if __name__ == "__main__":
 class Stable43GeometryChainTests(unittest.TestCase):
     def test_paned_children_use_explicit_resize_policy(self):
         with open(_launcher(), encoding="utf-8") as f:
-            source = f.read()
-        self.assertIn("self.body_paned.pack1(self.editor_box, True, True)", source)
-        self.assertIn("self.body_paned.pack2(self.clip_panel, False, False)", source)
-        self.assertNotIn("self.body_paned.add1(self.editor_box)", source)
+            launcher = f.read()
+        root = _source_root()
+        lib = os.path.join(root, "calamus") if os.path.isdir(os.path.join(root, "calamus")) else os.path.join(root, "usr", "lib", "calamus")
+        with open(os.path.join(lib, "calamus_right_panel.py"), encoding="utf-8") as f:
+            host = f.read()
+        self.assertIn("self.body_paned.pack1(self.editor_box, True, True)", launcher)
+        self.assertIn("self._paned.pack2(widget, False, False)", host)
+        self.assertNotIn("self.body_paned.add1(self.editor_box)", launcher)
 
     def test_command_finalize_is_not_duplicated(self):
         with open(_launcher(), encoding="utf-8") as f:

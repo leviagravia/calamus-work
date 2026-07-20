@@ -1,12 +1,17 @@
 """Stable UI layout constants for Calamus GTK shell."""
 from __future__ import annotations
 
-# Keep the Clip Collection compact: wide enough for Add/Insert/Delete and
-# the title, but never wide enough to steal editor space or change wrapping
-# aggressively. Users can still resize the Gtk.Paned manually.
-CLIP_PANEL_DEFAULT_WIDTH = 190
-CLIP_PANEL_MIN_WIDTH = 184
-CLIP_PANEL_MAX_FRACTION = 0.22
+# Keep the canonical right panel compact: wide enough for Clip Collection
+# controls and future bounded research sections, but never wide enough to
+# steal editor space or change wrapping aggressively.
+RIGHT_PANEL_DEFAULT_WIDTH = 190
+RIGHT_PANEL_MIN_WIDTH = 184
+RIGHT_PANEL_MAX_FRACTION = 0.22
+
+# Compatibility aliases for pre-W69 callers. New code must use RIGHT_PANEL_*.
+CLIP_PANEL_DEFAULT_WIDTH = RIGHT_PANEL_DEFAULT_WIDTH
+CLIP_PANEL_MIN_WIDTH = RIGHT_PANEL_MIN_WIDTH
+CLIP_PANEL_MAX_FRACTION = RIGHT_PANEL_MAX_FRACTION
 
 # Line number gutter must be compact and must never drive top-level window
 # geometry. Dynamic width is computed from the current line count.

@@ -1,8 +1,9 @@
 """Persistent application state for Calamus.
 
 This module centralizes settings, recent files, favourites, clips, and
-template paths. It intentionally remains a thin layer over the existing JSON
-stores so user data stays backward compatible.
+template paths. JSON remains valid for technical application state. User-owned
+Clip Collection content is delegated to its canonical UTF-8 Markdown store;
+legacy JSON is migration input only.
 """
 from __future__ import annotations
 

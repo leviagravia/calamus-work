@@ -45,7 +45,6 @@ from calamus_search_view import SearchViewAdapter
 from calamus_search_dialogs import run_find_all_dialog, run_find_replace_dialog
 from calamus_history import TextHistory
 from calamus_external import open_character_map as external_open_character_map
-from calamus_clips import load_clips, save_clips, new_clip, clip_title_from_text
 from calamus_writing import (
     sort_lines, clean_pdf_text, remove_extra_spaces,
     remove_trailing_spaces, join_lines, reflow_paragraph, smart_typography,
@@ -72,10 +71,11 @@ APP_TITLE = "Calamus Copy"
 APP_ICON = "calamus"
 RUNTIME_ABOUT_NAME = "Calamus-Working-Copy"
 from calamus_version import APP_VERSION as VERSION
-from calamus_layout import CLIP_PANEL_DEFAULT_WIDTH
 from calamus_logging import log_nonfatal
 from calamus_editor import build_editor_widgets, apply_text_wrap_policy
-from calamus_clip_panel import build_clip_panel, calculate_clip_panel_width
+from calamus_clip_collection import ClipCollectionController
+from calamus_clip_panel import build_clip_collection_view
+from calamus_right_panel import RightPanelHost
 from calamus_navigation import line_to_buffer_index
 from calamus_view_preferences import load_text_wrap_preference, prepare_text_wrap_plan
 from calamus_typography import (
@@ -205,10 +205,10 @@ class App(Gtk.Window):
         self.text.connect_after("motion-notify-event", self.on_text_motion_notify)
         self.text.connect_after("button-release-event", self.on_text_button_release)
         self.apply_wrap_policy()
+        self.right_panel_host = RightPanelHost(self.body_paned, self.queue_wrap_reflow)
         self.build_clip_collection()
-        # Clip Collection is attached lazily by toggle_clip_collection().
-        # This avoids fragile no_show_all/show_all interactions inside Gtk.Paned.
-        self.clip_panel_attached = False
+        # The canonical right-panel host starts detached and owns the single
+        # secondary Gtk.Paned slot for Clip Collection and future sections.
         self.body_paned.set_position(max(420, int(width * 0.72)))
 
         self.tag = self.text.get_buffer().create_tag("misspelled", underline=Pango.Underline.ERROR)
@@ -1889,91 +1889,31 @@ class App(Gtk.Window):
 
 
     def build_clip_collection(self):
-        self.clips = self.state.load_clips()
-        # Regression invariant: equivalent to
-        # self.clip_list.connect("button-press-event", self.on_clip_list_button_press)
-        self.clip_panel, self.clip_list = build_clip_panel(
-            self.on_clip_list_button_press,
+        self.clip_collection_view = build_clip_collection_view(
             self.on_clip_add_selection,
             self.on_clip_insert,
             self.on_clip_delete,
+            self.on_clip_insert,
         )
-        self.refresh_clip_list()
+        self.clip_collection = ClipCollectionController(
+            self.state,
+            self.clip_collection_view,
+        )
+        self.clip_collection.load()
+        self.right_panel_host.register(
+            "clip-collection",
+            self.clip_collection.widget,
+        )
 
     def refresh_clip_list(self):
-        if not hasattr(self, "clip_list"):
-            return
-        for child in list(self.clip_list.get_children()):
-            self.clip_list.remove(child)
-        for clip in self.clips:
-            row = Gtk.ListBoxRow()
-            label = Gtk.Label(label=clip.get("title", "Clip"))
-            label.set_xalign(0)
-            label.set_margin_top(4)
-            label.set_margin_bottom(4)
-            row.add(label)
-            self.clip_list.add(row)
-        self.clip_list.show_all()
+        self.clip_collection.refresh()
 
     def toggle_clip_collection(self, *_):
-        if getattr(self, "clip_panel_attached", False):
-            try:
-                self.body_paned.remove(self.clip_panel)
-            except Exception:
-                self.clip_panel.hide()
-            self.clip_panel_attached = False
-            self.queue_wrap_reflow()
-            return
-
-        # Attach the panel only when requested.  This is more reliable than
-        # hiding a Gtk.Paned child with no_show_all, which can fail to remap on
-        # some GTK/theme combinations.
-        if self.clip_panel.get_parent() is None:
-            self.body_paned.pack2(self.clip_panel, False, False)
-        self.clip_panel_attached = True
-        self.clip_panel.show_all()
-        alloc = self.body_paned.get_allocation()
-        width = getattr(alloc, "width", 900) or 900
-        panel_width = calculate_clip_panel_width(width)
-        self.clip_panel.set_size_request(panel_width, -1)
-        self.clip_panel.set_hexpand(False)
-        self.clip_panel.set_vexpand(True)
-        self.body_paned.set_position(max(1, width - panel_width))
-        self.queue_wrap_reflow()
-
-    def selected_clip_index(self):
-        row = self.clip_list.get_selected_row() if hasattr(self, "clip_list") else None
-        return row.get_index() if row is not None else None
-
-    def on_clip_list_button_press(self, listbox, event):
-        """Insert the clicked clip on a primary-button double click only.
-
-        This intentionally avoids Gtk.ListBox row-activated because GTK also
-        emits that signal for keyboard activation.  Enter should keep its
-        normal list/navigation semantics and must not insert a clip.
-        """
-        if event.type != Gdk.EventType._2BUTTON_PRESS or getattr(event, "button", 0) != 1:
-            return False
-        row = listbox.get_row_at_y(int(event.y))
-        if row is None:
-            return False
-        listbox.select_row(row)
-        self.text.grab_focus()
-        self.on_clip_insert()
-        return True
+        self.right_panel_host.toggle("clip-collection")
 
     def insert_clip_number(self, number):
-        try:
-            idx = int(number) - 1
-        except (TypeError, ValueError):
-            return
-        if idx < 0 or idx >= len(self.clips):
-            return
-        if hasattr(self, "clip_list"):
-            row = self.clip_list.get_row_at_index(idx)
-            if row is not None:
-                self.clip_list.select_row(row)
-        self.on_clip_insert()
+        if self.clip_collection.select_number(number):
+            self.on_clip_insert()
 
     def on_clip_add_selection(self, *_):
         b = self.text.get_buffer()
@@ -1982,26 +1922,24 @@ class App(Gtk.Window):
             txt = b.get_text(s, e, True)
         else:
             txt = ""
-        self.clips.insert(0, new_clip(clip_title_from_text(txt), txt))
-        self.state.save_clips(self.clips)
-        self.refresh_clip_list()
+        if not self.clip_collection.add_text(txt):
+            show_error(self, "Could not save Clip Collection.")
 
     def on_clip_insert(self, *_):
-        idx = self.selected_clip_index()
-        if idx is None or idx < 0 or idx >= len(self.clips):
+        txt = self.clip_collection.selected_text()
+        if txt is None:
             return
-        txt = self.clips[idx].get("text", "")
+        self.text.grab_focus()
+
         def edit(buf):
             buf.insert_at_cursor(txt)
+
         self.execute_command("Insert Clip", edit)
 
     def on_clip_delete(self, *_):
-        idx = self.selected_clip_index()
-        if idx is None or idx < 0 or idx >= len(self.clips):
-            return
-        del self.clips[idx]
-        self.state.save_clips(self.clips)
-        self.refresh_clip_list()
+        result = self.clip_collection.delete_selected()
+        if result is False:
+            show_error(self, "Could not save Clip Collection.")
 
     def toggle_focus_mode(self, *_):
         self.focus_mode = not self.focus_mode
@@ -2387,7 +2325,7 @@ class App(Gtk.Window):
 
 def _refresh_line_numbers_after_map(win, _event):
     # The first mapped allocation is the earliest reliable point for applying
-    # the standalone scrolled gutter's text and width on the real GTK desktop.
+    # the viewport-aligned drawing gutter on the real GTK desktop.
     win.update_line_numbers(force=True)
     return False
 
@@ -2399,5 +2337,5 @@ if __name__ == "__main__":
     # Keep the synchronous refresh for persisted disabled state; the mapped
     # forced refresh above repairs the first visible allocation when enabled.
     win.update_line_numbers()
-    # Clip panel starts detached and is attached lazily on demand.
+    # The canonical right-panel host starts detached.
     Gtk.main()

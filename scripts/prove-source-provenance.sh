@@ -32,7 +32,10 @@ modules = [
     "calamus_search_gateway",
     "calamus_search_view",
     "calamus_search_dialogs",
+    "calamus_clips",
+    "calamus_clip_collection",
     "calamus_clip_panel",
+    "calamus_right_panel",
     "calamus_logging",
 ]
 
