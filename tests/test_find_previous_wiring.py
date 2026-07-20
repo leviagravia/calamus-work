@@ -19,17 +19,18 @@ def app_method_source(name):
 
 
 class FindPreviousWiringTests(unittest.TestCase):
-    def test_find_previous_reuses_repeat_search_helper(self):
+    def test_find_previous_reuses_canonical_search_session(self):
         method = app_method_source("on_find_previous")
-        self.assertIn("if not can_repeat_search(self.last_search):", method)
+        self.assertIn("if not self.search_controller.has_query():", method)
         self.assertIn("self.on_find_replace()", method)
-        self.assertIn("self.highlight_all_search(self.last_search)", method)
-        self.assertIn("self.find_text(self.last_search, backwards=True)", method)
+        self.assertIn("self.search_controller.repeat(backwards=True)", method)
         self.assertIn('self.info("No previous match found.")', method)
+        self.assertNotIn("self.last_search", method)
+        self.assertNotIn("self.last_match", method)
 
     def test_find_previous_remains_non_mutating_wrapper(self):
         method = app_method_source("on_find_previous")
-        forbidden = [
+        for token in (
             "execute_command",
             "finalize_command_edit",
             "save_file",
@@ -37,39 +38,29 @@ class FindPreviousWiringTests(unittest.TestCase):
             ".delete(",
             ".insert(",
             "set_text(",
-            "apply_text_transform",
             "replace_all_literal",
-        ]
-        for token in forbidden:
+            "get_buffer",
+        ):
             self.assertNotIn(token, method)
 
-    def test_find_text_still_owns_editor_search_boundary(self):
+    def test_find_text_is_a_thin_search_controller_adapter(self):
         method = app_method_source("find_text")
-        expected = [
-            "self.search_matches(",
-            "self.text.get_buffer()",
-            "get_has_selection",
+        self.assertIn("return self.search_controller.find(", method)
+        self.assertLessEqual(len(method.splitlines()), 8)
+        for token in (
+            "get_buffer",
             "get_selection_bounds",
             "get_iter_at_mark",
-            "self.last_match",
-            "self.select_range",
-        ]
-        for token in expected:
-            self.assertIn(token, method)
+            "choose_search_match",
+            "select_range",
+            "last_search",
+            "last_match",
+        ):
+            self.assertNotIn(token, method)
 
-    def test_select_range_still_owns_selection_and_scroll(self):
-        method = app_method_source("select_range")
-        expected = [
-            "self.text.get_buffer()",
-            "b.select_range",
-            "self.text.scroll_to_iter",
-        ]
-        for token in expected:
-            self.assertIn(token, method)
-
-    def test_replace_paths_are_not_wired_to_repeat_search_helper(self):
+    def test_replace_paths_do_not_use_repeat_navigation(self):
         for name in ["replace_all_literal", "on_replace_all_dialog", "replace_current_match"]:
-            self.assertNotIn("can_repeat_search", app_method_source(name))
+            self.assertNotIn(".repeat(", app_method_source(name))
 
 
 if __name__ == "__main__":

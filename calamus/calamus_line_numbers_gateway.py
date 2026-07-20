@@ -1,6 +1,6 @@
 """Application-service gateway for Calamus line numbers and custom gutter.
 
-The gateway imports no GTK.  It coordinates strict preference planning,
+The gateway imports no GTK. It coordinates strict preference planning,
 persist-first lifecycle, menu synchronization and the runtime gutter adapter.
 Document text and Undo state are never mutated.
 """
@@ -25,8 +25,8 @@ def sync_line_number_control(host: Any) -> None:
 
 
 def _host_line_count(host: Any) -> int:
-    _words, _chars, lines = host.text_stats()
-    return lines
+    """Read the authoritative GtkTextBuffer count through the view adapter."""
+    return host.line_gutter.current_line_count()
 
 
 def refresh_line_number_gutter(host: Any, *, force: bool = False) -> bool:

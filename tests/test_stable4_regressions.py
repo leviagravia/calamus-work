@@ -26,13 +26,14 @@ class Stable4RegressionTests(unittest.TestCase):
         self.assertIn(("Revise", "Title Case", "Ctrl+Alt+Y"), rows)
         self.assertNotIn(("Revise", "Title Case", "Ctrl+Alt+T"), rows)
 
-    def test_line_numbers_are_clamped_in_own_scroller(self):
+    def test_line_numbers_use_viewport_aligned_drawing_gutter(self):
         with open(os.path.join(_source_root(), "calamus", "calamus_editor.py"), encoding="utf-8") as f:
             source = f.read()
-        self.assertIn("line_scroller = Gtk.ScrolledWindow()", source)
-        self.assertIn("line_scroller.set_size_request(LINE_GUTTER_MIN_WIDTH, 1)", source)
-        self.assertIn("_contain_scrolled_window(line_scroller", source)
-        self.assertIn("sync_gutter_scroll", source)
+        self.assertIn("line_gutter_widget = Gtk.DrawingArea()", source)
+        self.assertIn('line_gutter_widget.set_name("line-gutter")', source)
+        self.assertIn('line_gutter_widget.connect("draw", draw_line_gutter)', source)
+        self.assertNotIn("line_scroller = Gtk.ScrolledWindow()", source)
+        self.assertNotIn("sync_gutter_scroll", source)
 
     def test_window_geometry_uses_minimum_only(self):
         with open(_launcher(), encoding="utf-8") as f:

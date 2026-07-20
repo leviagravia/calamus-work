@@ -60,14 +60,11 @@ def build_application_css(
         }
         #line-gutter {
             background-color: #f2f2f2;
+            color: #555555;
             background-image: none;
             border: none;
             border-right: 1px solid #d7d7d7;
             box-shadow: none;
-        }
-        #line-numbers {
-            background-color: #f2f2f2;
-            color: #555555;
         }
 
         /* Dialogs and spellcheck controls: force a complete light palette so
@@ -179,14 +176,11 @@ def build_application_css(
         }
         #line-gutter {
             background-color: #252525;
+            color: #bdbdbd;
             background-image: none;
             border: none;
             border-right: 1px solid #3b3b3b;
             box-shadow: none;
-        }
-        #line-numbers {
-            background-color: #252525;
-            color: #bdbdbd;
         }
         dialog, messagedialog, dialog box, messagedialog box,
         notebook, notebook header, notebook stack, stack, frame,
@@ -269,8 +263,8 @@ def build_application_css(
         }
         """
     css = f"""
-    /* The gutter scroller must not inherit frame/scrollbar chrome from the
-       desktop theme. Calamus owns one semantic divider and nothing else. */
+    /* The gutter is a viewport-sized drawing surface. Calamus owns one
+       semantic divider; no second scroller, label or scrollbar exists. */
     #line-gutter {{
         border: none;
         border-radius: 0;
@@ -278,27 +272,6 @@ def build_application_css(
         background-image: none;
         box-shadow: none;
         padding: 0;
-    }}
-    #line-numbers {{
-        padding-left: 2px;
-        padding-right: 3px;
-    }}
-    #line-gutter > border,
-    #line-gutter scrollbar,
-    #line-gutter scrollbar trough,
-    #line-gutter scrollbar slider,
-    #line-gutter overshoot,
-    #line-gutter undershoot {{
-        min-width: 0;
-        min-height: 0;
-        margin: 0;
-        padding: 0;
-        border: none;
-        border-radius: 0;
-        background-color: transparent;
-        background-image: none;
-        box-shadow: none;
-        opacity: 0;
     }}
     textview,
     textview text {{

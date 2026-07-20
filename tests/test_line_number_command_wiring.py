@@ -64,22 +64,28 @@ class LineNumberCommandWiringTests(unittest.TestCase):
         self.assertNotIn("set_text", method)
         self.assertNotIn("measure_line_gutter_width", method)
 
-    def test_editor_builds_named_shadowless_adapter_owned_gutter(self):
+    def test_editor_builds_viewport_aligned_drawing_gutter(self):
         editor = EDITOR.read_text(encoding="utf-8")
-        self.assertIn('line_scroller.set_name("line-gutter")', editor)
-        self.assertIn("line_scroller.set_shadow_type(Gtk.ShadowType.NONE)", editor)
-        self.assertIn(
-            "line_scroller.get_style_context().remove_class(Gtk.STYLE_CLASS_FRAME)",
-            editor,
-        )
-        self.assertIn(
-            "line_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)",
-            editor,
-        )
-        self.assertNotIn(
-            "line_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)",
-            editor,
-        )
+        gutter = LINE_NUMBERS.read_text(encoding="utf-8")
+        self.assertIn("line_gutter_widget = Gtk.DrawingArea()", editor)
+        self.assertIn('line_gutter_widget.set_name("line-gutter")', editor)
+        self.assertIn("line_gutter = LineGutterAdapter(", editor)
+        self.assertIn('line_gutter_widget.connect("draw", draw_line_gutter)', editor)
+        self.assertIn("Gtk.render_background", editor)
+        self.assertIn("Gtk.render_frame", editor)
+        self.assertIn("render_layout=Gtk.render_layout", editor)
+        self.assertIn("get_line_at_y", gutter)
+        self.assertIn("get_line_yrange", gutter)
+        self.assertIn("iterator.get_line()", gutter)
+        self.assertIn("return editor_box, line_gutter, scroller, text", editor)
+        for obsolete in (
+            "line_scroller = Gtk.ScrolledWindow()",
+            "sync_gutter_scroll",
+            "line_numbers = Gtk.Label()",
+            'set_name("line-numbers")',
+        ):
+            self.assertNotIn(obsolete, editor)
+
         launcher = LAUNCHER.read_text(encoding="utf-8")
         self.assertIn('win.connect("map-event", _refresh_line_numbers_after_map)', launcher)
         self.assertIn("win.show_all()", launcher)
@@ -89,13 +95,6 @@ class LineNumberCommandWiringTests(unittest.TestCase):
             launcher.index('win.connect("map-event", _refresh_line_numbers_after_map)'),
             launcher.index("win.show_all()"),
         )
-        self.assertIn('line_numbers.set_name("line-numbers")', editor)
-        self.assertIn("line_numbers.set_margin_start(0)", editor)
-        self.assertIn("line_numbers.set_margin_end(0)", editor)
-        self.assertNotIn("line_numbers.set_margin_start(2)", editor)
-        self.assertNotIn("line_numbers.set_margin_end(3)", editor)
-        self.assertIn("line_gutter = LineGutterAdapter(", editor)
-        self.assertIn("return editor_box, line_gutter, scroller, text", editor)
 
 
     def test_bulk_buffer_replacement_refreshes_gutter_outside_loading_guard(self):
@@ -136,19 +135,20 @@ class LineNumberCommandWiringTests(unittest.TestCase):
         self.assertIn("sync_line_number_control", source)
         self.assertNotIn("from gi.repository", source)
 
-    def test_white_and_dark_palettes_use_one_pixel_theme_aware_divider(self):
+    def test_white_and_dark_palettes_style_only_the_drawing_gutter(self):
         css = APPEARANCE.read_text(encoding="utf-8")
         self.assertIn("#line-gutter", css)
         self.assertIn("border-right: 1px solid #d7d7d7", css)
         self.assertIn("border-right: 1px solid #3b3b3b", css)
         self.assertIn("border-right: 1px solid rgba(128, 128, 128, 0.35)", css)
-        self.assertIn("#line-gutter scrollbar", css)
-        self.assertIn("#line-gutter > border", css)
         self.assertIn("background-image: none", css)
         self.assertIn("box-shadow: none", css)
-        self.assertIn("opacity: 0", css)
+        self.assertNotIn("#line-numbers", css)
+        self.assertNotIn("#line-gutter scrollbar", css)
+        self.assertNotIn("#line-gutter > border", css)
         self.assertNotIn("border-right: 2px", css)
         self.assertNotIn("border-right: 1px solid #000", css)
+
 
     def test_source_provenance_includes_new_line_number_modules(self):
         source = PROVENANCE.read_text(encoding="utf-8")

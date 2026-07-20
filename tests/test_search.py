@@ -17,6 +17,12 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(search.text_stats("uno due\ntre"), (3, 11, 2))
         self.assertEqual(search.text_stats(""), (0, 0, 1))
 
+
+    def test_text_stats_matches_editor_paragraph_delimiters(self):
+        text = "one\r\ntwo\rthree\u2029four\nfive"
+        self.assertEqual(search.text_stats(text), (5, len(text), 5))
+        self.assertEqual(search.text_buffer_line_count(text), 5)
+
     def test_search_case_and_whole_word(self):
         text = "casa casale Casa"
         self.assertEqual(len(search.search_matches(text, "casa", match_case=False)), 3)
@@ -103,3 +109,88 @@ class SearchTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SearchSessionAndFindAllTests(unittest.TestCase):
+    def test_typed_query_and_session_are_immutable(self):
+        options = search.SearchOptions(match_case=True, whole_word=True, wrap=False)
+        query = search.SearchQuery("Alpha", options)
+        session = search.SearchSession(query=query, current_match=(4, 9))
+        self.assertEqual(session.query.text, "Alpha")
+        self.assertEqual(session.current_match, (4, 9))
+        with self.assertRaises(Exception):
+            session.current_match = None
+
+    def test_options_reject_python_truthiness(self):
+        with self.assertRaises(TypeError):
+            search.SearchOptions(match_case=1)
+        with self.assertRaises(TypeError):
+            search.SearchOptions(whole_word="yes")
+        with self.assertRaises(TypeError):
+            search.SearchOptions(wrap=None)
+
+    def test_query_builder_and_repeat_support_typed_query(self):
+        query = search.build_search_query(
+            "alpha", match_case=True, whole_word=False, wrap=False
+        )
+        self.assertEqual(query.text, "alpha")
+        self.assertTrue(query.options.match_case)
+        self.assertFalse(query.options.wrap)
+        self.assertTrue(search.can_repeat_search(query))
+        self.assertFalse(search.can_repeat_search(search.SearchQuery()))
+
+    def test_find_all_results_report_line_column_context_and_offsets(self):
+        text = "alpha one\nsecond alpha here\nalpha"
+        query = search.build_search_query("alpha")
+        results = search.build_search_results(text, query)
+        self.assertEqual(
+            [(r.line, r.column, r.start, r.end) for r in results],
+            [(1, 1, 0, 5), (2, 8, 17, 22), (3, 1, 28, 33)],
+        )
+        self.assertEqual(results[0].context, "alpha one")
+        self.assertEqual(results[1].context, "second alpha here")
+        self.assertEqual(results[2].context, "alpha")
+
+
+    def test_find_all_coordinates_match_editor_line_delimiters(self):
+        text = "one\r\ntwo\rthree\u2029four\nBottom bar:"
+        query = search.build_search_query("Bottom bar")
+        result = search.build_search_results(text, query)[0]
+        self.assertEqual((result.line, result.column), (5, 1))
+        self.assertEqual(result.context, "Bottom bar:")
+
+    def test_find_all_counts_repeated_carriage_return_lines_like_gutter(self):
+        text = "head" + ("\rblank" * 8) + "\rBottom bar:"
+        query = search.build_search_query("Bottom bar")
+        result = search.build_search_results(text, query)[0]
+        self.assertEqual((result.line, result.column), (10, 1))
+        self.assertEqual(search.text_stats(text)[2], 10)
+
+    def test_find_all_respects_case_and_whole_word(self):
+        text = "Alpha alpha alphabet alpha"
+        query = search.build_search_query(
+            "alpha", match_case=True, whole_word=True
+        )
+        results = search.build_search_results(text, query)
+        self.assertEqual([(r.start, r.end) for r in results], [(6, 11), (21, 26)])
+
+    def test_find_all_context_is_bounded_around_match(self):
+        text = ("x" * 80) + " target " + ("y" * 80)
+        query = search.build_search_query("target")
+        result = search.build_search_results(text, query, context_limit=40)[0]
+        self.assertLessEqual(len(result.context), 42)
+        self.assertIn("target", result.context)
+        self.assertTrue(result.context.startswith("…"))
+        self.assertTrue(result.context.endswith("…"))
+
+    def test_find_all_context_limit_is_validated(self):
+        with self.assertRaises(ValueError):
+            search.build_search_results(
+                "alpha", search.build_search_query("alpha"), context_limit=10
+            )
+
+    def test_search_result_rejects_invalid_coordinates(self):
+        with self.assertRaises(ValueError):
+            search.SearchResult(start=4, end=2, line=1, column=1, context="x")
+        with self.assertRaises(ValueError):
+            search.SearchResult(start=0, end=1, line=0, column=1, context="x")

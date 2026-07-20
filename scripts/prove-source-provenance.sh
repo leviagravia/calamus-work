@@ -28,6 +28,10 @@ modules = [
     "calamus_layout",
     "calamus_line_numbers",
     "calamus_line_numbers_gateway",
+    "calamus_search",
+    "calamus_search_gateway",
+    "calamus_search_view",
+    "calamus_search_dialogs",
     "calamus_clip_panel",
     "calamus_logging",
 ]

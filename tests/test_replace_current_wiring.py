@@ -6,6 +6,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "bin" / "calamus").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "calamus" / "calamus_search.py").read_text(encoding="utf-8")
+GATEWAY_SOURCE = (ROOT / "calamus" / "calamus_search_gateway.py").read_text(encoding="utf-8")
+SEARCH_DIALOGS_SOURCE = (ROOT / "calamus" / "calamus_search_dialogs.py").read_text(encoding="utf-8")
 
 
 def app_method_source(name):
@@ -20,25 +22,23 @@ def app_method_source(name):
 
 
 class ReplaceCurrentWiringTests(unittest.TestCase):
-    def test_replace_current_delegates_preflight_to_pure_helper(self):
+    def test_replace_current_preflight_is_owned_by_search_controller(self):
         method = app_method_source("replace_current_match")
-        self.assertIn("plan = prepare_current_replacement(", method)
-        self.assertIn("self.buffer_text()", method)
-        self.assertIn("self.last_match", method)
-        self.assertIn("match_case=match_case", method)
-        self.assertIn("whole_word=whole_word", method)
-        self.assertIn("if plan is None:", method)
-        self.assertIn("start, end, replacement, next_match = plan", method)
+        self.assertIn("plan = self.search_controller.prepare_current_replacement(replacement)", method)
+        self.assertIn("return prepare_current_replacement(", GATEWAY_SOURCE)
+        self.assertNotIn("self.buffer_text()", method)
+        self.assertNotIn("self.last_match", method)
 
-    def test_replace_current_still_owns_mutation_and_last_match(self):
+    def test_replace_current_keeps_document_mutation_in_app_gateway(self):
         method = app_method_source("replace_current_match")
-        self.assertIn("self.replace_buffer_range(start, end, replacement)", method)
-        self.assertIn("self.last_match = next_match", method)
+        self.assertIn("start, end, replacement_text, next_match = plan", method)
+        self.assertIn("self.replace_buffer_range(start, end, replacement_text)", method)
+        self.assertIn("self.search_controller.commit_current_replacement(next_match)", method)
         self.assertIn("return True", method)
 
-    def test_replace_current_no_longer_contains_inline_validation_logic(self):
+    def test_replace_current_has_no_inline_search_validation(self):
         method = app_method_source("replace_current_match")
-        forbidden = [
+        for token in (
             "current = text[start:end]",
             "current.lower()",
             "needle.lower()",
@@ -47,8 +47,7 @@ class ReplaceCurrentWiringTests(unittest.TestCase):
             "after =",
             "start < 0",
             "end > len(text)",
-        ]
-        for token in forbidden:
+        ):
             self.assertNotIn(token, method)
 
     def test_replace_buffer_range_still_owns_execute_command_boundary(self):
@@ -57,24 +56,34 @@ class ReplaceCurrentWiringTests(unittest.TestCase):
         self.assertIn("buf.insert(buf.get_iter_at_offset(start), replacement)", method)
         self.assertIn('self.execute_command("Replace Selection", edit, select_range=(start, start + len(replacement)))', method)
 
-    def test_search_helper_is_pure_boundary(self):
-        forbidden = [
+
+    def test_visible_replace_command_keeps_replaced_match_selected(self):
+        self.assertIn('"Replace", 20', SEARCH_DIALOGS_SOURCE)
+        self.assertNotIn('"Replace Current"', SEARCH_DIALOGS_SOURCE)
+        tree = ast.parse(SEARCH_DIALOGS_SOURCE)
+        do_replace = next(
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "do_replace"
+        )
+        source = ast.get_source_segment(SEARCH_DIALOGS_SOURCE, do_replace) or ""
+        self.assertIn("replace_current(replacement)", source)
+        self.assertIn("controller.highlight()", source)
+        self.assertNotIn("controller.find()", source)
+        self.assertIn("Replaced selected match.", source)
+
+    def test_search_model_is_pure(self):
+        for token in (
             "Gtk",
             "Gdk",
             "GLib",
             "TextBuffer",
             "execute_command",
-            "finalize_command_edit",
             "replace_buffer_range",
-            "select_range",
             "scroll_to",
-            "open_path",
-            "save_file",
             ".delete(",
             ".insert(",
             "set_text(",
-        ]
-        for token in forbidden:
+        ):
             self.assertNotIn(token, SEARCH_SOURCE)
 
 

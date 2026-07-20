@@ -23,6 +23,10 @@ class _Gutter:
         self.events = events
         self.fail_on = fail_on
 
+    def current_line_count(self):
+        self.events.append(("line-count",))
+        return 7
+
     def render(self, enabled, line_count, *, force=False):
         self.events.append(("render", enabled, line_count, force))
         if enabled == self.fail_on:
@@ -42,10 +46,6 @@ class _Host:
     def save_settings(self, overrides):
         self.events.append(("save", overrides["line_numbers"]))
         return self.save_results.pop(0)
-
-    def text_stats(self):
-        self.events.append(("stats",))
-        return 10, 20, 7
 
     def update_title(self):
         self.events.append(("title", self.line_numbers_enabled))

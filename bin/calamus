@@ -39,7 +39,10 @@ from calamus_templates import (
 )
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
-from calamus_search import prepare_replace_all_plan, prepare_current_replacement, choose_search_match, can_repeat_search, WORD_RE, search_matches as calc_search_matches, text_stats as calc_text_stats, replace_all_literal_text
+from calamus_search import WORD_RE, text_stats as calc_text_stats
+from calamus_search_gateway import SearchController
+from calamus_search_view import SearchViewAdapter
+from calamus_search_dialogs import run_find_all_dialog, run_find_replace_dialog
 from calamus_history import TextHistory
 from calamus_external import open_character_map as external_open_character_map
 from calamus_clips import load_clips, save_clips, new_clip, clip_title_from_text
@@ -57,7 +60,7 @@ from calamus_spellcheck import (
 from calamus_dialogs import (
     SHORTCUT_ROWS, ask_save as dialog_ask_save, choose_open_file, choose_save_file,
     choose_save_template, run_manage_templates_dialog,
-    prompt_go_to_line, run_find_replace_dialog, run_spelling_dialog,
+    prompt_go_to_line, run_spelling_dialog,
     show_about, show_error, show_info, show_keyboard_shortcuts, show_large_info,
 )
 from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts, add_item as ui_add_item, add_separator as ui_add_separator, top_menu as ui_top_menu
@@ -150,12 +153,9 @@ class App(Gtk.Window):
         self.loading = False
         self.spell_source = None
         self.word_count_source = None
-        self.last_search = ""
-        self.last_match = None
         self.history = TextHistory(max_steps=100)
         self.undo_snapshot_source = None
         self.restoring_undo = False
-        self.search_highlight_source = None
         self.print_pages = []
         line_number_preference = load_line_number_preference(self.settings)
         self.line_numbers_enabled = line_number_preference.enabled
@@ -213,6 +213,7 @@ class App(Gtk.Window):
 
         self.tag = self.text.get_buffer().create_tag("misspelled", underline=Pango.Underline.ERROR)
         self.search_tag = self.text.get_buffer().create_tag("search_highlight", background="#fff59d", foreground="#000000")
+        self.search_controller = SearchController(SearchViewAdapter(self.text, self.search_tag))
         self.current_line_tag = self.text.get_buffer().create_tag("current_line", background="#eef5ff")
 
         self.status = Gtk.Label()
@@ -1770,22 +1771,13 @@ class App(Gtk.Window):
         return True
 
     def clear_search_highlights(self):
-        if not hasattr(self, "search_tag"):
-            return
-        b = self.text.get_buffer()
-        s, e = b.get_bounds()
-        b.remove_tag(self.search_tag, s, e)
+        if hasattr(self, "search_controller"):
+            self.search_controller.clear_highlights()
 
     def schedule_search_highlight(self):
-        if not self.last_search:
-            return
-        if self.search_highlight_source:
-            return
-        def run():
-            self.search_highlight_source = None
-            self.highlight_all_search(self.last_search)
-            return False
-        self.search_highlight_source = GLib.timeout_add(300, run)
+        if hasattr(self, "search_controller"):
+            return self.search_controller.schedule_highlight(GLib.timeout_add)
+        return False
 
     def on_character_map(self, *_):
         d = Gtk.Dialog(title="Character Map", transient_for=self, modal=True)
@@ -2109,102 +2101,97 @@ class App(Gtk.Window):
         GLib.idle_add(reveal)
 
     def on_find_replace(self, *_):
-        def highlight(needle, match_case, whole_word):
-            self.last_search = needle
-            return self.highlight_all_search(needle, match_case=match_case, whole_word=whole_word)
+        run_find_replace_dialog(
+            self,
+            self.search_controller,
+            self.replace_current_match,
+            self.replace_all_literal,
+        )
 
-        callbacks = {
-            "highlight": highlight,
-            "find": lambda needle, backwards, match_case, whole_word, wrap: self.find_text(needle, backwards=backwards, match_case=match_case, whole_word=whole_word, wrap=wrap),
-            "need_current_match": lambda needle: (not self.last_match) or self.last_search != needle,
-            "replace_current": lambda needle, repl, match_case, whole_word: self.replace_current_match(needle, repl, match_case=match_case, whole_word=whole_word),
-            "replace_all": lambda needle, repl, match_case, whole_word: self.replace_all_literal(needle, repl, match_case=match_case, whole_word=whole_word),
-        }
-        run_find_replace_dialog(self, self.last_search, callbacks)
+    def on_find_all(self, *_):
+        run_find_all_dialog(self, self.search_controller)
 
     def on_find_next(self, *_):
-        if not can_repeat_search(self.last_search):
+        if not self.search_controller.has_query():
             self.on_find_replace()
             return
-        self.highlight_all_search(self.last_search)
-        if not self.find_text(self.last_search):
+        if not self.search_controller.repeat():
             self.info("No match found.")
 
     def on_find_previous(self, *_):
-        if not can_repeat_search(self.last_search):
+        if not self.search_controller.has_query():
             self.on_find_replace()
             return
-        self.highlight_all_search(self.last_search)
-        if not self.find_text(self.last_search, backwards=True):
+        if not self.search_controller.repeat(backwards=True):
             self.info("No previous match found.")
 
     def search_matches(self, needle, match_case=False, whole_word=False):
-        return calc_search_matches(self.buffer_text(), needle, match_case=match_case, whole_word=whole_word)
-
-    def highlight_all_search(self, needle, match_case=False, whole_word=False):
-        self.clear_search_highlights()
-        matches = self.search_matches(needle, match_case=match_case, whole_word=whole_word)
-        if not matches:
-            return 0
-        b = self.text.get_buffer()
-        for m in matches:
-            it1 = b.get_iter_at_offset(m.start())
-            it2 = b.get_iter_at_offset(m.end())
-            b.apply_tag(self.search_tag, it1, it2)
-        return len(matches)
-
-    def find_text(self, needle, backwards=False, match_case=False, whole_word=False, wrap=True):
-        matches = self.search_matches(needle, match_case=match_case, whole_word=whole_word)
-        if not matches:
-            self.last_match = None
-            return False
-        b = self.text.get_buffer()
-        if b.get_has_selection():
-            s, e = b.get_selection_bounds()
-            cursor = s.get_offset() if backwards else e.get_offset()
-        else:
-            cursor = b.get_iter_at_mark(b.get_insert()).get_offset()
-        chosen = choose_search_match(matches, cursor, backwards=backwards, wrap=wrap)
-        if chosen is None:
-            self.last_match = None
-            return False
-        self.last_search = needle
-        self.last_match = (chosen.start(), chosen.end())
-        self.select_range(chosen.start(), chosen.end())
-        return True
-
-    def find_text_previous(self, needle):
-        return self.find_text(needle, backwards=True)
-
-    def replace_current_match(self, needle, replacement, match_case=False, whole_word=False):
-        plan = prepare_current_replacement(
-            self.buffer_text(),
+        return self.search_controller.matches(
             needle,
-            replacement,
-            self.last_match,
             match_case=match_case,
             whole_word=whole_word,
+            wrap=self.search_controller.query.options.wrap,
         )
+
+    def highlight_all_search(self, needle, match_case=False, whole_word=False):
+        return self.search_controller.highlight(
+            needle,
+            match_case=match_case,
+            whole_word=whole_word,
+            wrap=self.search_controller.query.options.wrap,
+        )
+
+    def find_text(self, needle, backwards=False, match_case=False, whole_word=False, wrap=True):
+        return self.search_controller.find(
+            needle,
+            backwards=backwards,
+            match_case=match_case,
+            whole_word=whole_word,
+            wrap=wrap,
+        )
+
+    def find_text_previous(self, needle):
+        return self.search_controller.find(needle, backwards=True)
+
+    def replace_current_match(self, needle_or_replacement, replacement=None, match_case=False, whole_word=False):
+        if replacement is None:
+            replacement = needle_or_replacement
+        else:
+            self.search_controller.configure(
+                needle_or_replacement,
+                match_case=match_case,
+                whole_word=whole_word,
+                wrap=self.search_controller.query.options.wrap,
+            )
+        plan = self.search_controller.prepare_current_replacement(replacement)
         if plan is None:
             return False
-        start, end, replacement, next_match = plan
-        self.replace_buffer_range(start, end, replacement)
-        self.last_match = next_match
+        start, end, replacement_text, next_match = plan
+        self.replace_buffer_range(start, end, replacement_text)
+        self.search_controller.commit_current_replacement(next_match)
         return True
 
-    def replace_all_literal(self, old, new, match_case=False, whole_word=False):
+    def replace_all_literal(self, old_or_replacement, new=None, match_case=False, whole_word=False):
+        if new is None:
+            replacement = old_or_replacement
+        else:
+            self.search_controller.configure(
+                old_or_replacement,
+                match_case=match_case,
+                whole_word=whole_word,
+                wrap=self.search_controller.query.options.wrap,
+            )
+            replacement = new
         text = self.buffer_text()
-        replaced, count = prepare_replace_all_plan(
-            text, old, new, match_case=match_case, whole_word=whole_word
-        )
+        replaced, count = self.search_controller.prepare_replace_all(replacement)
         if not count or replaced == text:
             return 0
         def edit(buf):
-            s, e = buf.get_bounds()
-            buf.delete(s, e)
+            start, end = buf.get_bounds()
+            buf.delete(start, end)
             buf.insert(buf.get_start_iter(), replaced)
         self.execute_command("Replace All", edit)
-        self.last_match = None
+        self.search_controller.clear_current_match()
         return count
 
     def on_print_preview(self, *_):

@@ -60,26 +60,23 @@ class AppearanceRendererTests(unittest.TestCase):
         self.assertIn("box-shadow: none;", css)
         self.assertIn("border-right: 1px solid rgba(128, 128, 128, 0.35);", css)
 
-    def test_line_number_spacing_is_painted_padding_not_transparent_margin(self):
-        css = build_application_css("Monospace", 12, APPEARANCE_LIGHT)
-        self.assertIn("#line-numbers {", css)
-        self.assertIn("padding-left: 2px;", css)
-        self.assertIn("padding-right: 3px;", css)
+    def test_drawing_gutter_owns_color_without_dead_label_selector(self):
+        light = build_application_css("Monospace", 12, APPEARANCE_LIGHT)
+        dark = build_application_css("Monospace", 12, APPEARANCE_DARK)
+        self.assertIn("color: #555555;", light)
+        self.assertIn("color: #bdbdbd;", dark)
+        self.assertNotIn("#line-numbers", light)
+        self.assertNotIn("#line-numbers", dark)
 
-    def test_gutter_css_neutralizes_internal_scrollbar_nodes(self):
+    def test_drawing_gutter_has_no_obsolete_scroller_node_rules(self):
         css = build_application_css("Monospace", 12, APPEARANCE_LIGHT)
         for selector in (
             "#line-gutter > border",
             "#line-gutter scrollbar",
-            "#line-gutter scrollbar trough",
-            "#line-gutter scrollbar slider",
             "#line-gutter overshoot",
             "#line-gutter undershoot",
         ):
-            self.assertIn(selector, css)
-        self.assertIn("opacity: 0;", css)
-        self.assertIn("min-width: 0;", css)
-        self.assertIn("background-color: transparent;", css)
+            self.assertNotIn(selector, css)
 
     def test_light_and_dark_palettes_reassert_only_semantic_divider(self):
         light = build_application_css("Monospace", 12, APPEARANCE_LIGHT)

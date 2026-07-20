@@ -4,60 +4,110 @@ from calamus_line_numbers import LineGutterAdapter
 
 
 class _Layout:
-    def __init__(self, width, height=20):
-        self.width = width
-        self.height = height
+    def __init__(self, widths, text=""):
+        self.widths = widths
+        self.text = text
+
+    def set_text(self, text, _length):
+        self.text = text
 
     def get_pixel_size(self):
-        return self.width, self.height
+        return self.widths.get(self.text, len(self.text) * 10), 20
 
 
-class _Container:
-    def __init__(self):
-        self.visible = None
-        self.size = None
-        self.resize_count = 0
-
-    def set_visible(self, visible):
-        self.visible = visible
-
-    def set_size_request(self, width, height):
-        self.size = (width, height)
-
-    def queue_resize(self):
-        self.resize_count += 1
-
-
-class _Label:
+class _Gutter:
     def __init__(self, widths=None):
-        self.widths = widths or {"8": 8, "88": 20, "888": 33}
+        self.widths = widths or {}
         self.visible = None
-        self.text = None
-        self.text_updates = 0
         self.size = None
-        self.samples = []
         self.font = None
         self.resize_count = 0
+        self.draw_count = 0
+        self.samples = []
+        self.allocated_width = 50
+        self.style_context = object()
 
     def set_visible(self, visible):
         self.visible = visible
 
-    def set_text(self, text):
-        self.text = text
-        self.text_updates += 1
-
     def set_size_request(self, width, height):
         self.size = (width, height)
+        self.allocated_width = width
 
     def create_pango_layout(self, sample):
         self.samples.append(sample)
-        return _Layout(self.widths[sample])
+        return _Layout(self.widths, sample)
 
     def override_font(self, description):
         self.font = description
 
     def queue_resize(self):
         self.resize_count += 1
+
+    def queue_draw(self):
+        self.draw_count += 1
+
+    def get_allocated_width(self):
+        return self.allocated_width
+
+    def get_style_context(self):
+        return self.style_context
+
+
+class _Buffer:
+    def __init__(self, line_count):
+        self.line_count = line_count
+
+    def get_line_count(self):
+        return self.line_count
+
+
+class _Rect:
+    def __init__(self, y, height):
+        self.y = y
+        self.height = height
+
+
+class _Iter:
+    def __init__(self, view, index):
+        self.view = view
+        self.index = index
+
+    def get_line(self):
+        return self.index
+
+    def is_end(self):
+        return self.index >= len(self.view.rows) - 1
+
+    def forward_line(self):
+        if self.index >= len(self.view.rows) - 1:
+            return False
+        self.index += 1
+        return True
+
+
+class _TextView:
+    def __init__(self, rows=None, *, visible_y=0, visible_height=100, line_count=None):
+        # Each row is one logical GtkTextBuffer line: (buffer y, rendered height).
+        self.rows = rows or [(0, 20)]
+        self.visible = _Rect(visible_y, visible_height)
+        self.buffer = _Buffer(line_count if line_count is not None else len(self.rows))
+
+    def get_buffer(self):
+        return self.buffer
+
+    def get_visible_rect(self):
+        return self.visible
+
+    def get_line_at_y(self, y):
+        for index, (line_y, height) in enumerate(self.rows):
+            if y < line_y + height:
+                return _Iter(self, index), line_y
+        index = len(self.rows) - 1
+        return _Iter(self, index), self.rows[index][0]
+
+    def get_line_yrange(self, iterator):
+        return self.rows[iterator.index]
 
 
 class _Pango:
@@ -66,113 +116,163 @@ class _Pango:
         return ("font", value)
 
 
-class LineGutterAdapterTests(unittest.TestCase):
-    def test_visible_render_owns_text_geometry_and_visibility(self):
-        container = _Container()
-        label = _Label({"888": 33})
-        adapter = LineGutterAdapter(container, label, minimum_width=30)
+class _Renderer:
+    def __init__(self):
+        self.calls = []
 
-        result = adapter.render(True, 725)
+    def __call__(self, style_context, cairo_context, x, y, layout):
+        self.calls.append((style_context, cairo_context, x, y, layout.text))
+
+
+class LineGutterAdapterTests(unittest.TestCase):
+    def make_adapter(self, *, rows=None, visible_y=0, visible_height=100, line_count=None, widths=None):
+        gutter = _Gutter(widths)
+        view = _TextView(
+            rows,
+            visible_y=visible_y,
+            visible_height=visible_height,
+            line_count=line_count,
+        )
+        renderer = _Renderer()
+        adapter = LineGutterAdapter(
+            gutter,
+            view,
+            minimum_width=30,
+            render_layout=renderer,
+        )
+        return adapter, gutter, view, renderer
+
+    def test_visible_render_owns_width_visibility_and_draw_invalidation(self):
+        adapter, gutter, _view, _renderer = self.make_adapter(
+            line_count=725,
+            widths={"888": 33},
+        )
+
+        result = adapter.render(True)
 
         self.assertTrue(result.visible)
         self.assertEqual(result.line_count, 725)
-        self.assertTrue(result.text.startswith("1\n2\n3"))
-        self.assertTrue(result.text.endswith("725"))
+        self.assertEqual(result.text, "")
         self.assertEqual(result.width, 45)
-        self.assertEqual(container.visible, True)
-        self.assertEqual(label.visible, True)
-        self.assertEqual(container.size, (45, 1))
-        self.assertEqual(label.size, (40, 1))
-        self.assertEqual(label.samples, ["888"])
-        self.assertEqual(container.resize_count, 1)
-        self.assertEqual(label.resize_count, 1)
+        self.assertTrue(gutter.visible)
+        self.assertEqual(gutter.size, (45, 1))
+        self.assertEqual(gutter.samples, ["888"])
+        self.assertEqual(gutter.resize_count, 1)
+        self.assertEqual(gutter.draw_count, 1)
 
-    def test_hidden_render_hides_entire_container_and_clears_text(self):
-        container = _Container()
-        label = _Label()
-        adapter = LineGutterAdapter(container, label, minimum_width=30)
+    def test_hidden_render_hides_entire_drawing_gutter(self):
+        adapter, gutter, _view, _renderer = self.make_adapter(line_count=9)
 
-        result = adapter.render(False, 9)
+        result = adapter.render(False)
 
         self.assertFalse(result.visible)
         self.assertEqual(result.text, "")
         self.assertEqual(result.width, 0)
-        self.assertEqual(container.visible, False)
-        self.assertEqual(label.visible, False)
-        self.assertEqual(label.text, "")
-        self.assertEqual(label.samples, [])
+        self.assertFalse(gutter.visible)
+        self.assertEqual(gutter.samples, [])
+        self.assertEqual(gutter.draw_count, 1)
 
-    def test_empty_document_renders_line_one_at_minimum_width(self):
-        container = _Container()
-        label = _Label({"8": 7})
-        adapter = LineGutterAdapter(container, label, minimum_width=30)
-        result = adapter.render(True, 0)
-        self.assertEqual(result.line_count, 1)
-        self.assertEqual(result.text, "1")
-        self.assertEqual(result.width, 30)
+    def test_current_line_count_comes_from_text_buffer(self):
+        adapter, _gutter, view, _renderer = self.make_adapter(line_count=937)
+        self.assertEqual(adapter.current_line_count(), 937)
+        view.buffer.line_count = 0
+        self.assertEqual(adapter.current_line_count(), 1)
+
+    def test_visible_rows_use_textview_lines_and_wrapped_line_heights(self):
+        # Logical line 1 wraps to 40px. It still receives one number only.
+        adapter, _gutter, _view, _renderer = self.make_adapter(
+            rows=[(0, 40), (40, 20), (60, 20), (80, 20)],
+            visible_y=10,
+            visible_height=70,
+        )
+        adapter.render(True)
+
+        self.assertEqual(
+            adapter.visible_line_rows(),
+            ((1, -10), (2, 30), (3, 50)),
+        )
+
+    def test_draw_uses_authoritative_line_numbers_and_textview_y_positions(self):
+        adapter, gutter, _view, renderer = self.make_adapter(
+            rows=[(100, 20), (120, 20), (140, 20)],
+            visible_y=110,
+            visible_height=50,
+            widths={"1": 8, "2": 8, "3": 8, "888": 24},
+        )
+        adapter.render(True, 3)
+        cairo = object()
+
+        self.assertFalse(adapter.draw(gutter, cairo))
+
+        self.assertEqual([call[4] for call in renderer.calls], ["1", "2", "3"])
+        self.assertEqual([call[3] for call in renderer.calls], [-10, 10, 30])
+        self.assertTrue(all(call[0] is gutter.style_context for call in renderer.calls))
+        self.assertTrue(all(call[1] is cairo for call in renderer.calls))
+        self.assertTrue(all(call[2] >= 0 for call in renderer.calls))
+
+    def test_draw_is_noop_when_hidden(self):
+        adapter, gutter, _view, renderer = self.make_adapter()
+        adapter.render(False)
+        self.assertFalse(adapter.draw(gutter, object()))
+        self.assertEqual(renderer.calls, [])
 
     def test_typography_uses_explicit_pango_boundary(self):
-        container = _Container()
-        label = _Label()
-        adapter = LineGutterAdapter(container, label, minimum_width=30)
+        adapter, gutter, _view, _renderer = self.make_adapter()
         description = adapter.apply_typography("Literata", 15, pango=_Pango)
         self.assertEqual(description, ("font", "Literata 15"))
-        self.assertEqual(label.font, description)
+        self.assertEqual(gutter.font, description)
+        self.assertGreaterEqual(gutter.draw_count, 1)
 
-    def test_same_line_count_does_not_rebuild_large_label_text(self):
-        container = _Container()
-        label = _Label({"888": 33})
-        adapter = LineGutterAdapter(container, label, minimum_width=30)
-        first = adapter.render(True, 725)
-        second = adapter.render(True, 725)
+    def test_same_line_count_reuses_geometry_but_repaints_viewport(self):
+        adapter, gutter, _view, _renderer = self.make_adapter(
+            line_count=725,
+            widths={"888": 33},
+        )
+        first = adapter.render(True)
+        second = adapter.render(True)
         self.assertEqual(second, first)
-        self.assertEqual(label.text_updates, 1)
-        self.assertEqual(label.samples, ["888"])
-        self.assertEqual(container.resize_count, 1)
+        self.assertEqual(gutter.samples, ["888"])
+        self.assertEqual(gutter.resize_count, 1)
+        self.assertEqual(gutter.draw_count, 2)
 
-
-    def test_force_render_reapplies_text_and_geometry_after_map(self):
-        container = _Container()
-        label = _Label({"888": 33})
-        adapter = LineGutterAdapter(container, label, minimum_width=30)
-        first = adapter.render(True, 725)
-        second = adapter.render(True, 725, force=True)
+    def test_force_render_remeasures_after_map(self):
+        adapter, gutter, _view, _renderer = self.make_adapter(
+            line_count=725,
+            widths={"888": 33},
+        )
+        first = adapter.render(True)
+        second = adapter.render(True, force=True)
         self.assertEqual(second, first)
-        self.assertEqual(label.text_updates, 2)
-        self.assertEqual(label.samples, ["888", "888"])
-        self.assertEqual(container.resize_count, 2)
-
-    def test_force_flag_must_be_boolean(self):
-        adapter = LineGutterAdapter(_Container(), _Label(), minimum_width=30)
-        with self.assertRaises(TypeError):
-            adapter.render(True, 1, force=1)
+        self.assertEqual(gutter.samples, ["888", "888"])
+        self.assertEqual(gutter.resize_count, 2)
 
     def test_typography_change_invalidates_cached_geometry(self):
-        container = _Container()
-        label = _Label({"88": 20})
-        adapter = LineGutterAdapter(container, label, minimum_width=30)
-        adapter.render(True, 99)
+        adapter, gutter, _view, _renderer = self.make_adapter(
+            line_count=99,
+            widths={"88": 20},
+        )
+        adapter.render(True)
         adapter.apply_typography("Literata", 15, pango=_Pango)
-        adapter.render(True, 99)
-        self.assertEqual(label.samples, ["88", "88"])
-        self.assertEqual(container.resize_count, 2)
+        adapter.render(True)
+        self.assertEqual(gutter.samples, ["88", "88"])
+        self.assertEqual(gutter.resize_count, 3)  # font queue + two measurements
 
-    def test_hidden_render_still_validates_line_count(self):
-        adapter = LineGutterAdapter(_Container(), _Label(), minimum_width=30)
+    def test_invalid_arguments_and_protocols_are_rejected(self):
+        adapter, _gutter, _view, _renderer = self.make_adapter()
+        with self.assertRaises(TypeError):
+            adapter.render(True, 1, force=1)
         with self.assertRaises(TypeError):
             adapter.render(False, True)
         with self.assertRaises(ValueError):
             adapter.render(False, -1)
-
-    def test_adapter_validates_widget_protocol_and_dimensions(self):
         with self.assertRaises(TypeError):
-            LineGutterAdapter(object(), _Label(), minimum_width=30)
+            LineGutterAdapter(object(), _TextView(), minimum_width=30, render_layout=lambda *_: None)
         with self.assertRaises(TypeError):
-            LineGutterAdapter(_Container(), object(), minimum_width=30)
+            LineGutterAdapter(_Gutter(), object(), minimum_width=30, render_layout=lambda *_: None)
         with self.assertRaises(ValueError):
-            LineGutterAdapter(_Container(), _Label(), minimum_width=0)
-        with self.assertRaises(ValueError):
-            LineGutterAdapter(_Container(), _Label(), minimum_width=30, horizontal_padding=-1)
+            LineGutterAdapter(_Gutter(), _TextView(), minimum_width=0, render_layout=lambda *_: None)
+        with self.assertRaises(TypeError):
+            LineGutterAdapter(_Gutter(), _TextView(), minimum_width=30, render_layout=object())
 
 
 if __name__ == "__main__":

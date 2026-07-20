@@ -89,6 +89,7 @@ def build_menu(app) -> None:
     add_item(editm, "Duplicate Line / Selection\tCtrl+D", app.on_duplicate_line_or_selection)
     add_separator(editm)
     add_item(editm, "Find / Replace…\tCtrl+F", app.on_find_replace)
+    add_item(editm, "Find All…", app.on_find_all)
     add_item(editm, "Find Next Word\tCtrl+G", app.on_find_next)
     add_item(editm, "Find Previous\tCtrl+Shift+G", app.on_find_previous)
     add_item(editm, "Replace\tCtrl+H", app.on_find_replace)
