@@ -26,6 +26,8 @@ modules = [
     "calamus_shortcuts",
     "calamus_editor",
     "calamus_layout",
+    "calamus_line_numbers",
+    "calamus_line_numbers_gateway",
     "calamus_clip_panel",
     "calamus_logging",
 ]

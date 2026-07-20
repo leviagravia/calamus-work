@@ -3,6 +3,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from calamus_line_numbers import (
+    apply_line_gutter_typography,
+    measure_line_gutter_width,
+)
+
 from calamus_appearance_preferences import (
     APPEARANCE_DARK,
     APPEARANCE_LIGHT,
@@ -52,6 +57,13 @@ def build_application_css(
         }
         menuitem label, menubar menuitem label, label {
             color: #000000;
+        }
+        #line-gutter {
+            background-color: #f2f2f2;
+            background-image: none;
+            border: none;
+            border-right: 1px solid #d7d7d7;
+            box-shadow: none;
         }
         #line-numbers {
             background-color: #f2f2f2;
@@ -165,6 +177,13 @@ def build_application_css(
         menuitem label, menubar menuitem label, label {
             color: #f5f5f5;
         }
+        #line-gutter {
+            background-color: #252525;
+            background-image: none;
+            border: none;
+            border-right: 1px solid #3b3b3b;
+            box-shadow: none;
+        }
         #line-numbers {
             background-color: #252525;
             color: #bdbdbd;
@@ -250,6 +269,37 @@ def build_application_css(
         }
         """
     css = f"""
+    /* The gutter scroller must not inherit frame/scrollbar chrome from the
+       desktop theme. Calamus owns one semantic divider and nothing else. */
+    #line-gutter {{
+        border: none;
+        border-radius: 0;
+        border-right: 1px solid rgba(128, 128, 128, 0.35);
+        background-image: none;
+        box-shadow: none;
+        padding: 0;
+    }}
+    #line-numbers {{
+        padding-left: 2px;
+        padding-right: 3px;
+    }}
+    #line-gutter > border,
+    #line-gutter scrollbar,
+    #line-gutter scrollbar trough,
+    #line-gutter scrollbar slider,
+    #line-gutter overshoot,
+    #line-gutter undershoot {{
+        min-width: 0;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background-color: transparent;
+        background-image: none;
+        box-shadow: none;
+        opacity: 0;
+    }}
     textview,
     textview text {{
         font-family: "{font_family}";
@@ -259,68 +309,6 @@ def build_application_css(
     """
     return css
 
-
-
-def apply_line_gutter_typography(
-    line_numbers: Any,
-    font_family: str,
-    font_size: int,
-    *,
-    pango: Any,
-) -> Any:
-    """Apply the editor font explicitly to Calamus' custom Gtk.Label gutter.
-
-    GtkSourceView-based editors inherit gutter typography inside one editor
-    widget. Calamus uses a separate Gtk.Label, so a screen-level CSS selector
-    is not a reliable authority for its Pango layout. The gutter therefore
-    receives the same concrete Pango.FontDescription as the editor preference.
-    """
-    if not isinstance(font_family, str) or not font_family.strip():
-        raise ValueError("font family must be a non-empty string")
-    if isinstance(font_size, bool) or not isinstance(font_size, int):
-        raise TypeError("font size must be an integer")
-    if font_size <= 0:
-        raise ValueError("font size must be positive")
-    if not hasattr(line_numbers, "override_font"):
-        raise TypeError("line number widget must support override_font")
-    if not hasattr(pango, "FontDescription"):
-        raise TypeError("pango boundary must provide FontDescription")
-
-    description = pango.FontDescription(f"{font_family.strip()} {font_size}")
-    line_numbers.override_font(description)
-    if hasattr(line_numbers, "queue_resize"):
-        line_numbers.queue_resize()
-    return description
-
-def measure_line_gutter_width(
-    line_numbers: Any,
-    line_count: int,
-    *,
-    minimum_width: int,
-    horizontal_padding: int = 12,
-) -> int:
-    """Measure gutter geometry from the widget's effective editor font.
-
-    The line-number label receives the same explicit Pango typography as the TextView.
-    Its width must therefore come from a Pango layout created by that widget,
-    not from a fixed pixels-per-digit approximation that becomes stale after
-    a font change.
-    """
-    if isinstance(line_count, bool) or not isinstance(line_count, int):
-        raise TypeError("line_count must be an integer")
-    if isinstance(minimum_width, bool) or not isinstance(minimum_width, int):
-        raise TypeError("minimum_width must be an integer")
-    if isinstance(horizontal_padding, bool) or not isinstance(horizontal_padding, int):
-        raise TypeError("horizontal_padding must be an integer")
-    if minimum_width <= 0:
-        raise ValueError("minimum_width must be positive")
-    if horizontal_padding < 0:
-        raise ValueError("horizontal_padding cannot be negative")
-
-    digits = max(1, len(str(max(1, line_count))))
-    layout = line_numbers.create_pango_layout("8" * digits)
-    text_width, _text_height = layout.get_pixel_size()
-    return max(minimum_width, int(text_width) + horizontal_padding)
 
 
 def install_application_css(

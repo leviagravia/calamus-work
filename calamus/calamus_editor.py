@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from gi.repository import Gtk, Gdk
 
+from calamus_line_numbers import LineGutterAdapter
 from calamus_layout import (
     LINE_GUTTER_MIN_WIDTH,
     EDITOR_MIN_CONTENT_WIDTH,
@@ -42,21 +43,33 @@ def build_editor_widgets(word_wrap: bool):
     # Keep the line-number widget inside its own vertical scroller. A bare Gtk.Label
     # containing thousands of newline-separated numbers reports a huge natural
     # height and can force the top-level window to grow with document length.
-    # IMPORTANT: the vertical policy must be scrollable (AUTOMATIC), not NEVER.
-    # With NEVER, GTK may treat the full label height as the gutter's minimum
-    # height, so pressing Enter repeatedly can stretch the program window.
+    # IMPORTANT: use EXTERNAL rather than AUTOMATIC or NEVER.  EXTERNAL keeps
+    # the gutter vertically scrollable through its adjustment without creating
+    # a second visible scrollbar.  AUTOMATIC produced the coarse black strip
+    # beside the intended one-pixel divider; NEVER lets label height influence
+    # the top-level requisition.
     line_scroller = Gtk.ScrolledWindow()
-    line_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    line_scroller.set_name("line-gutter")
+    line_scroller.set_shadow_type(Gtk.ShadowType.NONE)
+    # Some GTK themes keep frame chrome on GtkScrolledWindow even with a
+    # NONE shadow. Remove the standard frame class explicitly; Calamus CSS
+    # then owns the only visible gutter/editor divider.
+    line_scroller.get_style_context().remove_class(Gtk.STYLE_CLASS_FRAME)
+    line_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
     line_scroller.set_size_request(LINE_GUTTER_MIN_WIDTH, 1)
     _contain_scrolled_window(line_scroller, min_height=LINE_GUTTER_MIN_CONTENT_HEIGHT)
     line_scroller.set_hexpand(False)
     editor_box.pack_start(line_scroller, False, False, 0)
 
     line_numbers = Gtk.Label()
+    line_numbers.set_name("line-numbers")
     line_numbers.set_xalign(1)
     line_numbers.set_yalign(0)
-    line_numbers.set_margin_start(2)
-    line_numbers.set_margin_end(3)
+    # Keep number padding inside the label's painted background. Gtk widget
+    # margins are transparent/outside the CSS box and exposed three pixels of
+    # the dark desktop theme beside the semantic divider on Linux Mint.
+    line_numbers.set_margin_start(0)
+    line_numbers.set_margin_end(0)
     line_numbers.set_margin_top(10)
     line_numbers.set_selectable(False)
     line_numbers.set_size_request(LINE_GUTTER_MIN_WIDTH - 5, 1)
@@ -97,7 +110,12 @@ def build_editor_widgets(word_wrap: bool):
             pass
 
     scroller.get_vadjustment().connect("value-changed", sync_gutter_scroll)
-    return editor_box, line_numbers, scroller, text
+    line_gutter = LineGutterAdapter(
+        line_scroller,
+        line_numbers,
+        minimum_width=LINE_GUTTER_MIN_WIDTH,
+    )
+    return editor_box, line_gutter, scroller, text
 
 
 def apply_text_wrap_policy(text, scroller, enabled: bool) -> bool:

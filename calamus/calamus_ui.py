@@ -150,7 +150,7 @@ def build_menu(app) -> None:
     app.dark_item.connect("toggled", app.on_dark_mode)
     optm.append(app.dark_item)
     app.line_item = Gtk.CheckMenuItem(label="Line Numbers\tCtrl+Alt+L")
-    app.line_item.set_active(app.show_line_numbers)
+    app.line_item.set_active(app.line_numbers_enabled)
     app.line_item.connect("toggled", app.on_line_numbers)
     optm.append(app.line_item)
     add_separator(optm)

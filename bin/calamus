@@ -69,7 +69,7 @@ APP_TITLE = "Calamus Copy"
 APP_ICON = "calamus"
 RUNTIME_ABOUT_NAME = "Calamus-Working-Copy"
 from calamus_version import APP_VERSION as VERSION
-from calamus_layout import CLIP_PANEL_DEFAULT_WIDTH, LINE_GUTTER_MIN_WIDTH
+from calamus_layout import CLIP_PANEL_DEFAULT_WIDTH
 from calamus_logging import log_nonfatal
 from calamus_editor import build_editor_widgets, apply_text_wrap_policy
 from calamus_clip_panel import build_clip_panel, calculate_clip_panel_width
@@ -97,10 +97,16 @@ from calamus_opacity_gateway import (
     execute_transparent_mode_request,
 )
 from calamus_appearance import (
-    apply_line_gutter_typography,
     build_application_css,
     install_application_css,
-    measure_line_gutter_width,
+)
+from calamus_line_numbers import (
+    line_number_settings_overrides,
+    load_line_number_preference,
+)
+from calamus_line_numbers_gateway import (
+    execute_line_number_preference_request,
+    refresh_line_number_gutter,
 )
 DEFAULT_FONT = DEFAULT_FONT_SIZE
 MIN_FONT = MIN_FONT_SIZE
@@ -151,7 +157,9 @@ class App(Gtk.Window):
         self.restoring_undo = False
         self.search_highlight_source = None
         self.print_pages = []
-        self.show_line_numbers = bool(self.settings.get("line_numbers", True))
+        line_number_preference = load_line_number_preference(self.settings)
+        self.line_numbers_enabled = line_number_preference.enabled
+        self._syncing_line_number_item = False
         self.focus_mode = False
         self.current_line_highlight = False
         self.distraction_free = False
@@ -188,7 +196,7 @@ class App(Gtk.Window):
         # Keep Gtk.TextView as the direct Gtk.ScrolledWindow child.
         # GTK's native caret/selection scrolling only works reliably in this
         # topology; the line-number gutter stays outside the scroller.
-        self.editor_box, self.line_numbers, self.scroller, self.text = build_editor_widgets(self.word_wrap)
+        self.editor_box, self.line_gutter, self.scroller, self.text = build_editor_widgets(self.word_wrap)
         self.body_paned.pack1(self.editor_box, True, True)
         self.text.get_buffer().connect("changed", self.on_changed)
         self.text.get_buffer().connect("notify::cursor-position", self.on_cursor_position_notify)
@@ -342,7 +350,7 @@ class App(Gtk.Window):
             "inline_spell": False,
             "always_on_top": self.always_item.get_active() if hasattr(self, "always_item") else False,
             **appearance_settings_overrides(self.appearance_mode),
-            "line_numbers": self.line_item.get_active() if hasattr(self, "line_item") else self.show_line_numbers,
+            **line_number_settings_overrides(self.line_numbers_enabled),
             "trim_trailing_on_save": self.trim_trailing_on_save_item.get_active() if hasattr(self, "trim_trailing_on_save_item") else self.trim_trailing_on_save,
         }
         if overrides is not None:
@@ -513,6 +521,9 @@ class App(Gtk.Window):
         self.set_text_from_history(text, self.estimate_history_cursor(current_text, text))
 
     def on_changed(self, *_):
+        # Gutter content is a view of the GtkTextBuffer and must refresh for
+        # both user edits and guarded bulk replacements such as Open/New.
+        self.update_line_numbers()
         if not self.loading:
             self.modified = True
             if hasattr(self, "document"):
@@ -520,7 +531,6 @@ class App(Gtk.Window):
             self.schedule_undo_snapshot()
             self.schedule_status_update()
             self.schedule_search_highlight()
-            self.update_line_numbers()
             self.update_current_line_highlight()
             self.queue_insert_scroll()
             self.update_title()
@@ -612,7 +622,7 @@ class App(Gtk.Window):
         top = "top ON" if top_active else "top OFF"
         bg = {APPEARANCE_DARK: "dark bg", APPEARANCE_LIGHT: "white bg"}.get(self.appearance_mode, "default bg")
         words, chars, lines = self.text_stats()
-        ln = "lines ON" if self.show_line_numbers else "lines OFF"
+        ln = "lines ON" if self.line_numbers_enabled else "lines OFF"
         undo_note = " | undo limited" if getattr(self.history, "disabled_reason", None) else ""
         self.status.set_text(f"{name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln}{undo_note}")
 
@@ -629,15 +639,12 @@ class App(Gtk.Window):
             style_context=Gtk.StyleContext,
             priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
-        if hasattr(self, "line_numbers"):
-            self.line_numbers.set_name("line-numbers")
-            apply_line_gutter_typography(
-                self.line_numbers,
+        if hasattr(self, "line_gutter"):
+            self.line_gutter.apply_typography(
                 self.font_family,
                 self.font_size,
                 pango=Pango,
             )
-            self.line_numbers.set_visible(self.show_line_numbers)
             self.update_line_numbers()
         self.update_title()
 
@@ -803,11 +810,9 @@ class App(Gtk.Window):
         return execute_appearance_preference_request(self, requested)
 
     def on_line_numbers(self, item):
-        self.show_line_numbers = item.get_active()
-        self.line_numbers.set_visible(self.show_line_numbers)
-        self.update_line_numbers()
-        self.update_title()
-        self.save_settings()
+        if self._syncing_line_number_item:
+            return False
+        return execute_line_number_preference_request(self, item.get_active())
 
     def set_opacity_value(self, v):
         return execute_opacity_preference_request(self, v)
@@ -1701,28 +1706,8 @@ class App(Gtk.Window):
             return False
         self.word_count_source = GLib.timeout_add(250, run)
 
-    def update_line_numbers(self):
-        if not hasattr(self, "line_numbers"):
-            return
-        if not self.show_line_numbers:
-            self.line_numbers.set_text("")
-            return
-        _words, _chars, lines = self.text_stats()
-        self.line_numbers.set_text("\n".join(str(i) for i in range(1, lines + 1)))
-        # Measure with the gutter widget's effective CSS font so a Font change
-        # updates line-number size and geometry together with the editor.
-        try:
-            width = measure_line_gutter_width(
-                self.line_numbers,
-                lines,
-                minimum_width=LINE_GUTTER_MIN_WIDTH,
-            )
-            parent = self.line_numbers.get_parent()
-            if parent is not None:
-                parent.set_size_request(width, 1)
-            self.line_numbers.set_size_request(max(1, width - 5), 1)
-        except Exception as exc:
-            log_nonfatal("line-number gutter resize failed", exc)
+    def update_line_numbers(self, *, force=False):
+        return refresh_line_number_gutter(self, force=force)
 
     def load_recent_files(self):
         return self.state.load_recent_files(limit=10)
@@ -2413,8 +2398,19 @@ class App(Gtk.Window):
         show_error(self, msg)
 
 
+def _refresh_line_numbers_after_map(win, _event):
+    # The first mapped allocation is the earliest reliable point for applying
+    # the standalone scrolled gutter's text and width on the real GTK desktop.
+    win.update_line_numbers(force=True)
+    return False
+
+
 if __name__ == "__main__":
     win = App()
+    win.connect("map-event", _refresh_line_numbers_after_map)
     win.show_all()
+    # Keep the synchronous refresh for persisted disabled state; the mapped
+    # forced refresh above repairs the first visible allocation when enabled.
+    win.update_line_numbers()
     # Clip panel starts detached and is attached lazily on demand.
     Gtk.main()

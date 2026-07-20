@@ -35,7 +35,7 @@ class FontCommandWiringTests(unittest.TestCase):
         method = _method_source("apply_font")
         self.assertIn("build_application_css", method)
         self.assertIn("install_application_css", method)
-        self.assertIn("self.line_numbers.set_visible", method)
+        self.assertIn("self.line_gutter.apply_typography", method)
         self.assertLess(method.index("install_application_css"), method.index("self.update_line_numbers"))
         self.assertLessEqual(len(method.splitlines()), 25)
         self.assertNotIn("White mode", method)
@@ -45,21 +45,19 @@ class FontCommandWiringTests(unittest.TestCase):
         self.assertIn("background-color: #1e1e1e", appearance)
 
 
-    def test_line_number_typography_and_geometry_use_explicit_runtime_adapters(self):
+    def test_line_number_typography_and_geometry_use_gutter_adapter(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
         apply_method = _method_source("apply_font")
         update_method = _method_source("update_line_numbers")
-        self.assertIn("apply_line_gutter_typography", launcher)
-        self.assertIn("measure_line_gutter_width", launcher)
-        self.assertIn("apply_line_gutter_typography", apply_method)
+        self.assertIn("self.line_gutter.apply_typography", apply_method)
         self.assertIn("pango=Pango", apply_method)
         self.assertLess(
-            apply_method.index("apply_line_gutter_typography"),
+            apply_method.index("self.line_gutter.apply_typography"),
             apply_method.index("self.update_line_numbers"),
         )
-        self.assertIn("measure_line_gutter_width", update_method)
-        self.assertIn("self.line_numbers", update_method)
-        self.assertNotIn("digits * 9", update_method)
+        self.assertIn("refresh_line_number_gutter", update_method)
+        self.assertNotIn("measure_line_gutter_width", launcher)
+        self.assertNotIn("self.line_numbers.", launcher)
         self.assertNotIn("LINE_GUTTER_MAX_WIDTH", launcher)
 
     def test_font_callback_is_persist_then_apply_gateway(self):
