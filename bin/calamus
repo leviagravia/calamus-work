@@ -43,6 +43,9 @@ from calamus_search import WORD_RE, text_stats as calc_text_stats
 from calamus_search_gateway import SearchController
 from calamus_search_view import SearchViewAdapter
 from calamus_search_dialogs import run_find_all_dialog, run_find_replace_dialog
+from calamus_navigation_gateway import NavigationController
+from calamus_navigation_view import NavigationViewAdapter
+from calamus_navigation_dialogs import run_go_to_line_dialog, run_go_to_section_dialog
 from calamus_history import TextHistory
 from calamus_external import open_character_map as external_open_character_map
 from calamus_writing import (
@@ -59,7 +62,7 @@ from calamus_spellcheck import (
 from calamus_dialogs import (
     SHORTCUT_ROWS, ask_save as dialog_ask_save, choose_open_file, choose_save_file,
     choose_save_template, run_manage_templates_dialog,
-    prompt_go_to_line, run_spelling_dialog,
+    run_spelling_dialog,
     show_about, show_error, show_info, show_keyboard_shortcuts, show_large_info,
 )
 from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts, add_item as ui_add_item, add_separator as ui_add_separator, top_menu as ui_top_menu
@@ -214,6 +217,9 @@ class App(Gtk.Window):
         self.tag = self.text.get_buffer().create_tag("misspelled", underline=Pango.Underline.ERROR)
         self.search_tag = self.text.get_buffer().create_tag("search_highlight", background="#fff59d", foreground="#000000")
         self.search_controller = SearchController(SearchViewAdapter(self.text, self.search_tag))
+        self.navigation_controller = NavigationController(
+            NavigationViewAdapter(self.text)
+        )
         self.current_line_tag = self.text.get_buffer().create_tag("current_line", background="#eef5ff")
 
         self.status = Gtk.Label()
@@ -522,6 +528,8 @@ class App(Gtk.Window):
         self.set_text_from_history(text, self.estimate_history_cursor(current_text, text))
 
     def on_changed(self, *_):
+        if hasattr(self, "navigation_controller"):
+            self.navigation_controller.invalidate()
         # Gutter content is a view of the GtkTextBuffer and must refresh for
         # both user edits and guarded bulk replacements such as Open/New.
         self.update_line_numbers()
@@ -2015,28 +2023,24 @@ class App(Gtk.Window):
         self.large_info("Bookmarks", "\n".join(lines))
 
     def on_go_to_line(self, *_):
-        _words, _chars, total_lines = self.text_stats()
-        line_no, invalid = prompt_go_to_line(self, total_lines)
-        if invalid:
-            self.error("Invalid line number.")
-            return
-        if line_no is None:
-            return
-        b = self.text.get_buffer()
-        target_line = line_to_buffer_index(line_no, b.get_line_count())
-        it = b.get_iter_at_line_offset(target_line, 0)
-        b.place_cursor(it)
-        self.text.grab_focus()
+        return run_go_to_line_dialog(self, self.navigation_controller)
 
-        def reveal():
-            try:
-                mark = b.get_insert()
-                self.text.scroll_to_mark(mark, 0.08, True, 0.0, 0.15)
-            except Exception as exc:
-                log_nonfatal("go-to-line scroll failed", exc)
-            return False
+    def on_go_to_section(self, *_):
+        return run_go_to_section_dialog(self, self.navigation_controller)
 
-        GLib.idle_add(reveal)
+    def on_next_heading(self, *_):
+        heading = self.navigation_controller.next_heading()
+        self.status.set_text(
+            f"Heading: {heading.display_title}" if heading else "No next heading."
+        )
+        return heading is not None
+
+    def on_previous_heading(self, *_):
+        heading = self.navigation_controller.previous_heading()
+        self.status.set_text(
+            f"Heading: {heading.display_title}" if heading else "No previous heading."
+        )
+        return heading is not None
 
     def on_find_replace(self, *_):
         run_find_replace_dialog(

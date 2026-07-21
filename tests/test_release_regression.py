@@ -33,7 +33,9 @@ class ReleaseRegressionTests(unittest.TestCase):
             "calamus_model.py", "calamus_commands.py", "calamus_ui.py", "calamus_state.py",
             "calamus_file_lifecycle.py", "calamus_recent_files.py", "calamus_writing.py",
             "calamus_clips.py", "calamus_clip_collection.py", "calamus_clip_panel.py",
-            "calamus_right_panel.py", "calamus_audit.py",
+            "calamus_right_panel.py", "calamus_document_structure.py",
+            "calamus_navigation_gateway.py", "calamus_navigation_view.py",
+            "calamus_navigation_dialogs.py", "calamus_audit.py",
         ]
         missing = [name for name in expected if not os.path.exists(os.path.join(lib, name))]
         self.assertEqual(missing, [])

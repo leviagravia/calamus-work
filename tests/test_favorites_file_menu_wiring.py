@@ -77,7 +77,7 @@ class FavoritesFileMenuWiringTests(unittest.TestCase):
                 continue
             if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant):
                 labels.append(node.args[1].value)
-        self.assertEqual(labels, ["File", "Edit", "Revise", "View", "Options", "Tools", "Help"])
+        self.assertEqual(labels, ["File", "Edit", "Navigate", "Revise", "View", "Options", "Tools", "Help"])
 
 
 if __name__ == "__main__":

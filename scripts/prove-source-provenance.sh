@@ -36,6 +36,10 @@ modules = [
     "calamus_clip_collection",
     "calamus_clip_panel",
     "calamus_right_panel",
+    "calamus_document_structure",
+    "calamus_navigation_gateway",
+    "calamus_navigation_view",
+    "calamus_navigation_dialogs",
     "calamus_logging",
 ]
 

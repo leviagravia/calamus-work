@@ -94,8 +94,13 @@ def build_menu(app) -> None:
     add_item(editm, "Find Previous\tCtrl+Shift+G", app.on_find_previous)
     add_item(editm, "Replace\tCtrl+H", app.on_find_replace)
     add_item(editm, "Replace All\tCtrl+Shift+H", app.on_replace_all_dialog)
-    add_separator(editm)
-    add_item(editm, "Go to Line…\tCtrl+L", app.on_go_to_line)
+
+    navigatem = top_menu(app, "Navigate")
+    add_item(navigatem, "Go to Line…\tCtrl+L", app.on_go_to_line)
+    add_item(navigatem, "Go to Section…\tCtrl+Shift+L", app.on_go_to_section)
+    add_separator(navigatem)
+    add_item(navigatem, "Next Heading\tCtrl+PageDown", app.on_next_heading)
+    add_item(navigatem, "Previous Heading\tCtrl+PageUp", app.on_previous_heading)
 
     revisem = top_menu(app, "Revise")
     add_item(revisem, "UPPERCASE (convert selected)\tCtrl+Alt+U", app.on_uppercase)
@@ -194,6 +199,9 @@ def shortcut_bindings(app):
         ("<Control>G", app.on_find_next),
         ("<Control><Shift>G", app.on_find_previous),
         ("<Control>L", app.on_go_to_line),
+        ("<Control><Shift>L", app.on_go_to_section),
+        ("<Control>Page_Down", app.on_next_heading),
+        ("<Control>Page_Up", app.on_previous_heading),
         ("<Control><Alt>D", app.on_insert_datetime),
         ("<Control>X", app.on_cut),
         ("<Control>C", app.on_copy),
