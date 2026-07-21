@@ -96,13 +96,13 @@ class DocumentStructureCommandWiringTests(unittest.TestCase):
         self.assertIn('ShortcutSpec("Navigate", "Previous Heading", "Ctrl+PageUp")', source)
         self.assertNotIn('ShortcutSpec("Edit", "Go to Line", "Ctrl+L")', source)
 
-    def test_w70_does_not_add_left_panel_or_structural_editing(self):
+    def test_w71_reuses_w70_structure_without_structural_editing(self):
         source = LAUNCHER.read_text(encoding="utf-8") + UI.read_text(encoding="utf-8")
-        self.assertNotIn("LeftPanelHost", source)
-        self.assertNotIn("Navigator Panel", source)
+        self.assertIn("Navigator Panel", source)
         self.assertNotIn("Move Section", source)
         self.assertNotIn("Rename Header", source)
         self.assertNotIn("Refresh Section List", source)
+        self.assertNotIn("Setext", source)
 
 
 if __name__ == "__main__":

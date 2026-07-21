@@ -46,6 +46,8 @@ from calamus_search_dialogs import run_find_all_dialog, run_find_replace_dialog
 from calamus_navigation_gateway import NavigationController
 from calamus_navigation_view import NavigationViewAdapter
 from calamus_navigation_dialogs import run_go_to_line_dialog, run_go_to_section_dialog
+from calamus_navigator_panel import NavigatorPanelHost, NavigatorPanelRuntime
+from calamus_navigator_panel_view import build_navigator_panel_view
 from calamus_history import TextHistory
 from calamus_external import open_character_map as external_open_character_map
 from calamus_writing import (
@@ -191,10 +193,15 @@ class App(Gtk.Window):
         root.pack_start(self.menubar, False, False, 0)
         self.build_menu()
 
+        self.workspace_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.workspace_paned.set_hexpand(True)
+        self.workspace_paned.set_vexpand(True)
+        root.pack_start(self.workspace_paned, True, True, 0)
+
         self.body_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.body_paned.set_hexpand(True)
         self.body_paned.set_vexpand(True)
-        root.pack_start(self.body_paned, True, True, 0)
+        self.workspace_paned.pack2(self.body_paned, True, True)
 
         # Keep Gtk.TextView as the direct Gtk.ScrolledWindow child.
         # GTK's native caret/selection scrolling only works reliably in this
@@ -208,18 +215,36 @@ class App(Gtk.Window):
         self.text.connect_after("motion-notify-event", self.on_text_motion_notify)
         self.text.connect_after("button-release-event", self.on_text_button_release)
         self.apply_wrap_policy()
+
+        self.navigation_controller = NavigationController(
+            NavigationViewAdapter(self.text)
+        )
+        self.navigator_panel_view = build_navigator_panel_view(
+            self.navigation_controller,
+            lambda: self.navigator_panel_runtime.hide(),
+        )
+        self.navigator_panel_host = NavigatorPanelHost(
+            self.workspace_paned,
+            self.navigator_panel_view.widget,
+            self.queue_wrap_reflow,
+        )
+        self.navigator_panel_runtime = NavigatorPanelRuntime(
+            self.navigator_panel_host,
+            self.navigator_panel_view,
+            self.navigator_item,
+            self.text.grab_focus,
+        )
+
         self.right_panel_host = RightPanelHost(self.body_paned, self.queue_wrap_reflow)
         self.build_clip_collection()
-        # The canonical right-panel host starts detached and owns the single
-        # secondary Gtk.Paned slot for Clip Collection and future sections.
+        # Both side panels start detached. The editor remains the only visible
+        # workspace client until the user explicitly requests a panel.
+        self.workspace_paned.set_position(0)
         self.body_paned.set_position(max(420, int(width * 0.72)))
 
         self.tag = self.text.get_buffer().create_tag("misspelled", underline=Pango.Underline.ERROR)
         self.search_tag = self.text.get_buffer().create_tag("search_highlight", background="#fff59d", foreground="#000000")
         self.search_controller = SearchController(SearchViewAdapter(self.text, self.search_tag))
-        self.navigation_controller = NavigationController(
-            NavigationViewAdapter(self.text)
-        )
         self.current_line_tag = self.text.get_buffer().create_tag("current_line", background="#eef5ff")
 
         self.status = Gtk.Label()
@@ -272,6 +297,8 @@ class App(Gtk.Window):
 
     def queue_wrap_reflow(self):
         self.apply_wrap_policy()
+        if hasattr(self, "workspace_paned"):
+            self.workspace_paned.queue_resize()
         if hasattr(self, "body_paned"):
             self.body_paned.queue_resize()
         GLib.idle_add(self.apply_wrap_policy)
@@ -281,6 +308,8 @@ class App(Gtk.Window):
         # produce this signal too, and forcing scroll here caused the document to
         # jump down by blocks when selecting/pointing at a word.
         self.update_current_line_highlight()
+        if hasattr(self, "navigator_panel_view"):
+            self.navigator_panel_view.schedule_cursor_sync()
 
     def on_text_key_release(self, *_):
         # Keep keyboard-driven typing/navigation visible, but defer one idle tick
@@ -530,6 +559,8 @@ class App(Gtk.Window):
     def on_changed(self, *_):
         if hasattr(self, "navigation_controller"):
             self.navigation_controller.invalidate()
+        if hasattr(self, "navigator_panel_view"):
+            self.navigator_panel_view.invalidate()
         # Gutter content is a view of the GtkTextBuffer and must refresh for
         # both user edits and guarded bulk replacements such as Open/New.
         self.update_line_numbers()
@@ -2021,6 +2052,15 @@ class App(Gtk.Window):
             line = text.count("\n", 0, max(0, min(off, len(text)))) + 1
             lines.append(f"{i}. Line {line} — offset {off}")
         self.large_info("Bookmarks", "\n".join(lines))
+
+    def on_navigator_item_toggled(self, item):
+        return self.navigator_panel_runtime.on_menu_toggled(item)
+
+    def toggle_navigator_panel(self, *_):
+        return self.navigator_panel_runtime.toggle()
+
+    def hide_navigator_panel(self, *_):
+        return self.navigator_panel_runtime.hide()
 
     def on_go_to_line(self, *_):
         return run_go_to_line_dialog(self, self.navigation_controller)

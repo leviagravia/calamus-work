@@ -13,6 +13,13 @@ CLIP_PANEL_DEFAULT_WIDTH = RIGHT_PANEL_DEFAULT_WIDTH
 CLIP_PANEL_MIN_WIDTH = RIGHT_PANEL_MIN_WIDTH
 CLIP_PANEL_MAX_FRACTION = RIGHT_PANEL_MAX_FRACTION
 
+
+# The left Navigator is a transient view of the current document structure.
+# It remains compact and never stores a parallel outline.
+NAVIGATOR_PANEL_DEFAULT_WIDTH = 220
+NAVIGATOR_PANEL_MIN_WIDTH = 176
+NAVIGATOR_PANEL_MAX_FRACTION = 0.28
+
 # Line number gutter must be compact and must never drive top-level window
 # geometry. Dynamic width is computed from the current line count.
 LINE_GUTTER_MIN_WIDTH = 30

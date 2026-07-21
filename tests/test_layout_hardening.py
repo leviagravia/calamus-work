@@ -4,8 +4,12 @@ from calamus_layout import (
     RIGHT_PANEL_DEFAULT_WIDTH,
     RIGHT_PANEL_MAX_FRACTION,
     RIGHT_PANEL_MIN_WIDTH,
+    NAVIGATOR_PANEL_DEFAULT_WIDTH,
+    NAVIGATOR_PANEL_MAX_FRACTION,
+    NAVIGATOR_PANEL_MIN_WIDTH,
 )
 from calamus_right_panel import calculate_right_panel_width
+from calamus_navigator_panel import calculate_navigator_panel_width
 from calamus_shortcuts import conflicts
 
 
@@ -18,6 +22,15 @@ class LayoutHardeningTest(unittest.TestCase):
         self.assertLessEqual(
             calculate_right_panel_width(900),
             expected_max if expected_max >= RIGHT_PANEL_MIN_WIDTH else RIGHT_PANEL_DEFAULT_WIDTH,
+        )
+
+    def test_navigator_panel_width_is_bounded(self):
+        self.assertGreaterEqual(calculate_navigator_panel_width(520), NAVIGATOR_PANEL_MIN_WIDTH)
+        self.assertLessEqual(calculate_navigator_panel_width(520), NAVIGATOR_PANEL_DEFAULT_WIDTH)
+        self.assertEqual(calculate_navigator_panel_width(2000), NAVIGATOR_PANEL_DEFAULT_WIDTH)
+        self.assertLessEqual(
+            calculate_navigator_panel_width(900),
+            max(NAVIGATOR_PANEL_MIN_WIDTH, int(900 * NAVIGATOR_PANEL_MAX_FRACTION)),
         )
 
     def test_shortcut_registry_has_no_conflicts(self):

@@ -40,6 +40,8 @@ modules = [
     "calamus_navigation_gateway",
     "calamus_navigation_view",
     "calamus_navigation_dialogs",
+    "calamus_navigator_panel",
+    "calamus_navigator_panel_view",
     "calamus_logging",
 ]
 

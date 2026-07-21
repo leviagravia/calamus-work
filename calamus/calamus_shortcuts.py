@@ -36,6 +36,7 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("Edit", "Replace All", "Ctrl+Shift+H"),
     ShortcutSpec("Edit", "Find Next", "Ctrl+G"),
     ShortcutSpec("Edit", "Find Previous", "Ctrl+Shift+G"),
+    ShortcutSpec("Navigate", "Navigator Panel", "Ctrl+Alt+N"),
     ShortcutSpec("Navigate", "Go to Line", "Ctrl+L"),
     ShortcutSpec("Navigate", "Go to Section", "Ctrl+Shift+L"),
     ShortcutSpec("Navigate", "Next Heading", "Ctrl+PageDown"),

@@ -96,6 +96,11 @@ def build_menu(app) -> None:
     add_item(editm, "Replace All\tCtrl+Shift+H", app.on_replace_all_dialog)
 
     navigatem = top_menu(app, "Navigate")
+    app.navigator_item = Gtk.CheckMenuItem(label="Navigator Panel\tCtrl+Alt+N")
+    app.navigator_item.set_active(False)
+    app.navigator_item.connect("toggled", app.on_navigator_item_toggled)
+    navigatem.append(app.navigator_item)
+    add_separator(navigatem)
     add_item(navigatem, "Go to Line…\tCtrl+L", app.on_go_to_line)
     add_item(navigatem, "Go to Section…\tCtrl+Shift+L", app.on_go_to_section)
     add_separator(navigatem)
@@ -198,6 +203,7 @@ def shortcut_bindings(app):
         ("<Control><Shift>H", app.on_replace_all_dialog),
         ("<Control>G", app.on_find_next),
         ("<Control><Shift>G", app.on_find_previous),
+        ("<Control><Alt>N", app.toggle_navigator_panel),
         ("<Control>L", app.on_go_to_line),
         ("<Control><Shift>L", app.on_go_to_section),
         ("<Control>Page_Down", app.on_next_heading),
