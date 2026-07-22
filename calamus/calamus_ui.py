@@ -95,6 +95,16 @@ def build_menu(app) -> None:
     add_item(editm, "Replace\tCtrl+H", app.on_find_replace)
     add_item(editm, "Replace All\tCtrl+Shift+H", app.on_replace_all_dialog)
 
+    researchm = top_menu(app, "Research")
+    app.research_item = Gtk.CheckMenuItem(label="Research Panel\tCtrl+Alt+C")
+    app.research_item.set_active(False)
+    app.research_item.connect("toggled", app.on_research_item_toggled)
+    researchm.append(app.research_item)
+    add_separator(researchm)
+    add_item(researchm, "Clip Collection", app.show_clip_collection)
+    add_item(researchm, "References", app.show_references)
+    add_item(researchm, "Source Notes", app.show_source_notes)
+
     navigatem = top_menu(app, "Navigate")
     app.navigator_item = Gtk.CheckMenuItem(label="Navigator Panel\tCtrl+Alt+N")
     app.navigator_item.set_active(False)
@@ -134,7 +144,6 @@ def build_menu(app) -> None:
     add_item(viewm, "Focus Mode\tF9", app.toggle_focus_mode)
     add_item(viewm, "Distraction-Free Mode\tF11", app.toggle_distraction_free)
     add_item(viewm, "Highlight Current Line\tCtrl+Alt+I", app.toggle_current_line_highlight)
-    add_item(viewm, "Clip Collection\tCtrl+Alt+C", app.toggle_clip_collection)
     add_item(viewm, "Character Map\tCtrl+Alt+F10", app.on_character_map)
 
     optm = top_menu(app, "Options")
@@ -236,7 +245,7 @@ def shortcut_bindings(app):
         ("<Control><Shift>D", app.on_edit_favourites),
         ("<Control><Alt>R", app.on_reload_favourites),
         ("<Control><Alt>F10", app.on_character_map),
-        ("<Control><Alt>C", app.toggle_clip_collection),
+        ("<Control><Alt>C", app.toggle_research_panel),
         ("F9", app.toggle_focus_mode),
         ("F11", app.toggle_distraction_free),
         ("<Control><Alt>I", app.toggle_current_line_highlight),

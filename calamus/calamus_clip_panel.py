@@ -68,7 +68,7 @@ class ClipCollectionViewAdapter:
         return True
 
 
-def build_clip_collection_view(on_add, on_insert, on_delete, on_activate):
+def build_clip_collection_view(on_add, on_insert, on_delete, on_activate, *, show_title=True):
     from gi.repository import Gdk, Gtk, Pango
     from calamus_layout import RIGHT_PANEL_DEFAULT_WIDTH
 
@@ -80,11 +80,12 @@ def build_clip_collection_view(on_add, on_insert, on_delete, on_activate):
     panel.set_margin_top(3)
     panel.set_margin_bottom(3)
 
-    title = Gtk.Label(label="Clip Collection")
-    title.set_name("calamus-clip-title")
-    title.set_xalign(0)
-    title.set_ellipsize(Pango.EllipsizeMode.END)
-    panel.pack_start(title, False, False, 0)
+    if show_title:
+        title = Gtk.Label(label="Clip Collection")
+        title.set_name("calamus-clip-title")
+        title.set_xalign(0)
+        title.set_ellipsize(Pango.EllipsizeMode.END)
+        panel.pack_start(title, False, False, 0)
 
     clip_list = Gtk.ListBox()
     clip_list.set_selection_mode(Gtk.SelectionMode.SINGLE)

@@ -81,6 +81,10 @@ from calamus_editor import build_editor_widgets, apply_text_wrap_policy
 from calamus_clip_collection import ClipCollectionController
 from calamus_clip_panel import build_clip_collection_view
 from calamus_right_panel import RightPanelHost
+from calamus_reference_runtime import ReferencePanelRuntime
+from calamus_source_note_runtime import SourceNotePanelRuntime
+from calamus_research_panel import ResearchPanelRuntime
+from calamus_research_panel_view import ResearchPanelViewAdapter
 from calamus_navigation import line_to_buffer_index
 from calamus_view_preferences import load_text_wrap_preference, prepare_text_wrap_plan
 from calamus_typography import (
@@ -237,6 +241,7 @@ class App(Gtk.Window):
 
         self.right_panel_host = RightPanelHost(self.body_paned, self.queue_wrap_reflow)
         self.build_clip_collection()
+        self.build_research_panel()
         # Both side panels start detached. The editor remains the only visible
         # workspace client until the user explicitly requests a panel.
         self.workspace_paned.set_position(0)
@@ -732,6 +737,7 @@ class App(Gtk.Window):
         self.current_file = self.document.file_path
         self.modified = self.document.modified
         self.reset_undo_history()
+        getattr(self, "sync_source_notes_document", lambda: None)()
         self.update_title()
         return True
 
@@ -768,6 +774,7 @@ class App(Gtk.Window):
         self.modified = self.document.modified
         self.reset_undo_history()
         self.add_recent_file(self.current_file)
+        getattr(self, "sync_source_notes_document", lambda: None)()
         self.update_title()
         self.save_settings()
         if plan.large_file and not silent:
@@ -800,6 +807,7 @@ class App(Gtk.Window):
             self.current_file = self.document.file_path
             self.modified = self.document.modified
             self.add_recent_file(self.current_file)
+            getattr(self, "sync_source_notes_document", lambda: None)()
             self.update_title()
             self.save_settings()
             return True
@@ -1423,6 +1431,7 @@ class App(Gtk.Window):
         self.current_file = self.document.file_path
         self.modified = self.document.modified
         self.reset_undo_history()
+        getattr(self, "sync_source_notes_document", lambda: None)()
         self.update_title()
         return True
 
@@ -1933,22 +1942,78 @@ class App(Gtk.Window):
             self.on_clip_insert,
             self.on_clip_delete,
             self.on_clip_insert,
+            show_title=False,
         )
         self.clip_collection = ClipCollectionController(
             self.state,
             self.clip_collection_view,
         )
         self.clip_collection.load()
-        self.right_panel_host.register(
+
+    def build_research_panel(self):
+        self.reference_panel_runtime = ReferencePanelRuntime(self)
+        self.source_note_panel_runtime = SourceNotePanelRuntime(
+            self,
+            document_path_provider=lambda: self.document.file_path,
+            reference_keys_provider=lambda: self.reference_panel_runtime.keys,
+            show_reference=self.show_reference_key,
+        )
+        self.research_panel_view = ResearchPanelViewAdapter(
+            lambda: self.research_panel_runtime.hide(),
+        )
+        self.research_panel_view.register_client(
             "clip-collection",
+            "Clips",
             self.clip_collection.widget,
+        )
+        self.research_panel_view.register_client(
+            "references",
+            "References",
+            self.reference_panel_runtime.widget,
+            self.reference_panel_runtime.activate,
+        )
+        self.research_panel_view.register_client(
+            "source-notes",
+            "Source Notes",
+            self.source_note_panel_runtime.widget,
+            self.source_note_panel_runtime.activate,
+        )
+        self.right_panel_host.register("research", self.research_panel_view.widget)
+        self.research_panel_runtime = ResearchPanelRuntime(
+            self.right_panel_host,
+            self.research_panel_view,
+            self.research_item,
+            self.text.grab_focus,
         )
 
     def refresh_clip_list(self):
         self.clip_collection.refresh()
 
+    def on_research_item_toggled(self, item):
+        return self.research_panel_runtime.on_menu_toggled(item)
+
+    def toggle_research_panel(self, *_):
+        return self.research_panel_runtime.toggle()
+
+    def show_clip_collection(self, *_):
+        return self.research_panel_runtime.show("clip-collection")
+
+    def show_references(self, *_):
+        return self.research_panel_runtime.show("references")
+
+    def show_source_notes(self, *_):
+        return self.research_panel_runtime.show("source-notes")
+
+    def show_reference_key(self, key):
+        self.research_panel_runtime.show("references")
+        return self.reference_panel_runtime.show_key(key)
+
+    def sync_source_notes_document(self):
+        if hasattr(self, "source_note_panel_runtime"):
+            self.source_note_panel_runtime.sync_document()
+
     def toggle_clip_collection(self, *_):
-        self.right_panel_host.toggle("clip-collection")
+        return self.show_clip_collection()
 
     def insert_clip_number(self, number):
         if self.clip_collection.select_number(number):

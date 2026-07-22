@@ -36,7 +36,16 @@ class ReleaseRegressionTests(unittest.TestCase):
             "calamus_right_panel.py", "calamus_document_structure.py",
             "calamus_navigation_gateway.py", "calamus_navigation_view.py",
             "calamus_navigation_dialogs.py", "calamus_navigator_panel.py",
-            "calamus_navigator_panel_view.py", "calamus_audit.py",
+            "calamus_navigator_panel_view.py", "calamus_panel_chrome.py",
+            "calamus_references.py", "calamus_reference_store.py",
+            "calamus_reference_controller.py", "calamus_reference_panel.py",
+            "calamus_reference_dialogs.py", "calamus_reference_runtime.py",
+            "calamus_research_file.py", "calamus_source_notes.py",
+            "calamus_source_note_store.py", "calamus_source_note_controller.py",
+            "calamus_source_note_panel.py", "calamus_source_note_dialogs.py",
+            "calamus_source_note_runtime.py",
+            "calamus_research_panel.py", "calamus_research_panel_view.py",
+            "calamus_audit.py",
         ]
         missing = [name for name in expected if not os.path.exists(os.path.join(lib, name))]
         self.assertEqual(missing, [])
@@ -59,12 +68,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("self._paned.remove(widget)", source)
         self.assertIn("self._active_section = None", source)
 
-    def test_clip_collection_starts_registered_but_detached(self):
+    def test_research_shell_starts_registered_but_detached(self):
         launcher = _launcher("calamus")
         with open(launcher, "r", encoding="utf-8") as handle:
             source = handle.read()
         self.assertIn("self.right_panel_host = RightPanelHost", source)
-        self.assertIn('self.right_panel_host.register(', source)
+        self.assertIn('self.right_panel_host.register("research", self.research_panel_view.widget)', source)
         self.assertNotIn("self.clip_panel_attached", source)
         self.assertNotIn("self.body_paned.pack2(self.clip_panel", source)
 

@@ -5,6 +5,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CLIPS = ROOT / "calamus" / "calamus_clips.py"
 STATE = ROOT / "calamus" / "calamus_state.py"
+REFERENCES = ROOT / "calamus" / "calamus_reference_store.py"
+SOURCE_NOTES = ROOT / "calamus" / "calamus_source_note_store.py"
+RESEARCH_FILE = ROOT / "calamus" / "calamus_research_file.py"
 SOURCE_DIR = ROOT / "calamus"
 
 
@@ -30,6 +33,25 @@ class ContentPersistencePolicyTests(unittest.TestCase):
         self.assertIn("save_json_file", state)
         self.assertIn("JSON remains valid for technical application state", state)
         self.assertIn("canonical UTF-8 Markdown store", state)
+
+
+    def test_references_are_global_utf8_markdown_not_json(self):
+        references = source(REFERENCES)
+        self.assertIn('"calamus", "research", "references.md"', references)
+        self.assertIn('encoding="utf-8"', references)
+        self.assertIn("atomic_write_utf8", references)
+        research_file = source(RESEARCH_FILE)
+        self.assertIn("os.replace(tmp_path, path)", research_file)
+        self.assertIn("References file changed outside Calamus", references)
+        self.assertNotIn("references.json", references)
+
+
+    def test_source_notes_are_document_sidecar_markdown_not_json(self):
+        source_notes = source(SOURCE_NOTES)
+        self.assertIn('".source-notes.md"', source_notes)
+        self.assertIn('"# Calamus Source Notes v1"', source_notes)
+        self.assertIn("atomic_write_utf8", source_notes)
+        self.assertNotIn("source-notes.json", source_notes)
 
     def test_no_research_content_json_store_is_declared(self):
         combined = "\n".join(

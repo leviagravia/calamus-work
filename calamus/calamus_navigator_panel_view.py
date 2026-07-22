@@ -8,6 +8,7 @@ from gi.repository import GLib, Gtk
 
 from calamus_document_structure import DocumentHeading
 from calamus_navigator_panel import NavigatorPanelPresenter
+from calamus_panel_chrome import build_compact_close_button
 
 
 class NavigatorPanelViewAdapter:
@@ -34,25 +35,11 @@ class NavigatorPanelViewAdapter:
         title.set_hexpand(True)
         header.pack_start(title, True, True, 0)
 
-        close_button = Gtk.Button()
-        close_button.set_name("navigator-close-button")
-        close_button.set_relief(Gtk.ReliefStyle.NONE)
-        close_button.set_size_request(26, 26)
-        close_button.set_valign(Gtk.Align.CENTER)
-        self._close_button_css = Gtk.CssProvider()
-        self._close_button_css.load_from_data(
-            b"#navigator-close-button { min-width: 24px; min-height: 24px; padding: 0px; }"
+        close_button = build_compact_close_button(
+            self._on_hide,
+            name="navigator-close-button",
+            tooltip="Hide Navigator",
         )
-        close_button.get_style_context().add_provider(
-            self._close_button_css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-        close_button.set_tooltip_text("Hide Navigator")
-        close_button.add(Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.MENU))
-        close_button.connect("clicked", lambda *_: self._on_hide())
-        try:
-            close_button.get_accessible().set_name("Hide Navigator")
-        except Exception:
-            pass
         header.pack_end(close_button, False, False, 0)
         self.widget.pack_start(header, False, False, 0)
 

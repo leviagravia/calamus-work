@@ -10,6 +10,8 @@ HOST = ROOT / "calamus" / "calamus_right_panel.py"
 CONTROLLER = ROOT / "calamus" / "calamus_clip_collection.py"
 PANEL = ROOT / "calamus" / "calamus_clip_panel.py"
 CLIPS = ROOT / "calamus" / "calamus_clips.py"
+RESEARCH = ROOT / "calamus" / "calamus_research_panel.py"
+RESEARCH_VIEW = ROOT / "calamus" / "calamus_research_panel_view.py"
 UI = ROOT / "calamus" / "calamus_ui.py"
 PROVENANCE = ROOT / "scripts" / "prove-source-provenance.sh"
 
@@ -32,23 +34,26 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         launcher = source(LAUNCHER)
         self.assertEqual(launcher.count("RightPanelHost("), 1)
         self.assertIn("self.right_panel_host = RightPanelHost", launcher)
-        self.assertIn('self.right_panel_host.register(', launcher)
+        self.assertIn('self.right_panel_host.register("research", self.research_panel_view.widget)', launcher)
+        self.assertNotIn('self.right_panel_host.register("clip-collection"', launcher)
 
-    def test_launcher_no_longer_owns_raw_clip_widgets_or_list_state(self):
+    def test_launcher_no_longer_owns_raw_clip_or_reference_widgets(self):
         launcher = source(LAUNCHER)
         for forbidden in (
             "self.clips =",
             "self.clip_panel =",
             "self.clip_list =",
+            "self.reference_list =",
+            "self.reference_records =",
             "self.clip_panel_attached",
             "Gdk.EventType._2BUTTON_PRESS",
             "get_row_at_y",
         ):
             self.assertNotIn(forbidden, launcher)
 
-    def test_toggle_is_a_thin_host_adapter(self):
-        method = method_source("toggle_clip_collection")
-        self.assertIn('self.right_panel_host.toggle("clip-collection")', method)
+    def test_toggle_is_a_thin_research_runtime_adapter(self):
+        method = method_source("toggle_research_panel")
+        self.assertIn("self.research_panel_runtime.toggle()", method)
         self.assertNotIn("pack2", method)
         self.assertNotIn("set_position", method)
         self.assertLessEqual(len(method.splitlines()), 3)
@@ -71,13 +76,19 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         self.assertIn('clip_list.connect("button-press-event", adapter.on_button_press)', panel)
         self.assertNotIn("row-activated", panel)
 
-    def test_host_is_generic_single_slot_without_research_placeholders(self):
+    def test_host_remains_generic_and_research_shell_owns_real_clients(self):
         host = source(HOST)
+        research = source(RESEARCH)
+        research_view = source(RESEARCH_VIEW)
         self.assertIn("self._sections", host)
         self.assertIn("self._paned.pack2(widget, False, False)", host)
         self.assertIn("self._detach_active()", host)
-        for future in ("references", "tags", "source-notes", "scratchpad", "concepts"):
-            self.assertNotIn(future, host.lower())
+        self.assertNotIn("references", host.lower())
+        self.assertIn('self._host.show("research")', research)
+        self.assertIn("register_client", research_view)
+        self.assertIn("source-notes", source(LAUNCHER).lower())
+        for future in ("scratchpad", "concepts"):
+            self.assertNotIn(future, research_view.lower())
 
     def test_clip_store_is_markdown_primary_with_legacy_json_fallback(self):
         clips = source(CLIPS)
@@ -87,11 +98,16 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         self.assertIn("save_clips(config_dir, legacy, limit)", clips)
         self.assertNotIn("save_json_file", clips)
 
-    def test_visible_command_and_shortcuts_are_unchanged(self):
+    def test_visible_command_moves_coherently_to_research_without_duplication(self):
         ui = source(UI)
-        self.assertIn('"Clip Collection\\tCtrl+Alt+C"', ui)
-        self.assertIn('(\"<Control><Alt>C\", app.toggle_clip_collection)', ui)
+        self.assertIn('"Research Panel\\tCtrl+Alt+C"', ui)
+        self.assertIn('(\"<Control><Alt>C\", app.toggle_research_panel)', ui)
+        self.assertIn('add_item(researchm, "Clip Collection", app.show_clip_collection)', ui)
+        self.assertIn('add_item(researchm, "References", app.show_references)', ui)
+        self.assertIn('add_item(researchm, "Source Notes", app.show_source_notes)', ui)
         self.assertIn('f"<Control><Alt>{i}"', ui)
+        view_block = ui[ui.index('viewm = top_menu(app, "View")'):ui.index('optm = top_menu(app, "Options")')]
+        self.assertNotIn("Clip Collection", view_block)
 
     def test_app_preserves_document_mutation_gateway_for_insert(self):
         method = method_source("on_clip_insert")
@@ -106,6 +122,20 @@ class RightPanelCommandWiringTests(unittest.TestCase):
             "calamus_clip_collection",
             "calamus_clip_panel",
             "calamus_right_panel",
+            "calamus_references",
+            "calamus_reference_store",
+            "calamus_reference_controller",
+            "calamus_reference_panel",
+            "calamus_reference_runtime",
+            "calamus_research_file",
+            "calamus_source_notes",
+            "calamus_source_note_store",
+            "calamus_source_note_controller",
+            "calamus_source_note_panel",
+            "calamus_source_note_dialogs",
+            "calamus_source_note_runtime",
+            "calamus_research_panel",
+            "calamus_research_panel_view",
         ):
             self.assertIn(f'"{module}"', provenance)
 

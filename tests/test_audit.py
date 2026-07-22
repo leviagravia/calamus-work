@@ -19,12 +19,12 @@ class ShortcutAuditTests(unittest.TestCase):
     def test_requested_shortcuts_exist(self):
         by_name = {spec.command: spec.shortcut for spec in audit.SHORTCUTS}
         self.assertEqual(by_name["Character Map"], "<Control><Alt>F10")
-        self.assertEqual(by_name["Clip Collection"], "<Control><Alt>C")
+        self.assertEqual(by_name["Research Panel"], "<Control><Alt>C")
 
-    def test_clip_collection_avoids_alt_f10_window_manager_shortcut(self):
+    def test_research_panel_avoids_alt_f10_window_manager_shortcut(self):
         by_name = {spec.command: spec.shortcut for spec in audit.SHORTCUTS}
-        self.assertNotEqual(by_name["Clip Collection"], "<Alt>F10")
-        self.assertEqual(by_name["Clip Collection"], "<Control><Alt>C")
+        self.assertNotEqual(by_name["Research Panel"], "<Alt>F10")
+        self.assertEqual(by_name["Research Panel"], "<Control><Alt>C")
 
 
 class PackageAuditTests(unittest.TestCase):

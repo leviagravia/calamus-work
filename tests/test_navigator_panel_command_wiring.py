@@ -9,6 +9,7 @@ UI = ROOT / "calamus" / "calamus_ui.py"
 SHORTCUTS = ROOT / "calamus" / "calamus_shortcuts.py"
 HOST = ROOT / "calamus" / "calamus_navigator_panel.py"
 VIEW = ROOT / "calamus" / "calamus_navigator_panel_view.py"
+CHROME = ROOT / "calamus" / "calamus_panel_chrome.py"
 PROVENANCE = ROOT / "scripts" / "prove-source-provenance.sh"
 
 
@@ -50,20 +51,25 @@ class NavigatorPanelCommandWiringTests(unittest.TestCase):
 
     def test_close_button_delegates_without_layout_mutation(self):
         source = VIEW.read_text(encoding="utf-8")
+        chrome = CHROME.read_text(encoding="utf-8")
         self.assertIn('title.set_markup("<b>Navigator</b>")', source)
-        self.assertIn('"window-close-symbolic"', source)
-        self.assertIn('close_button.connect("clicked", lambda *_: self._on_hide())', source)
+        self.assertIn("build_compact_close_button", source)
+        self.assertIn('name="navigator-close-button"', source)
+        self.assertIn('tooltip="Hide Navigator"', source)
+        self.assertIn('"window-close-symbolic"', chrome)
         self.assertNotIn(".remove(", source)
         self.assertNotIn("pack1(", source)
 
     def test_close_button_is_compact_and_keeps_the_canonical_hide_gateway(self):
         source = VIEW.read_text(encoding="utf-8")
-        self.assertIn('close_button.set_name("navigator-close-button")', source)
-        self.assertIn("close_button.set_size_request(26, 26)", source)
-        self.assertIn("min-width: 24px", source)
-        self.assertIn("min-height: 24px", source)
-        self.assertIn("padding: 0px", source)
-        self.assertIn('close_button.connect("clicked", lambda *_: self._on_hide())', source)
+        chrome = CHROME.read_text(encoding="utf-8")
+        self.assertIn("self._on_hide", source)
+        self.assertIn("button.set_size_request(18, 18)", chrome)
+        self.assertIn("min-width: 16px", chrome)
+        self.assertIn("min-height: 16px", chrome)
+        self.assertIn("background: transparent", chrome)
+        self.assertIn("box-shadow: none", chrome)
+        self.assertIn('button.connect("clicked", lambda *_: on_activate())', chrome)
 
     def test_host_is_specific_and_owns_attach_remove(self):
         source = HOST.read_text(encoding="utf-8")
