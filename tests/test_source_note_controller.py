@@ -165,6 +165,17 @@ class SourceNoteControllerTests(unittest.TestCase):
         self.assertEqual(stores[controller.sidecar_path].saves, [])
         self.assertIn("Reference key is missing", errors[-1])
 
+    def test_existing_alias_reference_is_valid_but_options_remain_canonical(self):
+        controller, view, stores, errors = self.build(keys=("current",))
+        controller._reference_key_resolver = lambda key: "current" if key in {"current", "legacy"} else None
+        path = "/work/paper.md.source-notes.md"
+        stores[path] = FakeStore(path, (self.note(reference="legacy"),))
+        controller.bind_document("/work/paper.md")
+        self.assertEqual(view.missing, frozenset())
+        self.assertEqual(view.reference_options, ("current",))
+        self.assertTrue(controller.add(self.note("sn-2", reference="legacy")))
+        self.assertEqual(errors, [])
+
     def test_target_options_include_only_unique_explicit_heading_ids(self):
         controller, _, _, _ = self.build(
             document_text=(

@@ -45,6 +45,7 @@ class SourceNoteController:
         *,
         reference_keys_provider: Callable[[], tuple[str, ...]],
         document_structure_provider: Callable[[], DocumentStructure],
+        reference_key_resolver: Callable[[str], str | None] | None = None,
         resolve_conflict: Callable[[], str],
         on_error: Callable[[str], None],
         store_factory: Callable[[str], SourceNoteStore] = MarkdownSourceNoteStore,
@@ -61,7 +62,10 @@ class SourceNoteController:
             raise TypeError("callbacks must be callable")
         self._view = view
         self._reference_keys_provider = reference_keys_provider
+        if reference_key_resolver is not None and not callable(reference_key_resolver):
+            raise TypeError("reference_key_resolver must be callable")
         self._document_structure_provider = document_structure_provider
+        self._reference_key_resolver = reference_key_resolver
         self._resolve_conflict = resolve_conflict
         self._on_error = on_error
         self._store_factory = store_factory
@@ -108,6 +112,11 @@ class SourceNoteController:
     @property
     def reference_keys(self) -> tuple[str, ...]:
         return tuple(dict.fromkeys(self._reference_keys_provider()))
+
+    def resolve_reference_key(self, key: str) -> str | None:
+        if self._reference_key_resolver is not None:
+            return self._reference_key_resolver(key)
+        return key if key in self.reference_keys else None
 
     @property
     def document_structure(self) -> DocumentStructure:
@@ -202,7 +211,7 @@ class SourceNoteController:
         missing_references = frozenset(
             note.id
             for note in self._notes
-            if note.reference_key and note.reference_key not in keys
+            if note.reference_key and self.resolve_reference_key(note.reference_key) is None
         )
         missing_targets, ambiguous_targets = self._target_issue_ids()
         self._view.render(
@@ -296,7 +305,7 @@ class SourceNoteController:
         return frozenset(missing), frozenset(ambiguous)
 
     def _links_are_valid(self, note: SourceNote) -> bool:
-        if note.reference_key and note.reference_key not in self.reference_keys:
+        if note.reference_key and self.resolve_reference_key(note.reference_key) is None:
             self._on_error(f"Reference key is missing: {note.reference_key}")
             return False
         target_state = self.target_state(note)

@@ -28,6 +28,7 @@ _KNOWN_FIELDS = {
     "url": "url",
     "language": "language",
     "file": "file_path",
+    "aliases": "aliases",
     "tags": "tags",
 }
 _FIELD_LABELS = (
@@ -48,6 +49,7 @@ _FIELD_LABELS = (
     ("URL", "url"),
     ("Language", "language"),
     ("File", "file_path"),
+    ("Aliases", "aliases"),
     ("Tags", "tags"),
 )
 
@@ -87,7 +89,28 @@ def default_references_path(home: str | None = None, data_home: str | None = Non
     return os.path.join(root, "calamus", "research", "references.md")
 
 
+def identity_collision_messages(records: tuple[ReferenceRecord, ...] | list[ReferenceRecord]) -> tuple[str, ...]:
+    """Return deterministic key/alias collisions across the complete library."""
+    owners: dict[str, str] = {}
+    messages: list[str] = []
+    for record in records:
+        if not isinstance(record, ReferenceRecord):
+            raise TypeError("records must contain ReferenceRecord values")
+        for identity in record.identity_keys:
+            previous = owners.get(identity)
+            if previous is not None and previous != record.key:
+                message = f"Reference identity {identity} belongs to both {previous} and {record.key}."
+                if message not in messages:
+                    messages.append(message)
+            else:
+                owners[identity] = record.key
+    return tuple(messages)
+
+
 def serialize_references_markdown(records: tuple[ReferenceRecord, ...] | list[ReferenceRecord]) -> str:
+    collisions = identity_collision_messages(records)
+    if collisions:
+        raise ValueError(collisions[0])
     lines = [_HEADER, ""]
     for record in records:
         if not isinstance(record, ReferenceRecord):
@@ -100,8 +123,8 @@ def serialize_references_markdown(records: tuple[ReferenceRecord, ...] | list[Re
                     lines.append(f"{label}: {item}")
                 if not value and label == "Author":
                     lines.append("Author:")
-            elif attribute == "tags":
-                lines.append(f"Tags: {', '.join(value)}")
+            elif attribute in {"aliases", "tags"}:
+                lines.append(f"{label}: {', '.join(value)}")
             else:
                 lines.append(f"{label}: {value}")
         for label, value in record.extra_fields:
@@ -131,7 +154,7 @@ def parse_references_markdown(text: Any) -> tuple[tuple[ReferenceRecord, ...], t
         start_line = index + 1
         key = line[3:].strip()
         index += 1
-        fields: dict[str, Any] = {"authors": [], "editors": [], "tags": []}
+        fields: dict[str, Any] = {"authors": [], "editors": [], "aliases": [], "tags": []}
         extras: list[tuple[str, str]] = []
         annotation: list[str] = []
         in_annotation = False
@@ -155,7 +178,7 @@ def parse_references_markdown(text: Any) -> tuple[tuple[ReferenceRecord, ...], t
                 if attribute in {"authors", "editors"}:
                     if value_clean:
                         fields[attribute].append(value_clean)
-                elif attribute == "tags":
+                elif attribute in {"aliases", "tags"}:
                     fields[attribute].extend(item.strip() for item in value_clean.split(",") if item.strip())
                 elif attribute:
                     fields[attribute] = value_clean
@@ -188,6 +211,7 @@ def parse_references_markdown(text: Any) -> tuple[tuple[ReferenceRecord, ...], t
                 url=fields.get("url", ""),
                 language=fields.get("language", ""),
                 file_path=fields.get("file_path", ""),
+                aliases=tuple(fields["aliases"]),
                 tags=tuple(fields["tags"]),
                 annotation="\n".join(annotation).strip("\n"),
                 extra_fields=tuple(extras),
@@ -197,6 +221,8 @@ def parse_references_markdown(text: Any) -> tuple[tuple[ReferenceRecord, ...], t
             continue
         seen.add(record.key)
         records.append(record)
+    for message in identity_collision_messages(records):
+        diagnostics.append(ReferenceDiagnostic(1, message))
     return tuple(records), tuple(diagnostics)
 
 

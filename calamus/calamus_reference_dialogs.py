@@ -45,6 +45,10 @@ def run_reference_dialog(parent, existing_keys, record: ReferenceRecord | None =
     key_entry = add_entry(basic, 0, "Key", "key", record.key if record else "")
     suggest_button = Gtk.Button(label="Suggest")
     basic.attach(suggest_button, 2, 0, 1, 1)
+    if record is not None:
+        key_entry.set_sensitive(False)
+        key_entry.set_tooltip_text("Use Research → Rename Reference Key…")
+        suggest_button.set_sensitive(False)
 
     type_label = Gtk.Label(label="Type")
     type_label.set_xalign(0)
@@ -149,6 +153,7 @@ def run_reference_dialog(parent, existing_keys, record: ReferenceRecord | None =
                 url=entries["url"].get_text(),
                 language=entries["language"].get_text(),
                 file_path=entries["file_path"].get_text(),
+                aliases=record.aliases if record else (),
                 tags=tuple(entries["tags"].get_text().split(",")),
                 annotation=buffer.get_text(start, end, True),
                 extra_fields=record.extra_fields if record else (),

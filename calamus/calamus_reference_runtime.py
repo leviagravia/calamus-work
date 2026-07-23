@@ -50,6 +50,19 @@ class ReferencePanelRuntime:
         self._controller.ensure_loaded()
         return self._controller.keys
 
+    @property
+    def selected_key(self) -> str | None:
+        self._controller.ensure_loaded()
+        selected = self._controller.selected_record()
+        return selected.key if selected is not None else None
+
+    def resolve_key(self, key: str) -> str | None:
+        self._controller.ensure_loaded()
+        return self._controller.resolve_key(key)
+
+    def reload(self) -> None:
+        self._controller.load()
+
     def activate(self) -> None:
         self._controller.ensure_loaded()
         self._view.focus_search()

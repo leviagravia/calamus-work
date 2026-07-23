@@ -62,6 +62,14 @@ class ReferenceController:
     def keys(self) -> tuple[str, ...]:
         return tuple(record.key for record in self._records)
 
+    @property
+    def identity_keys(self) -> tuple[str, ...]:
+        return tuple(identity for record in self._records for identity in record.identity_keys)
+
+    def resolve_key(self, key: str) -> str | None:
+        matches = [record.key for record in self._records if key in record.identity_keys]
+        return matches[0] if len(matches) == 1 else None
+
     def load(self) -> None:
         snapshot = self._store.load()
         self._records = snapshot.records
@@ -100,18 +108,20 @@ class ReferenceController:
 
     def select_key(self, key: str) -> bool:
         self.ensure_loaded()
-        if key not in self.keys:
+        canonical = self.resolve_key(key)
+        if canonical is None:
             return False
         self._query = ""
         self.refresh()
-        return self._view.select_key(key)
+        return self._view.select_key(canonical)
 
     def add(self, record: ReferenceRecord) -> bool:
         self.ensure_loaded()
         if self._diagnostics:
             return False
-        if record.key in self.keys:
-            self._on_error(f"Reference key already exists: {record.key}")
+        collisions = set(record.identity_keys).intersection(self.identity_keys)
+        if collisions:
+            self._on_error(f"Reference identity already exists: {sorted(collisions)[0]}")
             return False
         return self._commit((*self._records, record), select_key=record.key)
 
@@ -122,8 +132,12 @@ class ReferenceController:
         if original_key not in self.keys:
             self._on_error("Selected reference no longer exists.")
             return False
-        if record.key != original_key and record.key in self.keys:
-            self._on_error(f"Reference key already exists: {record.key}")
+        original = next(item for item in self._records if item.key == original_key)
+        if record.key != original_key:
+            self._on_error("Use Rename Reference Key for citation-key changes.")
+            return False
+        if record.aliases != original.aliases:
+            self._on_error("Reference aliases are managed only by controlled key migration.")
             return False
         candidate = tuple(record if item.key == original_key else item for item in self._records)
         return self._commit(candidate, select_key=record.key)

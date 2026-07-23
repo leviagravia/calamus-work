@@ -23,6 +23,7 @@ class SourceNotePanelRuntime:
         document_structure_provider: Callable[[], DocumentStructure],
         show_reference: Callable[[str], bool],
         show_target: Callable[[str], bool],
+        reference_key_resolver: Callable[[str], str | None] | None = None,
         store_factory=None,
     ) -> None:
         if not all(callable(callback) for callback in (
@@ -37,6 +38,9 @@ class SourceNotePanelRuntime:
         self._document_path_provider = document_path_provider
         self._reference_keys_provider = reference_keys_provider
         self._document_structure_provider = document_structure_provider
+        if reference_key_resolver is not None and not callable(reference_key_resolver):
+            raise TypeError("reference_key_resolver must be callable")
+        self._reference_key_resolver = reference_key_resolver
         self._show_reference = show_reference
         self._show_target = show_target
         self._view = build_source_note_panel_view(
@@ -49,6 +53,7 @@ class SourceNotePanelRuntime:
         controller_kwargs = {
             "reference_keys_provider": reference_keys_provider,
             "document_structure_provider": document_structure_provider,
+            "reference_key_resolver": reference_key_resolver,
             "resolve_conflict": lambda: resolve_external_source_note_change(parent),
             "on_error": self._show_error,
         }
@@ -119,10 +124,11 @@ class SourceNotePanelRuntime:
         selected = self._controller.selected_note()
         if selected is None or not selected.reference_key:
             return False
-        if selected.reference_key not in self._controller.reference_keys:
+        canonical = self._controller.resolve_reference_key(selected.reference_key)
+        if canonical is None:
             self._show_error(f"Reference key is missing: {selected.reference_key}")
             return False
-        return self._show_reference(selected.reference_key)
+        return self._show_reference(canonical)
 
     def on_open_target(self, *_):
         self.sync_document()

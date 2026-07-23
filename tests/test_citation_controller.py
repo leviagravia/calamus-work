@@ -75,6 +75,22 @@ class CitationControllerTests(unittest.TestCase):
         self.assertFalse(controller.quick_cite("alpha2020"))
         self.assertIn("could not be inserted", self.errors[-1])
 
+    def test_alias_lookup_selects_canonical_and_quick_cite_emits_primary_key(self):
+        records = (ReferenceRecord(key="current", title="Current", aliases=("legacy",)),)
+        inserted = []
+        shown = []
+        controller = CitationController(
+            reference_records_provider=lambda: records,
+            insert_text=lambda text: inserted.append(text) or True,
+            show_reference=lambda key: shown.append(key) or True,
+            choose_key=lambda keys: keys[0],
+            on_error=self.errors.append,
+        )
+        self.assertTrue(controller.quick_cite("legacy"))
+        self.assertEqual(inserted, ["[@current]"])
+        self.assertTrue(controller.open_citation("See [@legacy].", 7))
+        self.assertEqual(shown, ["current"])
+
     def test_provider_must_return_records(self):
         controller = CitationController(
             reference_records_provider=lambda: ("alpha2020",),

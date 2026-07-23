@@ -43,13 +43,19 @@ class CitationController:
     def keys(self) -> tuple[str, ...]:
         return tuple(record.key for record in self.records)
 
+    def resolve_key(self, key: str) -> str | None:
+        key_text = normalize_key(key)
+        matches = [record.key for record in self.records if key_text in record.identity_keys]
+        return matches[0] if len(matches) == 1 else None
+
     def quick_cite(self, key: str, locator: str = "") -> bool:
         key_text = normalize_key(key)
-        if key_text not in self.keys:
+        canonical = self.resolve_key(key_text)
+        if canonical is None:
             self._on_error(f"Reference key is not available: {key_text or '(empty)'}")
             return False
         try:
-            citation = format_pandoc_citation(key_text, locator)
+            citation = format_pandoc_citation(canonical, locator)
         except ValueError as error:
             self._on_error(str(error))
             return False
@@ -71,10 +77,11 @@ class CitationController:
                 return False
 
         key = normalize_key(key)
-        if key not in self.keys:
+        canonical = self.resolve_key(key)
+        if canonical is None:
             self._on_error(f"Citation key is missing from References: {key}")
             return False
-        if not self._show_reference(key):
-            self._on_error(f"Reference could not be selected: {key}")
+        if not self._show_reference(canonical):
+            self._on_error(f"Reference could not be selected: {canonical}")
             return False
         return True

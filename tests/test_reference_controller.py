@@ -101,21 +101,32 @@ class ReferenceControllerTests(unittest.TestCase):
         controller.load()
         self.assertTrue(controller.add(self.record()))
         self.assertEqual(controller.keys, ("key2020",))
-        changed = self.record("renamed2020", "Changed")
+        changed = self.record("key2020", "Changed")
         self.assertTrue(controller.update("key2020", changed))
-        self.assertEqual(controller.keys, ("renamed2020",))
-        self.assertEqual(view.selected, "renamed2020")
-        self.assertTrue(controller.delete("renamed2020"))
+        self.assertEqual(controller.keys, ("key2020",))
+        self.assertEqual(view.selected, "key2020")
+        self.assertTrue(controller.delete("key2020"))
         self.assertEqual(controller.keys, ())
 
-    def test_duplicate_key_is_rejected_without_save(self):
-        store = FakeStore((self.record("a2020", "A"), self.record("b2020", "B")))
+    def test_generic_update_cannot_rename_key_or_edit_aliases(self):
+        original = ReferenceRecord(key="a2020", title="A", aliases=("legacy",))
+        store = FakeStore((original, self.record("b2020", "B")))
         controller, _, errors = self.make(store)
         controller.load()
         saves_before = len(store.saves)
         self.assertFalse(controller.update("a2020", self.record("b2020", "Changed")))
+        self.assertIn("Rename Reference Key", errors[-1])
+        alias_changed = ReferenceRecord(key="a2020", title="Changed", aliases=("other",))
+        self.assertFalse(controller.update("a2020", alias_changed))
+        self.assertIn("controlled key migration", errors[-1])
         self.assertEqual(len(store.saves), saves_before)
-        self.assertIn("already exists", errors[-1])
+
+    def test_alias_selection_resolves_to_canonical_record(self):
+        record = ReferenceRecord(key="current", title="Current", aliases=("legacy",))
+        controller, view, _ = self.make(FakeStore((record,)))
+        controller.load()
+        self.assertTrue(controller.select_key("legacy"))
+        self.assertEqual(view.selected, "current")
 
     def test_conflict_reload_discards_candidate_and_reloads(self):
         store = FakeStore((self.record(),))

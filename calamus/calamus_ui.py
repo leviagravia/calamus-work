@@ -111,6 +111,9 @@ def build_menu(app) -> None:
         "Open Citation in References	Ctrl+Alt+Shift+Q",
         app.on_open_citation_in_references,
     )
+    add_separator(researchm)
+    add_item(researchm, "Rename Reference Key…", app.on_rename_reference_key)
+    add_item(researchm, "Research Check…", app.on_research_check)
 
     navigatem = top_menu(app, "Navigate")
     app.navigator_item = Gtk.CheckMenuItem(label="Navigator Panel\tCtrl+Alt+N")

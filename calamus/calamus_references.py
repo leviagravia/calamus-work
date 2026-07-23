@@ -61,6 +61,23 @@ def _clean_tags(values: Any) -> tuple[str, ...]:
     return tuple(clean)
 
 
+def _clean_aliases(values: Any, primary_key: str) -> tuple[str, ...]:
+    if isinstance(values, str):
+        values = values.split(",")
+    clean: list[str] = []
+    for value in values if isinstance(values, Iterable) else ():
+        alias = normalize_key(value)
+        if not alias:
+            continue
+        if not is_valid_reference_key(alias):
+            raise ValueError(f"reference alias is invalid: {alias}")
+        if alias == primary_key:
+            raise ValueError("reference alias cannot equal the primary key")
+        if alias not in clean:
+            clean.append(alias)
+    return tuple(clean)
+
+
 @dataclass(frozen=True)
 class ReferenceRecord:
     key: str
@@ -81,6 +98,7 @@ class ReferenceRecord:
     url: str = ""
     language: str = ""
     file_path: str = ""
+    aliases: tuple[str, ...] = ()
     tags: tuple[str, ...] = ()
     annotation: str = ""
     extra_fields: tuple[tuple[str, str], ...] = field(default_factory=tuple)
@@ -98,6 +116,7 @@ class ReferenceRecord:
         object.__setattr__(self, "type", record_type)
         object.__setattr__(self, "authors", _clean_many(self.authors))
         object.__setattr__(self, "editors", _clean_many(self.editors))
+        object.__setattr__(self, "aliases", _clean_aliases(self.aliases, key))
         object.__setattr__(self, "tags", _clean_tags(self.tags))
         for name in (
             "year", "container_title", "publisher", "location", "volume",
@@ -126,9 +145,14 @@ class ReferenceRecord:
         return f"{author}, {self.year}" if self.year else author
 
     @property
+    def identity_keys(self) -> tuple[str, ...]:
+        return (self.key, *self.aliases)
+
+    @property
     def search_text(self) -> str:
         values = (
             self.key,
+            *self.aliases,
             self.title,
             self.type,
             self.year,
@@ -146,8 +170,17 @@ class ReferenceRecord:
         )
         return "\n".join(values).casefold()
 
-    def with_key(self, key: str) -> "ReferenceRecord":
-        return replace(self, key=key)
+    def with_key(self, key: str, *, preserve_old_alias: bool = True) -> "ReferenceRecord":
+        new_key = normalize_key(key)
+        if not is_valid_reference_key(new_key):
+            raise ValueError("reference key is invalid")
+        aliases = [alias for alias in self.aliases if alias != new_key]
+        if preserve_old_alias and new_key != self.key and self.key not in aliases:
+            aliases.append(self.key)
+        return replace(self, key=new_key, aliases=tuple(aliases))
+
+    def with_aliases(self, aliases: Iterable[str]) -> "ReferenceRecord":
+        return replace(self, aliases=tuple(aliases))
 
 
 def suggest_reference_key(
