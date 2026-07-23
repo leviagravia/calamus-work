@@ -82,6 +82,8 @@ from calamus_clip_collection import ClipCollectionController
 from calamus_clip_panel import build_clip_collection_view
 from calamus_right_panel import RightPanelHost
 from calamus_reference_runtime import ReferencePanelRuntime
+from calamus_citation_controller import CitationController
+from calamus_citation_dialogs import choose_citation_key, run_quick_cite_dialog
 from calamus_source_note_runtime import SourceNotePanelRuntime
 from calamus_research_panel import ResearchPanelRuntime
 from calamus_research_panel_view import ResearchPanelViewAdapter
@@ -1951,7 +1953,17 @@ class App(Gtk.Window):
         self.clip_collection.load()
 
     def build_research_panel(self):
-        self.reference_panel_runtime = ReferencePanelRuntime(self)
+        self.reference_panel_runtime = ReferencePanelRuntime(
+            self,
+            quick_cite=self.quick_cite_key,
+        )
+        self.citation_controller = CitationController(
+            reference_records_provider=lambda: self.reference_panel_runtime.records,
+            insert_text=self.insert_citation_text,
+            show_reference=self.show_reference_key,
+            choose_key=lambda keys: choose_citation_key(self, keys),
+            on_error=lambda message: show_error(self, message),
+        )
         self.source_note_panel_runtime = SourceNotePanelRuntime(
             self,
             document_path_provider=lambda: self.document.file_path,
@@ -2009,6 +2021,44 @@ class App(Gtk.Window):
     def show_reference_key(self, key):
         self.research_panel_runtime.show("references")
         return self.reference_panel_runtime.show_key(key)
+
+    def insert_citation_text(self, citation):
+        if not isinstance(citation, str) or not citation:
+            return False
+        buf = self.text.get_buffer()
+        cursor = buf.get_iter_at_mark(buf.get_insert()).get_offset()
+        _, inserted_range = command_insert_at(self.buffer_text(), cursor, citation)
+
+        def edit(buffer):
+            buffer.insert(buffer.get_iter_at_offset(cursor), citation)
+
+        changed = self.execute_command("Quick Cite", edit)
+        if changed:
+            self.set_cursor_offset(inserted_range[1])
+            self.text.grab_focus()
+        return changed
+
+    def run_quick_cite(self, initial_key=None):
+        records = self.reference_panel_runtime.records
+        if not records:
+            show_error(self, "References is empty. Add a reference before using Quick Cite.")
+            return False
+        result = run_quick_cite_dialog(self, records, initial_key=initial_key)
+        if result is None:
+            return False
+        key, locator = result
+        return self.citation_controller.quick_cite(key, locator)
+
+    def on_quick_cite(self, *_):
+        return self.run_quick_cite()
+
+    def quick_cite_key(self, key):
+        return self.run_quick_cite(initial_key=key)
+
+    def on_open_citation_in_references(self, *_):
+        buf = self.text.get_buffer()
+        cursor = buf.get_iter_at_mark(buf.get_insert()).get_offset()
+        return self.citation_controller.open_citation(self.buffer_text(), cursor)
 
     def show_heading_target(self, target):
         return self.navigation_controller.navigate_identifier(target) is not None

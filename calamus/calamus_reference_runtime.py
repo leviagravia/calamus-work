@@ -12,13 +12,17 @@ from calamus_reference_store import MarkdownReferenceStore
 
 
 class ReferencePanelRuntime:
-    def __init__(self, parent, *, store=None) -> None:
+    def __init__(self, parent, *, store=None, quick_cite=None) -> None:
         self._parent = parent
+        if quick_cite is not None and not callable(quick_cite):
+            raise TypeError("quick_cite must be callable")
+        self._quick_cite = quick_cite
         self._view = build_reference_panel_view(
             self.on_add,
             self.on_edit,
             self.on_delete,
             self.on_copy_key,
+            self.on_quick_cite,
         )
         self._controller = ReferenceController(
             store or MarkdownReferenceStore(),
@@ -35,6 +39,11 @@ class ReferencePanelRuntime:
     @property
     def controller(self) -> ReferenceController:
         return self._controller
+
+    @property
+    def records(self):
+        self._controller.ensure_loaded()
+        return self._controller.records
 
     @property
     def keys(self) -> tuple[str, ...]:
@@ -72,6 +81,13 @@ class ReferencePanelRuntime:
         selected = self._controller.selected_record()
         if selected is not None and confirm_reference_delete(self._parent, selected):
             self._controller.delete(selected.key)
+
+    def on_quick_cite(self, *_):
+        self._controller.ensure_loaded()
+        selected = self._controller.selected_record()
+        if selected is not None and self._quick_cite is not None:
+            return self._quick_cite(selected.key)
+        return False
 
     def on_copy_key(self, *_):
         self._controller.ensure_loaded()

@@ -104,6 +104,13 @@ def build_menu(app) -> None:
     add_item(researchm, "Clip Collection", app.show_clip_collection)
     add_item(researchm, "References", app.show_references)
     add_item(researchm, "Source Notes", app.show_source_notes)
+    add_separator(researchm)
+    add_item(researchm, "Quick Cite…	Ctrl+Alt+Q", app.on_quick_cite)
+    add_item(
+        researchm,
+        "Open Citation in References	Ctrl+Alt+Shift+Q",
+        app.on_open_citation_in_references,
+    )
 
     navigatem = top_menu(app, "Navigate")
     app.navigator_item = Gtk.CheckMenuItem(label="Navigator Panel\tCtrl+Alt+N")
@@ -246,6 +253,8 @@ def shortcut_bindings(app):
         ("<Control><Alt>R", app.on_reload_favourites),
         ("<Control><Alt>F10", app.on_character_map),
         ("<Control><Alt>C", app.toggle_research_panel),
+        ("<Control><Alt>Q", app.on_quick_cite),
+        ("<Control><Alt><Shift>Q", app.on_open_citation_in_references),
         ("F9", app.toggle_focus_mode),
         ("F11", app.toggle_distraction_free),
         ("<Control><Alt>I", app.toggle_current_line_highlight),

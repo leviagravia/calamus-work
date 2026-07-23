@@ -134,23 +134,21 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
         self.assertLessEqual(len(method_source("show_reference_key").splitlines()), 3)
         self.assertLessEqual(len(method_source("show_heading_target").splitlines()), 2)
 
-    def test_w76_does_not_add_quick_cite_pdf_or_concept_features(self):
+    def test_w77_keeps_source_notes_free_of_pdf_concept_and_check_features(self):
         combined = "\n".join(
             source(path)
             for path in (
-                LAUNCHER,
-                UI,
                 RUNTIME,
                 ROOT / "calamus" / "calamus_source_note_panel.py",
+                ROOT / "calamus" / "calamus_source_note_controller.py",
             )
         )
         for forbidden in (
-            "Quick Cite",
-            "Insert Citation",
             "Bibliography Check",
             "PDF annotation",
             "Concept Map",
             "Scratchpad",
+            "citeproc",
         ):
             self.assertNotIn(forbidden, combined)
 

@@ -62,7 +62,7 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
         launcher = source(LAUNCHER)
         self.assertEqual(launcher.count("RightPanelHost("), 1)
         self.assertIn('self.right_panel_host.register("research", self.research_panel_view.widget)', launcher)
-        self.assertIn("ReferencePanelRuntime(self)", launcher)
+        self.assertIn("ReferencePanelRuntime(", launcher)
         for forbidden in ("ReferenceRecord(", "serialize_references_markdown", "os.replace(tmp", "resolve_external_reference_change"):
             self.assertNotIn(forbidden, launcher)
         for method in ("toggle_research_panel", "show_clip_collection", "show_references"):
@@ -87,11 +87,11 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
         for future in ("scratchpad", "concepts", '"tags"'):
             self.assertNotIn(future, block)
 
-    def test_w72_does_not_add_future_citation_or_pdf_features(self):
+    def test_w77_adds_quick_cite_without_advanced_bibliography_ownership(self):
         combined = "\n".join(source(path) for path in (LAUNCHER, UI, ROOT / "calamus" / "calamus_reference_runtime.py"))
+        self.assertIn("Quick Cite", combined)
+        self.assertIn("Open Citation in References", combined)
         for forbidden in (
-            "Quick Cite",
-            "Insert Citation",
             "Bibliography Check",
             "BibLaTeX",
             "citeproc",

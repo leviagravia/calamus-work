@@ -74,7 +74,7 @@ class ReferencePanelViewAdapter:
         self.search.grab_focus()
 
 
-def build_reference_panel_view(on_add, on_edit, on_delete, on_copy_key):
+def build_reference_panel_view(on_add, on_edit, on_delete, on_copy_key, on_quick_cite):
     from gi.repository import Gtk
 
     panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -108,10 +108,13 @@ def build_reference_panel_view(on_add, on_edit, on_delete, on_copy_key):
         primary.pack_start(button, True, True, 0)
     panel.pack_start(primary, False, False, 0)
 
-    copy_button = Gtk.Button(label="Copy Key")
-    copy_button.set_size_request(-1, 26)
-    copy_button.connect("clicked", on_copy_key)
-    panel.pack_start(copy_button, False, False, 0)
+    citation_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
+    for label, callback in (("Quick Cite", on_quick_cite), ("Copy Key", on_copy_key)):
+        button = Gtk.Button(label=label)
+        button.set_size_request(-1, 26)
+        button.connect("clicked", callback)
+        citation_actions.pack_start(button, True, True, 0)
+    panel.pack_start(citation_actions, False, False, 0)
 
     adapter = ReferencePanelViewAdapter(panel, search, listbox, status)
     listbox.connect("row-activated", lambda *_: on_edit())
