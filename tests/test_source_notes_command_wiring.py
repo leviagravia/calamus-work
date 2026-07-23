@@ -11,6 +11,10 @@ RESEARCH_VIEW = ROOT / "calamus" / "calamus_research_panel_view.py"
 STORE = ROOT / "calamus" / "calamus_source_note_store.py"
 CONTROLLER = ROOT / "calamus" / "calamus_source_note_controller.py"
 RUNTIME = ROOT / "calamus" / "calamus_source_note_runtime.py"
+PANEL = ROOT / "calamus" / "calamus_source_note_panel.py"
+DIALOGS = ROOT / "calamus" / "calamus_source_note_dialogs.py"
+STRUCTURE = ROOT / "calamus" / "calamus_document_structure.py"
+NAVIGATION = ROOT / "calamus" / "calamus_navigation_gateway.py"
 
 
 def source(path):
@@ -70,7 +74,33 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
         self.assertIn("missing reference link", controller)
         self.assertIn("Reference key is missing", controller)
         self.assertIn("reference_keys_provider", controller)
+        self.assertIn("document_structure_provider", controller)
+        self.assertIn("missing target", controller)
+        self.assertIn("ambiguous target", controller)
         self.assertNotIn("Gtk", controller)
+
+    def test_source_note_targets_reuse_canonical_heading_structure_and_navigation(self):
+        launcher = source(LAUNCHER)
+        runtime = source(RUNTIME)
+        panel = source(PANEL)
+        dialogs = source(DIALOGS)
+        structure = source(STRUCTURE)
+        navigation = source(NAVIGATION)
+        store = source(STORE)
+
+        self.assertIn('("Target", "target")', store)
+        self.assertIn('document_structure_provider=lambda: self.navigation_controller.structure', launcher)
+        self.assertIn('show_target=self.show_heading_target', launcher)
+        self.assertIn('navigate_identifier(target)', method_source("show_heading_target"))
+        self.assertIn('def headings_for_identifier', structure)
+        self.assertIn('def unique_heading_for_identifier', structure)
+        self.assertIn('def navigate_identifier', navigation)
+        self.assertIn('Open Target', panel)
+        self.assertIn('Document Target', dialogs)
+        self.assertIn('self.on_open_target', runtime)
+        self.assertNotIn('build_document_structure(', runtime)
+        self.assertNotIn('build_document_structure(', panel)
+        self.assertNotIn('build_document_structure(', dialogs)
 
     def test_dialog_keeps_generated_source_note_id_stable(self):
         dialogs = source(ROOT / "calamus" / "calamus_source_note_dialogs.py")
@@ -102,8 +132,9 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
         self.assertLessEqual(len(method_source("show_source_notes").splitlines()), 2)
         self.assertLessEqual(len(method_source("sync_source_notes_document").splitlines()), 3)
         self.assertLessEqual(len(method_source("show_reference_key").splitlines()), 3)
+        self.assertLessEqual(len(method_source("show_heading_target").splitlines()), 2)
 
-    def test_w73_has_no_quick_cite_pdf_or_concept_features(self):
+    def test_w76_does_not_add_quick_cite_pdf_or_concept_features(self):
         combined = "\n".join(
             source(path)
             for path in (

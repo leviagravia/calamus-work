@@ -92,6 +92,24 @@ class NavigationControllerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             controller.navigate_heading(foreign)
 
+
+    def test_identifier_navigation_uses_canonical_unique_heading(self):
+        text = "# One {#one}\nbody\n## Two {#two}\n"
+        adapter = FakeAdapter(text)
+        controller = NavigationController(adapter)
+        heading = controller.navigate_identifier("#two")
+        self.assertEqual(heading.title, "Two")
+        self.assertEqual(adapter.navigated[-1], text.index("## Two"))
+        self.assertEqual(controller.heading_for_identifier("one").title, "One")
+
+    def test_identifier_navigation_fails_closed_for_missing_or_duplicate(self):
+        text = "# One {#same}\n# Two {#same}\n"
+        adapter = FakeAdapter(text)
+        controller = NavigationController(adapter)
+        self.assertIsNone(controller.navigate_identifier("#same"))
+        self.assertIsNone(controller.navigate_identifier("#missing"))
+        self.assertEqual(adapter.navigated, [])
+
     def test_force_argument_is_typed(self):
         controller = NavigationController(FakeAdapter())
         with self.assertRaises(TypeError):

@@ -7,6 +7,7 @@ import re
 import uuid
 from typing import Any, Iterable
 
+from calamus_document_structure import is_valid_heading_identifier
 from calamus_references import is_valid_reference_key, normalize_key
 
 _NOTE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
@@ -34,6 +35,16 @@ def _clean_tags(values: Any) -> tuple[str, ...]:
 
 def normalize_source_note_id(value: Any) -> str:
     return value.strip() if isinstance(value, str) else ""
+
+
+def normalize_heading_target(value: Any) -> str:
+    target = _single_line(value)
+    if not target:
+        return ""
+    identifier = target[1:] if target.startswith("#") else target
+    if not is_valid_heading_identifier(identifier):
+        raise ValueError("source note target is invalid")
+    return f"#{identifier}"
 
 
 def is_valid_source_note_id(value: Any) -> bool:
@@ -114,12 +125,14 @@ class SourceNote:
     created: str = ""
     modified: str = ""
     extra_fields: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    target: str = ""
 
     def __post_init__(self) -> None:
         note_id = normalize_source_note_id(self.id)
         kind = _single_line(self.kind).lower()
         text = self.text.strip() if isinstance(self.text, str) else ""
         reference_key = normalize_key(self.reference_key)
+        target = normalize_heading_target(self.target)
         if not is_valid_source_note_id(note_id):
             raise ValueError("source note id is invalid")
         if kind not in _KINDS:
@@ -135,6 +148,7 @@ class SourceNote:
         object.__setattr__(self, "kind", kind)
         object.__setattr__(self, "text", text)
         object.__setattr__(self, "reference_key", reference_key)
+        object.__setattr__(self, "target", target)
         object.__setattr__(self, "locator", locator)
         object.__setattr__(self, "comment", self.comment.strip() if isinstance(self.comment, str) else "")
         object.__setattr__(self, "tags", _clean_tags(self.tags))
@@ -166,6 +180,7 @@ class SourceNote:
                 self.id,
                 self.kind,
                 self.reference_key,
+                self.target,
                 self.text,
                 self.comment,
                 *self.tags,

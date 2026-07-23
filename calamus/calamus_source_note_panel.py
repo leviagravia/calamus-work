@@ -78,6 +78,8 @@ class SourceNotePanelViewAdapter:
         selected_id: str | None,
         status: str,
         missing_reference_ids: frozenset[str],
+        missing_target_ids: frozenset[str],
+        ambiguous_target_ids: frozenset[str],
     ) -> None:
         from gi.repository import Gtk, Pango
 
@@ -96,7 +98,9 @@ class SourceNotePanelViewAdapter:
             primary = Gtk.Label()
             heading = note.kind.capitalize()
             if note.reference_key:
-                heading += f" · {_escape(note.reference_key)}"
+                heading += f" · {note.reference_key}"
+            if note.target:
+                heading += f" · {note.target}"
             primary.set_markup(f"<b>{_escape(heading)}</b>")
             primary.set_xalign(0)
             primary.set_ellipsize(Pango.EllipsizeMode.END)
@@ -114,6 +118,10 @@ class SourceNotePanelViewAdapter:
                 details.append(", ".join(note.tags))
             if note.id in missing_reference_ids:
                 details.append("Missing reference")
+            if note.id in missing_target_ids:
+                details.append("Missing target")
+            if note.id in ambiguous_target_ids:
+                details.append("Ambiguous target")
             tertiary = Gtk.Label(label=" · ".join(details) or note.id)
             tertiary.set_xalign(0)
             tertiary.get_style_context().add_class("dim-label")
@@ -149,7 +157,13 @@ class SourceNotePanelViewAdapter:
             self.search.grab_focus()
 
 
-def build_source_note_panel_view(on_add, on_edit, on_delete, on_open_reference):
+def build_source_note_panel_view(
+    on_add,
+    on_edit,
+    on_delete,
+    on_open_reference,
+    on_open_target,
+):
     from gi.repository import Gtk, Pango
 
     panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -213,11 +227,17 @@ def build_source_note_panel_view(on_add, on_edit, on_delete, on_open_reference):
         buttons.append(button)
     panel.pack_start(primary, False, False, 0)
 
-    open_reference = Gtk.Button(label="Open Reference")
-    open_reference.set_size_request(-1, 26)
-    open_reference.connect("clicked", on_open_reference)
-    panel.pack_start(open_reference, False, False, 0)
-    buttons.append(open_reference)
+    links = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
+    for label, callback in (
+        ("Open Reference", on_open_reference),
+        ("Open Target", on_open_target),
+    ):
+        button = Gtk.Button(label=label)
+        button.set_size_request(-1, 26)
+        button.connect("clicked", callback)
+        links.pack_start(button, True, True, 0)
+        buttons.append(button)
+    panel.pack_start(links, False, False, 0)
 
     adapter = SourceNotePanelViewAdapter(
         panel,

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Protocol
 
+from calamus_document_structure import DocumentStructure
 from calamus_research_file import FileToken
 from calamus_source_note_store import (
     MarkdownSourceNoteStore,
@@ -30,6 +31,8 @@ class SourceNoteView(Protocol):
         selected_id: str | None,
         status: str,
         missing_reference_ids: frozenset[str],
+        missing_target_ids: frozenset[str],
+        ambiguous_target_ids: frozenset[str],
     ) -> None: ...
     def selected_id(self) -> str | None: ...
     def select_id(self, note_id: str | None) -> bool: ...
@@ -41,6 +44,7 @@ class SourceNoteController:
         view: SourceNoteView,
         *,
         reference_keys_provider: Callable[[], tuple[str, ...]],
+        document_structure_provider: Callable[[], DocumentStructure],
         resolve_conflict: Callable[[], str],
         on_error: Callable[[str], None],
         store_factory: Callable[[str], SourceNoteStore] = MarkdownSourceNoteStore,
@@ -51,11 +55,13 @@ class SourceNoteController:
         )):
             raise TypeError("view must implement SourceNoteView")
         if not all(callable(callback) for callback in (
-            reference_keys_provider, resolve_conflict, on_error, store_factory,
+            reference_keys_provider, document_structure_provider,
+            resolve_conflict, on_error, store_factory,
         )):
             raise TypeError("callbacks must be callable")
         self._view = view
         self._reference_keys_provider = reference_keys_provider
+        self._document_structure_provider = document_structure_provider
         self._resolve_conflict = resolve_conflict
         self._on_error = on_error
         self._store_factory = store_factory
@@ -70,7 +76,10 @@ class SourceNoteController:
         self._loaded = False
         self._view.set_available(False, "Save the document to use Source Notes.")
         self._view.set_reference_options((), "all")
-        self._view.render((), None, "No document sidecar.", frozenset())
+        self._view.render(
+            (), None, "No document sidecar.",
+            frozenset(), frozenset(), frozenset(),
+        )
 
     @property
     def widget(self) -> Any:
@@ -100,6 +109,26 @@ class SourceNoteController:
     def reference_keys(self) -> tuple[str, ...]:
         return tuple(dict.fromkeys(self._reference_keys_provider()))
 
+    @property
+    def document_structure(self) -> DocumentStructure:
+        structure = self._document_structure_provider()
+        if not isinstance(structure, DocumentStructure):
+            raise TypeError("document_structure_provider must return DocumentStructure")
+        return structure
+
+    @property
+    def target_options(self) -> tuple[tuple[str, str], ...]:
+        structure = self.document_structure
+        options: list[tuple[str, str]] = []
+        for heading in structure.headings:
+            if heading.identifier is None:
+                continue
+            matches = structure.headings_for_identifier(heading.identifier)
+            if len(matches) == 1:
+                target = f"#{heading.identifier}"
+                options.append((target, f"{heading.display_title} — {target}"))
+        return tuple(options)
+
     def bind_document(self, document_path: str | None, *, force: bool = False) -> bool:
         target = source_notes_path(document_path)
         if target is None:
@@ -111,7 +140,10 @@ class SourceNoteController:
             self._loaded = False
             self._view.set_available(False, "Save the document to use Source Notes.")
             self._view.set_reference_options(self.reference_keys, "all")
-            self._view.render((), None, "No document sidecar.", frozenset())
+            self._view.render(
+                (), None, "No document sidecar.",
+                frozenset(), frozenset(), frozenset(),
+            )
             return False
         if not force and self._store is not None and self._store.path == target and self._loaded:
             self.refresh()
@@ -167,12 +199,25 @@ class SourceNoteController:
         visible_ids = {note.id for note in visible}
         if selected not in visible_ids:
             selected = visible[0].id if visible else None
-        missing = frozenset(
+        missing_references = frozenset(
             note.id
             for note in self._notes
             if note.reference_key and note.reference_key not in keys
         )
-        self._view.render(visible, selected, self._status_text(len(visible), len(missing)), missing)
+        missing_targets, ambiguous_targets = self._target_issue_ids()
+        self._view.render(
+            visible,
+            selected,
+            self._status_text(
+                len(visible),
+                len(missing_references),
+                len(missing_targets),
+                len(ambiguous_targets),
+            ),
+            missing_references,
+            missing_targets,
+            ambiguous_targets,
+        )
         return visible
 
     def filtered_notes(
@@ -196,7 +241,7 @@ class SourceNoteController:
         return next((note for note in self._notes if note.id == note_id), None)
 
     def add(self, note: SourceNote) -> bool:
-        if not self._can_mutate() or not self._reference_is_valid(note):
+        if not self._can_mutate() or not self._links_are_valid(note):
             return False
         if note.id in self.ids:
             self._on_error(f"Source Note id already exists: {note.id}")
@@ -204,7 +249,7 @@ class SourceNoteController:
         return self._commit((*self._notes, note), select_id=note.id)
 
     def update(self, original_id: str, note: SourceNote) -> bool:
-        if not self._can_mutate() or not self._reference_is_valid(note):
+        if not self._can_mutate() or not self._links_are_valid(note):
             return False
         if original_id not in self.ids:
             self._on_error("Selected Source Note no longer exists.")
@@ -229,9 +274,37 @@ class SourceNoteController:
         if self._store is not None:
             self.load()
 
-    def _reference_is_valid(self, note: SourceNote) -> bool:
+    def target_state(self, note: SourceNote) -> str:
+        if not note.target:
+            return "none"
+        matches = self.document_structure.headings_for_identifier(note.target)
+        if not matches:
+            return "missing"
+        if len(matches) > 1:
+            return "ambiguous"
+        return "valid"
+
+    def _target_issue_ids(self) -> tuple[frozenset[str], frozenset[str]]:
+        missing: set[str] = set()
+        ambiguous: set[str] = set()
+        for note in self._notes:
+            state = self.target_state(note)
+            if state == "missing":
+                missing.add(note.id)
+            elif state == "ambiguous":
+                ambiguous.add(note.id)
+        return frozenset(missing), frozenset(ambiguous)
+
+    def _links_are_valid(self, note: SourceNote) -> bool:
         if note.reference_key and note.reference_key not in self.reference_keys:
             self._on_error(f"Reference key is missing: {note.reference_key}")
+            return False
+        target_state = self.target_state(note)
+        if target_state == "missing":
+            self._on_error(f"Heading target is missing: {note.target}")
+            return False
+        if target_state == "ambiguous":
+            self._on_error(f"Heading target is ambiguous: {note.target}")
             return False
         return True
 
@@ -265,14 +338,27 @@ class SourceNoteController:
         self._view.select_id(select_id)
         return True
 
-    def _status_text(self, visible_count: int, missing_count: int) -> str:
+    def _status_text(
+        self,
+        visible_count: int,
+        missing_reference_count: int,
+        missing_target_count: int,
+        ambiguous_target_count: int,
+    ) -> str:
         total = len(self._notes)
         if self._diagnostics:
             return f"{total} note(s); sidecar needs correction."
-        if missing_count:
-            base = f"{total} note(s); {missing_count} missing reference link(s)."
-        else:
-            base = f"{total} note(s)."
+        issues: list[str] = []
+        if missing_reference_count:
+            issues.append(f"{missing_reference_count} missing reference link(s)")
+        if missing_target_count:
+            issues.append(f"{missing_target_count} missing target(s)")
+        if ambiguous_target_count:
+            issues.append(f"{ambiguous_target_count} ambiguous target(s)")
+        base = f"{total} note(s)"
+        if issues:
+            base += "; " + "; ".join(issues)
+        base += "."
         if self._query.strip() or self._kind_filter != "all" or self._reference_filter != "all":
             return f"{visible_count} of {base}"
         return base

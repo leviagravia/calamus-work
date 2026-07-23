@@ -1,5 +1,6 @@
 import unittest
 
+from calamus_document_structure import build_document_structure
 from calamus_research_file import FileToken
 from calamus_source_note_controller import SourceNoteController
 from calamus_source_note_store import SourceNoteSaveResult, SourceNoteSnapshot
@@ -18,6 +19,8 @@ class FakeView:
         self.selected = None
         self.status = ""
         self.missing = frozenset()
+        self.missing_targets = frozenset()
+        self.ambiguous_targets = frozenset()
 
     def set_available(self, available, message):
         self.available = available
@@ -27,11 +30,16 @@ class FakeView:
         self.reference_options = tuple(keys)
         self.reference_selected = selected
 
-    def render(self, notes, selected_id, status, missing_reference_ids):
+    def render(
+        self, notes, selected_id, status, missing_reference_ids,
+        missing_target_ids, ambiguous_target_ids,
+    ):
         self.rendered = tuple(notes)
         self.selected = selected_id
         self.status = status
         self.missing = missing_reference_ids
+        self.missing_targets = missing_target_ids
+        self.ambiguous_targets = ambiguous_target_ids
 
     def selected_id(self):
         return self.selected
@@ -62,7 +70,10 @@ class FakeStore:
 
 
 class SourceNoteControllerTests(unittest.TestCase):
-    def note(self, note_id="sn-1", kind="quote", reference="ref1", text="Text", tags=(), page="42"):
+    def note(
+        self, note_id="sn-1", kind="quote", reference="ref1", text="Text",
+        tags=(), page="42", target="",
+    ):
         return SourceNote(
             id=note_id,
             kind=kind,
@@ -70,9 +81,13 @@ class SourceNoteControllerTests(unittest.TestCase):
             locator=SourceLocator(page=page),
             text=text,
             tags=tags,
+            target=target,
         )
 
-    def build(self, keys=("ref1",), stores=None, choices=None, errors=None):
+    def build(
+        self, keys=("ref1",), document_text="# Method {#method}\n",
+        stores=None, choices=None, errors=None,
+    ):
         view = FakeView()
         store_map = stores if stores is not None else {}
         choices = choices if choices is not None else []
@@ -84,6 +99,7 @@ class SourceNoteControllerTests(unittest.TestCase):
         controller = SourceNoteController(
             view,
             reference_keys_provider=lambda: tuple(keys),
+            document_structure_provider=lambda: build_document_structure(document_text),
             resolve_conflict=lambda: choices.pop(0) if choices else "cancel",
             on_error=errors.append,
             store_factory=factory,
@@ -148,6 +164,57 @@ class SourceNoteControllerTests(unittest.TestCase):
         self.assertFalse(controller.add(missing))
         self.assertEqual(stores[controller.sidecar_path].saves, [])
         self.assertIn("Reference key is missing", errors[-1])
+
+    def test_target_options_include_only_unique_explicit_heading_ids(self):
+        controller, _, _, _ = self.build(
+            document_text=(
+                "# Method {#method}\n"
+                "# Duplicate one {#same}\n"
+                "# Duplicate two {#same}\n"
+                "# Plain\n"
+            )
+        )
+        self.assertEqual(controller.target_options, (("#method", "Method — #method"),))
+
+    def test_existing_missing_and_ambiguous_targets_are_reported_non_blocking(self):
+        document = "# One {#same}\n# Two {#same}\n"
+        controller, view, stores, _ = self.build(document_text=document)
+        path = "/work/paper.md.source-notes.md"
+        stores[path] = FakeStore(path, (
+            SourceNote(id="sn-missing", kind="comment", text="Missing", target="#absent"),
+            SourceNote(id="sn-ambiguous", kind="comment", text="Ambiguous", target="#same"),
+        ))
+        controller.bind_document("/work/paper.md")
+        self.assertEqual(view.missing_targets, frozenset({"sn-missing"}))
+        self.assertEqual(view.ambiguous_targets, frozenset({"sn-ambiguous"}))
+        self.assertIn("missing target", view.status)
+        self.assertIn("ambiguous target", view.status)
+        self.assertTrue(controller.add(SourceNote(id="sn-free", kind="comment", text="Free")))
+
+    def test_new_missing_or_ambiguous_target_is_rejected_before_save(self):
+        document = "# One {#same}\n# Two {#same}\n"
+        controller, _, stores, errors = self.build(document_text=document)
+        controller.bind_document("/work/paper.md")
+        store = stores[controller.sidecar_path]
+        self.assertFalse(controller.add(
+            SourceNote(id="sn-missing", kind="comment", text="Text", target="#absent")
+        ))
+        self.assertIn("Heading target is missing", errors[-1])
+        self.assertFalse(controller.add(
+            SourceNote(id="sn-ambiguous", kind="comment", text="Text", target="#same")
+        ))
+        self.assertIn("Heading target is ambiguous", errors[-1])
+        self.assertEqual(store.saves, [])
+
+    def test_valid_target_is_persisted_and_searchable(self):
+        controller, view, stores, _ = self.build()
+        controller.bind_document("/work/paper.md")
+        note = self.note(target="#method")
+        self.assertTrue(controller.add(note))
+        self.assertEqual(stores[controller.sidecar_path].notes[0].target, "#method")
+        controller.refresh(query="#method")
+        self.assertEqual(view.rendered, (note,))
+        self.assertEqual(controller.target_state(note), "valid")
 
     def test_add_update_delete_are_persist_first(self):
         controller, view, stores, _ = self.build()

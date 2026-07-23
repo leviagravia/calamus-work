@@ -63,7 +63,7 @@ def _attribute_token_kind(token: str) -> str | None:
     return None
 
 
-def _valid_identifier(identifier: str) -> bool:
+def is_valid_heading_identifier(identifier: str) -> bool:
     if not identifier:
         return False
     if not (identifier[0].isalpha() or identifier[0] == "_"):
@@ -144,7 +144,7 @@ class DocumentHeading:
         if self.identifier is not None:
             if not isinstance(self.identifier, str):
                 raise TypeError("identifier must be str or None")
-            if not _valid_identifier(self.identifier):
+            if not is_valid_heading_identifier(self.identifier):
                 raise ValueError("identifier must use the canonical heading-ID grammar")
 
     @property
@@ -210,6 +210,25 @@ class DocumentStructure:
                 break
             previous = heading
         return previous
+
+    def headings_for_identifier(self, identifier: str) -> tuple[DocumentHeading, ...]:
+        if not isinstance(identifier, str):
+            raise TypeError("identifier must be str")
+        target = identifier.strip()
+        if target.startswith("#"):
+            target = target[1:]
+        if not target:
+            return ()
+        if not is_valid_heading_identifier(target):
+            raise ValueError("identifier must use the canonical heading-ID grammar")
+        return tuple(
+            heading for heading in self.headings
+            if heading.identifier == target
+        )
+
+    def unique_heading_for_identifier(self, identifier: str) -> DocumentHeading | None:
+        matches = self.headings_for_identifier(identifier)
+        return matches[0] if len(matches) == 1 else None
 
     def filtered(self, query: str) -> tuple[DocumentHeading, ...]:
         if not isinstance(query, str):
@@ -298,7 +317,7 @@ def _parse_heading_title(
         return title, None, ()
 
     candidate = identifier_tokens[0][1:]
-    if invalid_tokens or not _valid_identifier(candidate):
+    if invalid_tokens or not is_valid_heading_identifier(candidate):
         diagnostics.append(
             DocumentStructureDiagnostic(
                 kind="malformed-heading-identifier",

@@ -5,6 +5,7 @@ from calamus_source_notes import (
     SourceLocator,
     SourceNote,
     new_source_note_id,
+    normalize_heading_target,
     source_note_kinds,
 )
 
@@ -46,6 +47,30 @@ class SourceNoteModelTests(unittest.TestCase):
         self.assertIn("ratzinger1968introduction", note.search_text)
         self.assertIn("chapter one", note.search_text)
         self.assertEqual(source_note_kinds(), ("quote", "paraphrase", "comment"))
+
+
+    def test_heading_target_is_canonical_optional_and_searchable(self):
+        note = SourceNote(
+            id="sn-target",
+            kind="comment",
+            text="Use this in the method section.",
+            target="method",
+        )
+        self.assertEqual(note.target, "#method")
+        self.assertIn("#method", note.search_text)
+        self.assertEqual(normalize_heading_target(" #Ética-1 "), "#Ética-1")
+        self.assertEqual(normalize_heading_target(""), "")
+
+    def test_malformed_heading_target_is_rejected(self):
+        for target in ("#", "#1-number", "#bad/path", "#bad target"):
+            with self.subTest(target=target):
+                with self.assertRaises(ValueError):
+                    SourceNote(
+                        id="sn-target",
+                        kind="comment",
+                        text="Text",
+                        target=target,
+                    )
 
     def test_new_id_is_readable_and_disambiguated(self):
         now = datetime(2026, 7, 21, 15, 30, 0, tzinfo=timezone.utc)

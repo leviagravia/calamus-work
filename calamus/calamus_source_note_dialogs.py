@@ -13,12 +13,14 @@ from calamus_source_notes import (
 def run_source_note_dialog(
     parent,
     reference_keys,
+    target_options,
     existing_ids,
     note: SourceNote | None = None,
 ) -> SourceNote | None:
     from gi.repository import Gtk
 
     keys = tuple(dict.fromkeys(reference_keys))
+    targets = tuple(dict.fromkeys(target_options))
     dialog = Gtk.Dialog(
         title="Edit Source Note" if note else "Add Source Note",
         transient_for=parent,
@@ -26,7 +28,7 @@ def run_source_note_dialog(
     )
     dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
     dialog.add_button("Save", Gtk.ResponseType.OK)
-    dialog.set_default_size(650, 620)
+    dialog.set_default_size(650, 650)
 
     notebook = Gtk.Notebook()
     notebook.set_margin_start(10)
@@ -40,7 +42,7 @@ def run_source_note_dialog(
     locator_grid = Gtk.Grid(column_spacing=8, row_spacing=7)
     locator_grid.set_border_width(8)
     notebook.append_page(content, Gtk.Label(label="Content"))
-    notebook.append_page(locator_grid, Gtk.Label(label="Locator"))
+    notebook.append_page(locator_grid, Gtk.Label(label="Locator & Target"))
 
     id_label = Gtk.Label(label="ID")
     id_label.set_xalign(0)
@@ -106,6 +108,20 @@ def run_source_note_dialog(
     content.attach(comment_label, 0, 5, 1, 1)
     content.attach(comment_scroll, 1, 5, 2, 1)
 
+    target_label = Gtk.Label(label="Document Target")
+    target_label.set_xalign(0)
+    target_combo = Gtk.ComboBoxText()
+    target_combo.append("__none__", "No document target")
+    target_ids = set()
+    for target, label in targets:
+        target_combo.append(target, label)
+        target_ids.add(target)
+    if note and note.target and note.target not in target_ids:
+        target_combo.append(note.target, f"Missing or ambiguous: {note.target}")
+    target_combo.set_active_id(note.target if note and note.target else "__none__")
+    locator_grid.attach(target_label, 0, 0, 1, 1)
+    locator_grid.attach(target_combo, 1, 0, 1, 1)
+
     locator_entries = {}
     locator_values = note.locator if note else SourceLocator()
     for row, (label, name) in enumerate((
@@ -114,7 +130,7 @@ def run_source_note_dialog(
         ("Chapter", "chapter"),
         ("Section", "section"),
         ("Paragraph", "paragraph"),
-    )):
+    ), start=1):
         lab = Gtk.Label(label=label)
         lab.set_xalign(0)
         entry = Gtk.Entry()
@@ -126,7 +142,7 @@ def run_source_note_dialog(
     hint = Gtk.Label(
         label=(
             "Quote and Paraphrase require a Reference. "
-            "Comment may be independent."
+            "Document Target links this note to one explicit {#heading-id}."
         )
     )
     hint.set_xalign(0)
@@ -146,12 +162,14 @@ def run_source_note_dialog(
             comment_start, comment_end = comment_buffer.get_bounds()
             stamp = now_iso()
             selected_reference = reference_combo.get_active_id() or "__none__"
+            selected_target = target_combo.get_active_id() or "__none__"
             result = SourceNote(
                 id=id_entry.get_text(),
                 kind=kind_combo.get_active_id() or "comment",
                 reference_key=(
                     "" if selected_reference == "__none__" else selected_reference
                 ),
+                target="" if selected_target == "__none__" else selected_target,
                 locator=SourceLocator(
                     **{
                         name: entry.get_text()

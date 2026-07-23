@@ -1956,7 +1956,9 @@ class App(Gtk.Window):
             self,
             document_path_provider=lambda: self.document.file_path,
             reference_keys_provider=lambda: self.reference_panel_runtime.keys,
+            document_structure_provider=lambda: self.navigation_controller.structure,
             show_reference=self.show_reference_key,
+            show_target=self.show_heading_target,
         )
         self.research_panel_view = ResearchPanelViewAdapter(
             lambda: self.research_panel_runtime.hide(),
@@ -2007,6 +2009,9 @@ class App(Gtk.Window):
     def show_reference_key(self, key):
         self.research_panel_runtime.show("references")
         return self.reference_panel_runtime.show_key(key)
+
+    def show_heading_target(self, target):
+        return self.navigation_controller.navigate_identifier(target) is not None
 
     def sync_source_notes_document(self):
         if hasattr(self, "source_note_panel_runtime"):

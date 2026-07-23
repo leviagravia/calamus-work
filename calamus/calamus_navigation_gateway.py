@@ -72,6 +72,15 @@ class NavigationController:
             self.navigate_heading(heading)
         return heading
 
+    def heading_for_identifier(self, identifier: str) -> DocumentHeading | None:
+        return self.refresh_structure().unique_heading_for_identifier(identifier)
+
+    def navigate_identifier(self, identifier: str) -> DocumentHeading | None:
+        heading = self.heading_for_identifier(identifier)
+        if heading is not None:
+            self.navigate_heading(heading)
+        return heading
+
     def navigate_heading(self, heading: DocumentHeading) -> DocumentHeading:
         if not isinstance(heading, DocumentHeading):
             raise TypeError("heading must be DocumentHeading")

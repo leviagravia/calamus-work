@@ -17,6 +17,7 @@ class SourceNoteMarkdownStoreTests(unittest.TestCase):
         return SourceNote(
             id="sn-20260721-120000-test",
             reference_key="ratzinger1968introduction",
+            target="#method",
             kind="quote",
             locator=SourceLocator(page="42", page_end="43", section="Faith"),
             text="Faith is the response to revelation.",
@@ -40,6 +41,7 @@ class SourceNoteMarkdownStoreTests(unittest.TestCase):
         encoded = serialize_source_notes_markdown((note,))
         self.assertIn("# Calamus Source Notes v1", encoded)
         self.assertIn("## Source Note: sn-20260721-120000-test", encoded)
+        self.assertIn("Target: #method", encoded)
         self.assertIn("Page End: 43", encoded)
         self.assertIn("Original Language: de", encoded)
         notes, diagnostics = parse_source_notes_markdown(encoded)
@@ -100,6 +102,32 @@ Text
         self.assertEqual(tuple(note.id for note in notes), ("duplicate",))
         self.assertGreaterEqual(len(diagnostics), 2)
         self.assertTrue(all(item.blocking for item in diagnostics))
+
+
+    def test_malformed_target_is_blocking_and_does_not_create_partial_note(self):
+        text = """# Calamus Source Notes v1
+
+## Source Note: sn-bad-target
+Target: #bad/path
+Kind: comment
+
+### Text
+
+```text
+Text
+```
+
+### Comment
+
+```text
+
+```
+"""
+        notes, diagnostics = parse_source_notes_markdown(text)
+        self.assertEqual(notes, ())
+        self.assertEqual(len(diagnostics), 1)
+        self.assertIn("target is invalid", diagnostics[0].message)
+        self.assertTrue(diagnostics[0].blocking)
 
     def test_loading_existing_sidecar_does_not_rewrite_it(self):
         with tempfile.TemporaryDirectory() as tmp:

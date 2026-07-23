@@ -190,6 +190,30 @@ class DocumentStructureParserTests(unittest.TestCase):
                 "malformed-heading-identifier", 1, 0, "bad", related_lines=(True,)
             )
 
+
+    def test_heading_lookup_accepts_bare_or_fragment_identifier(self):
+        structure = build_document_structure(
+            "# One {#one}\n# Two {#two}\n"
+        )
+        self.assertEqual(structure.headings_for_identifier("one"), (structure.headings[0],))
+        self.assertEqual(structure.headings_for_identifier("#two"), (structure.headings[1],))
+        self.assertEqual(structure.unique_heading_for_identifier("#one"), structure.headings[0])
+        self.assertEqual(structure.headings_for_identifier("missing"), ())
+
+    def test_duplicate_identifier_lookup_is_explicitly_ambiguous(self):
+        structure = build_document_structure(
+            "# One {#same}\n# Two {#same}\n"
+        )
+        self.assertEqual(len(structure.headings_for_identifier("#same")), 2)
+        self.assertIsNone(structure.unique_heading_for_identifier("same"))
+
+    def test_heading_lookup_rejects_malformed_identifier(self):
+        structure = build_document_structure("# One {#one}\n")
+        with self.assertRaises(ValueError):
+            structure.headings_for_identifier("#bad/path")
+        with self.assertRaises(TypeError):
+            structure.headings_for_identifier(None)
+
     def test_parser_rejects_non_string_input(self):
         with self.assertRaises(TypeError):
             build_document_structure(None)

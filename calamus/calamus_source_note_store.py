@@ -14,6 +14,7 @@ _TEXT_HEADING = "### Text"
 _COMMENT_HEADING = "### Comment"
 _KNOWN_FIELDS = {
     "reference": "reference_key",
+    "target": "target",
     "kind": "kind",
     "page": "page",
     "page end": "page_end",
@@ -26,6 +27,7 @@ _KNOWN_FIELDS = {
 }
 _FIELD_LABELS = (
     ("Reference", "reference_key"),
+    ("Target", "target"),
     ("Kind", "kind"),
     ("Page", "page"),
     ("Page End", "page_end"),
@@ -211,6 +213,7 @@ def parse_source_notes_markdown(
             note = SourceNote(
                 id=note_id,
                 reference_key=fields.get("reference_key", ""),
+                target=fields.get("target", ""),
                 kind=fields.get("kind", "comment"),
                 locator=SourceLocator(
                     page=fields.get("page", ""),

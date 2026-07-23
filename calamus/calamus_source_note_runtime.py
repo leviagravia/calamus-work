@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Callable
 
+from calamus_document_structure import DocumentStructure
 from calamus_source_note_controller import SourceNoteController
 from calamus_source_note_dialogs import (
     confirm_source_note_delete,
@@ -19,27 +20,35 @@ class SourceNotePanelRuntime:
         *,
         document_path_provider: Callable[[], str | None],
         reference_keys_provider: Callable[[], tuple[str, ...]],
+        document_structure_provider: Callable[[], DocumentStructure],
         show_reference: Callable[[str], bool],
+        show_target: Callable[[str], bool],
         store_factory=None,
     ) -> None:
         if not all(callable(callback) for callback in (
             document_path_provider,
             reference_keys_provider,
+            document_structure_provider,
             show_reference,
+            show_target,
         )):
             raise TypeError("Source Notes callbacks must be callable")
         self._parent = parent
         self._document_path_provider = document_path_provider
         self._reference_keys_provider = reference_keys_provider
+        self._document_structure_provider = document_structure_provider
         self._show_reference = show_reference
+        self._show_target = show_target
         self._view = build_source_note_panel_view(
             self.on_add,
             self.on_edit,
             self.on_delete,
             self.on_open_reference,
+            self.on_open_target,
         )
         controller_kwargs = {
             "reference_keys_provider": reference_keys_provider,
+            "document_structure_provider": document_structure_provider,
             "resolve_conflict": lambda: resolve_external_source_note_change(parent),
             "on_error": self._show_error,
         }
@@ -78,6 +87,7 @@ class SourceNotePanelRuntime:
         note = run_source_note_dialog(
             self._parent,
             self._reference_keys_provider(),
+            self._controller.target_options,
             self._controller.ids,
         )
         if note is not None:
@@ -91,6 +101,7 @@ class SourceNotePanelRuntime:
         note = run_source_note_dialog(
             self._parent,
             self._reference_keys_provider(),
+            self._controller.target_options,
             self._controller.ids,
             selected,
         )
@@ -112,6 +123,20 @@ class SourceNotePanelRuntime:
             self._show_error(f"Reference key is missing: {selected.reference_key}")
             return False
         return self._show_reference(selected.reference_key)
+
+    def on_open_target(self, *_):
+        self.sync_document()
+        selected = self._controller.selected_note()
+        if selected is None or not selected.target:
+            return False
+        state = self._controller.target_state(selected)
+        if state == "missing":
+            self._show_error(f"Heading target is missing: {selected.target}")
+            return False
+        if state == "ambiguous":
+            self._show_error(f"Heading target is ambiguous: {selected.target}")
+            return False
+        return bool(self._show_target(selected.target))
 
     def _show_error(self, message: str) -> None:
         from gi.repository import Gtk
