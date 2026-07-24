@@ -258,6 +258,8 @@ class App(Gtk.Window):
             on_hide=lambda: self.workspace_panel_runtime.hide(),
             on_new_text_file=self.on_new_workspace_text_file,
             on_new_folder=self.on_new_workspace_folder,
+            on_rename_item=self.on_rename_workspace_item,
+            on_duplicate_file=self.on_duplicate_workspace_file,
             on_choose_root=self.on_select_workspace_folder,
             on_refresh=self.on_refresh_workspace,
             on_reveal=self.on_reveal_workspace,
@@ -2340,6 +2342,11 @@ class App(Gtk.Window):
             name,
         )
 
+    def on_duplicate_workspace_file(self, *_):
+        return self.workspace_mutation_runtime.duplicate_text_file(
+            self.workspace_panel_view.selected_item()
+        )
+
     def on_rename_workspace_item(self, *_):
         selected = self.workspace_panel_view.selected_item()
         if selected is None:
@@ -2419,6 +2426,8 @@ class App(Gtk.Window):
             self.workspace_new_folder_item.set_sensitive(bool(root))
         if hasattr(self, "workspace_rename_item"):
             self.workspace_rename_item.set_sensitive(bool(root))
+        if hasattr(self, "workspace_duplicate_item"):
+            self.workspace_duplicate_item.set_sensitive(bool(root))
 
     def on_workspace_visibility_changed(self, visible):
         target = bool(visible)

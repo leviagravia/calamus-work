@@ -83,6 +83,12 @@ def build_menu(app) -> None:
         app.on_rename_workspace_item,
     )
     app.workspace_rename_item.set_sensitive(bool(getattr(app, "workspace_root", None)))
+    app.workspace_duplicate_item = add_item(
+        app.workspace_file_menu,
+        "Duplicate Selected Text File",
+        app.on_duplicate_workspace_file,
+    )
+    app.workspace_duplicate_item.set_sensitive(bool(getattr(app, "workspace_root", None)))
     add_separator(app.workspace_file_menu)
     add_item(
         app.workspace_file_menu,

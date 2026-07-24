@@ -359,6 +359,202 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
                 if os.path.isdir(folder):
                     shutil.rmtree(folder)
 
+
+    def test_real_app_duplicate_text_file_preserves_active_unsaved_identity_and_copies_sidecar(self):
+        workspace, _alt_workspace = self._require_environment()
+        _write_settings(workspace)
+        source = os.path.join(workspace, "01_Drafts", "W83_Duplicate.md")
+        first = os.path.join(workspace, "01_Drafts", "W83_Duplicate copy.md")
+        second = os.path.join(workspace, "01_Drafts", "W83_Duplicate copy 2.md")
+        sidecar = source + ".source-notes.md"
+        first_sidecar = first + ".source-notes.md"
+        second_sidecar = second + ".source-notes.md"
+        for path in (source, first, second, sidecar, first_sidecar, second_sidecar):
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
+        Path(source).write_text("W83 saved source", encoding="utf-8")
+        Path(sidecar).write_text("# Calamus Source Notes v1\n\n", encoding="utf-8")
+        module = _load_app_module()
+        win = module.App()
+        try:
+            win.show_all()
+            _pump()
+            self.assertTrue(win.open_path(source))
+            win.text.get_buffer().set_text("W83 unsaved buffer")
+            _pump()
+            self.assertTrue(win.modified)
+            win.workspace_application_runtime.refresh()
+            self.assertTrue(win.workspace_panel_view.select_path(source))
+            self.assertTrue(win.on_duplicate_workspace_file())
+            _pump()
+            self.assertEqual(Path(source).read_text(encoding="utf-8"), "W83 saved source")
+            self.assertEqual(Path(first).read_text(encoding="utf-8"), "W83 saved source")
+            self.assertEqual(Path(first_sidecar).read_text(encoding="utf-8"), "# Calamus Source Notes v1\n\n")
+            self.assertEqual(win.current_file, os.path.abspath(source))
+            self.assertEqual(win.document.file_path, os.path.abspath(source))
+            self.assertEqual(win.buffer_text(), "W83 unsaved buffer")
+            self.assertTrue(win.modified)
+            selected = win.workspace_panel_view.selected_item()
+            self.assertIsNotNone(selected)
+            self.assertEqual(selected.path, os.path.abspath(first))
+
+            self.assertTrue(win.workspace_panel_view.select_path(source))
+            self.assertTrue(win.on_duplicate_workspace_file())
+            _pump()
+            self.assertEqual(Path(second).read_text(encoding="utf-8"), "W83 saved source")
+            self.assertEqual(Path(second_sidecar).read_text(encoding="utf-8"), "# Calamus Source Notes v1\n\n")
+            self.assertEqual(win.current_file, os.path.abspath(source))
+            self.assertEqual(win.buffer_text(), "W83 unsaved buffer")
+            print("W83_REAL_APP_DUPLICATE_TEXT_FILE=PASS")
+            print("W83_DUPLICATE_DETERMINISTIC_NAME=PASS")
+            print("W83_DUPLICATE_SOURCE_NOTES=PASS")
+            print("W83_ACTIVE_IDENTITY_UNCHANGED=PASS")
+            print("W83_UNSAVED_BUFFER_NOT_COPIED=PASS")
+        finally:
+            win.destroy()
+            _pump()
+            for path in (source, first, second, sidecar, first_sidecar, second_sidecar):
+                try:
+                    os.unlink(path)
+                except FileNotFoundError:
+                    pass
+
+    def test_real_app_context_menu_rename_uses_canonical_gateway(self):
+        """Exercise the true App after the GTK pointer adapter has emitted intent.
+
+        The lower real-GTK test owns pointer hit-testing and row selection.  This
+        E2E test starts at the semantic context-menu boundary, then verifies the
+        real panel, dialog gateway, W82 rename transaction and tree
+        reconciliation.  Constructing a Gdk.Event union and calling a private
+        signal handler directly is not a real input event and is binding-specific.
+        """
+        workspace, _alt_workspace = self._require_environment()
+        _write_settings(workspace)
+        source = os.path.join(workspace, "01_Drafts", "W83_Context.md")
+        target = os.path.join(workspace, "01_Drafts", "W83_Context_Renamed.md")
+        for path in (source, target):
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
+        Path(source).write_text("context", encoding="utf-8")
+        module = _load_app_module()
+        original_prompt = module.prompt_rename_workspace_item
+        module.prompt_rename_workspace_item = (
+            lambda _parent, _current_name, is_directory=False: "W83_Context_Renamed.md"
+        )
+        win = module.App()
+        try:
+            win.show_all()
+            _pump()
+            win.workspace_application_runtime.refresh()
+            tree = win.workspace_panel_view.tree
+            tree_path = tree.path_for_relative("01_Drafts/W83_Context.md")
+            self.assertIsNotNone(tree_path)
+            tree.expand_to_path(tree_path)
+            tree.selection.unselect_all()
+            tree.selection.select_path(tree_path)
+            tree.set_cursor(tree_path, tree.get_column(0), False)
+            self.assertEqual(tree.selected_item().path, os.path.abspath(source))
+
+            # GTK emits ::popup-menu for keyboard context invocation.  The same
+            # semantic signal is emitted by the separately tested secondary-click
+            # adapter, so this crosses the real panel and canonical Rename gateway
+            # without fabricating a Gdk.Event union.
+            self.assertTrue(tree._on_popup_menu(tree))
+            menu = win.workspace_panel_view._context_menu
+            self.assertIsNotNone(menu)
+            children = menu.get_children()
+            _pump()
+            self.assertTrue(menu.get_mapped())
+            labels = [child.get_label() for child in children]
+            self.assertEqual(labels, ["Rename…", "Duplicate"])
+            children[0].activate()
+            _pump()
+            self.assertFalse(os.path.exists(source))
+            self.assertEqual(Path(target).read_text(encoding="utf-8"), "context")
+            self.assertEqual(tree.selected_item().path, os.path.abspath(target))
+            print("W83_REAL_APP_CONTEXT_MENU=PASS")
+            print("W83_CONTEXT_RENAME_CANONICAL_GATEWAY=PASS")
+        finally:
+            module.prompt_rename_workspace_item = original_prompt
+            win.destroy()
+            _pump()
+            for path in (source, target):
+                try:
+                    os.unlink(path)
+                except FileNotFoundError:
+                    pass
+
+    def test_real_app_context_menu_duplicate_uses_canonical_gateway(self):
+        workspace, _alt_workspace = self._require_environment()
+        _write_settings(workspace)
+        source = os.path.join(workspace, "01_Drafts", "W83_Context_Duplicate.md")
+        target = os.path.join(workspace, "01_Drafts", "W83_Context_Duplicate copy.md")
+        for path in (source, target):
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
+        Path(source).write_text("context duplicate", encoding="utf-8")
+        module = _load_app_module()
+        win = module.App()
+        try:
+            win.show_all()
+            _pump()
+            win.workspace_application_runtime.refresh()
+            tree = win.workspace_panel_view.tree
+            tree_path = tree.path_for_relative("01_Drafts/W83_Context_Duplicate.md")
+            self.assertIsNotNone(tree_path)
+            tree.expand_to_path(tree_path)
+            tree.selection.unselect_all()
+            tree.selection.select_path(tree_path)
+            tree.set_cursor(tree_path, tree.get_column(0), False)
+            self.assertEqual(tree.selected_item().path, os.path.abspath(source))
+
+            self.assertTrue(tree._on_popup_menu(tree))
+            _pump()
+            menu = win.workspace_panel_view._context_menu
+            self.assertIsNotNone(menu)
+            self.assertTrue(menu.get_mapped())
+            children = menu.get_children()
+            labels = [child.get_label() for child in children]
+            self.assertEqual(labels, ["Rename…", "Duplicate"])
+            children[1].activate()
+            _pump()
+            self.assertEqual(Path(source).read_text(encoding="utf-8"), "context duplicate")
+            self.assertEqual(Path(target).read_text(encoding="utf-8"), "context duplicate")
+            self.assertEqual(tree.selected_item().path, os.path.abspath(target))
+
+            folder_path = tree.path_for_relative("01_Drafts")
+            self.assertIsNotNone(folder_path)
+            tree.selection.unselect_all()
+            tree.selection.select_path(folder_path)
+            tree.set_cursor(folder_path, tree.get_column(0), False)
+            self.assertTrue(tree._on_popup_menu(tree))
+            _pump()
+            folder_menu = win.workspace_panel_view._context_menu
+            self.assertIsNotNone(folder_menu)
+            self.assertTrue(folder_menu.get_mapped())
+            self.assertEqual(
+                [child.get_label() for child in folder_menu.get_children()],
+                ["Rename…"],
+            )
+            folder_menu.popdown()
+            print("W83_CONTEXT_DUPLICATE_CANONICAL_GATEWAY=PASS")
+            print("W83_CONTEXT_FOLDER_DUPLICATE_ABSENT=PASS")
+            print("W83_KEYBOARD_CONTEXT_POPUP=PASS")
+        finally:
+            win.destroy()
+            _pump()
+            for path in (source, target):
+                try:
+                    os.unlink(path)
+                except FileNotFoundError:
+                    pass
+
     def test_real_app_opens_real_workspace_file_from_real_tree_signal(self):
         workspace, _alt_workspace = self._require_environment()
         _write_settings(workspace)

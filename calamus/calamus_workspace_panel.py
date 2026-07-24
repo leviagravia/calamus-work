@@ -8,7 +8,7 @@ from typing import Any
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Pango
+from gi.repository import Gdk, Gtk, Pango
 
 from calamus_panel_chrome import build_compact_close_button
 from calamus_workspace import WorkspaceItem, WorkspaceSnapshot
@@ -22,15 +22,20 @@ class WorkspacePanelView:
         on_hide: Callable[[], None],
         on_new_text_file: Callable[[], None],
         on_new_folder: Callable[[], None],
+        on_rename_item: Callable[[], None],
+        on_duplicate_file: Callable[[], None],
         on_choose_root: Callable[[], None],
         on_refresh: Callable[[], None],
         on_reveal: Callable[[], None],
         on_activate_item: Callable[[WorkspaceItem], None],
     ) -> None:
-        for callback in (on_hide, on_new_text_file, on_new_folder, on_choose_root, on_refresh, on_reveal, on_activate_item):
+        for callback in (on_hide, on_new_text_file, on_new_folder, on_rename_item, on_duplicate_file, on_choose_root, on_refresh, on_reveal, on_activate_item):
             if not callable(callback):
                 raise TypeError("workspace panel callbacks must be callable")
         self._on_activate_item = on_activate_item
+        self._on_rename_item = on_rename_item
+        self._on_duplicate_file = on_duplicate_file
+        self._context_menu = None
         self.widget = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.widget.set_name("calamus-workspace-panel")
         for setter in (self.widget.set_margin_start, self.widget.set_margin_end,
@@ -92,7 +97,7 @@ class WorkspacePanelView:
         self.root_label.set_max_width_chars(24)
         self.widget.pack_start(self.root_label, False, False, 0)
 
-        self.hint = Gtk.Label(label="Open, create and rename · bounded writing tree")
+        self.hint = Gtk.Label(label="Open, create, rename and duplicate · bounded writing tree")
         self.hint.set_name("calamus-workspace-hint")
         self.hint.set_xalign(0)
         self.hint.set_hexpand(True)
@@ -113,6 +118,7 @@ class WorkspacePanelView:
         self.tree = WorkspaceTreeView()
         self.tree.connect("file-activated", self._on_file_activated)
         self.tree.connect("folder-activated", self._on_folder_activated)
+        self.tree.connect("item-context-menu", self._on_item_context_menu)
         self.scroll = Gtk.ScrolledWindow()
         self.scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         if hasattr(self.scroll, "set_propagate_natural_width"):
@@ -146,6 +152,36 @@ class WorkspacePanelView:
 
     def focus_tree(self) -> None:
         self.tree.grab_focus()
+
+    def _on_item_context_menu(self, tree, item: WorkspaceItem, event) -> None:
+        # The tree owns only pointer/keyboard selection semantics.  This menu is
+        # a thin capability adapter: every action delegates to the same App
+        # gateway used by File → Writing Workspace.  It owns no filesystem logic.
+        menu = Gtk.Menu()
+
+        rename = Gtk.MenuItem(label="Rename…")
+        rename.connect("activate", lambda _menu_item: self._on_rename_item())
+        menu.append(rename)
+
+        # W83 duplicates only one regular internal .txt/.md file.  Folders,
+        # symlinks and other document types therefore do not expose the action.
+        if item.internal_text and not item.is_directory and not item.is_symlink:
+            duplicate = Gtk.MenuItem(label="Duplicate")
+            duplicate.connect(
+                "activate", lambda _menu_item: self._on_duplicate_file()
+            )
+            menu.append(duplicate)
+
+        menu.show_all()
+        self._context_menu = menu
+        if event is not None and hasattr(menu, "popup_at_pointer"):
+            menu.popup_at_pointer(event)
+        elif hasattr(menu, "popup_at_widget"):
+            menu.popup_at_widget(
+                tree, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None
+            )
+        else:
+            menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
 
     def _on_file_activated(self, _tree, item: WorkspaceItem) -> None:
         self._on_activate_item(item)

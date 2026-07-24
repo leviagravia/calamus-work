@@ -10,7 +10,8 @@ from calamus_workspace_controller import WorkspaceController
 from calamus_workspace_gio import WorkspaceGioAdapter, WorkspaceOperationResult
 from calamus_workspace_identity import WorkspacePathReferenceSnapshot
 from calamus_workspace_operations import (
-    WorkspaceOperationPlan, WorkspacePathToken, WorkspaceRenamePlan,
+    WorkspaceContentToken, WorkspaceDuplicatePlan, WorkspaceOperationPlan,
+    WorkspacePathToken, WorkspaceRenamePlan, plan_duplicate_text_file,
     plan_new_folder, plan_new_text_file, plan_workspace_rename,
 )
 
@@ -73,6 +74,47 @@ class WorkspaceMutationController:
         stat_result = os.lstat(path)
         return WorkspacePathToken(stat_result.st_dev, stat_result.st_ino, stat_result.st_mode)
 
+    @staticmethod
+    def _content_token(path: str) -> WorkspaceContentToken:
+        stat_result = os.lstat(path)
+        return WorkspaceContentToken(
+            stat_result.st_dev, stat_result.st_ino, stat_result.st_mode,
+            stat_result.st_size, stat_result.st_mtime_ns,
+        )
+
+    def plan_duplicate(
+        self, selected: WorkspaceItem | None
+    ) -> WorkspaceDuplicatePlan:
+        if selected is None:
+            raise WorkspaceError("Select one .txt or .md Workspace file to duplicate.")
+        current = self._workspace.current_item(selected)
+        if current.is_directory:
+            raise WorkspaceError("Folder duplication is outside Writing Workspace scope.")
+        if current.is_symlink or os.path.islink(current.path):
+            raise WorkspaceError("Symbolic links cannot be duplicated from Writing Workspace.")
+        if not current.internal_text or not os.path.isfile(current.path):
+            raise WorkspaceError("Only regular .txt and .md Workspace files can be duplicated.")
+        if current.name.endswith(".source-notes.md"):
+            raise WorkspaceError("Duplicate the document, not its managed Source Notes sidecar.")
+        parent = os.path.dirname(current.path)
+        try:
+            occupied_names = tuple(os.listdir(parent))
+        except OSError as exc:
+            raise WorkspaceError(f"The containing folder cannot be read: {exc}") from exc
+        companion_path = None
+        companion_token = None
+        candidate = current.path + ".source-notes.md"
+        if os.path.lexists(candidate):
+            if os.path.islink(candidate) or not os.path.isfile(candidate):
+                raise WorkspaceError("The managed Source Notes sidecar is not a regular file.")
+            companion_path = candidate
+            companion_token = self._content_token(candidate)
+        return plan_duplicate_text_file(
+            self._workspace.root, current.path, occupied_names,
+            source_token=self._content_token(current.path),
+            companion_source_path=companion_path, companion_token=companion_token,
+        )
+
     def plan_rename(
         self, selected: WorkspaceItem | None, raw_name: str
     ) -> WorkspaceRenamePlan:
@@ -101,13 +143,17 @@ class WorkspaceMutationController:
             manage_source_notes=bool(current.internal_text and not current.is_directory),
         )
 
-    def execute(self, plan: WorkspaceOperationPlan | WorkspaceRenamePlan) -> WorkspaceOperationResult:
+    def execute(
+        self, plan: WorkspaceOperationPlan | WorkspaceRenamePlan | WorkspaceDuplicatePlan
+    ) -> WorkspaceOperationResult:
         if plan.kind == "new-text-file":
             return self._adapter.create_new_text_file(plan)
         if plan.kind == "new-folder":
             return self._adapter.create_new_folder(plan)
         if plan.kind == "rename":
             return self._adapter.rename_item(plan)
+        if plan.kind == "duplicate-text-file":
+            return self._adapter.duplicate_text_file(plan)
         raise ValueError(f"unsupported Workspace operation: {plan.kind}")
 
 
@@ -212,6 +258,31 @@ class WorkspaceMutationRuntime:
         self._view.select_path(result.path)
         return True
 
+
+    def duplicate_text_file(self, selected: WorkspaceItem | None) -> bool:
+        try:
+            plan = self._controller.plan_duplicate(selected)
+        except (OSError, TypeError, ValueError) as exc:
+            self._report_error(str(exc))
+            return False
+
+        # Duplication copies the saved bytes on disk.  It neither replaces the
+        # active editor document nor transfers its identity, so unsaved buffer
+        # content remains attached to the original and no may_continue gate runs.
+        result = self._controller.execute(plan)
+        if not result.success:
+            if result.committed:
+                self._workspace_runtime.refresh()
+                self._view.select_path(result.path)
+            self._report_error(result.message or "The selected text file could not be duplicated.")
+            return False
+        if not self._workspace_runtime.refresh():
+            self._report_error(
+                "The file was duplicated, but the Writing Workspace could not be rescanned."
+            )
+            return False
+        self._view.select_path(result.path)
+        return True
 
     def rename_item(self, selected: WorkspaceItem | None, raw_name: str) -> bool:
         try:

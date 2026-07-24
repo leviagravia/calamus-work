@@ -14,7 +14,10 @@ except Exception:  # Import remains possible in headless/source-only environment
     GLib = None
     HAVE_GIO = False
 
-from calamus_workspace_operations import WorkspaceOperationPlan, WorkspacePathToken, WorkspaceRenamePlan
+from calamus_workspace_operations import (
+    WorkspaceContentToken, WorkspaceDuplicatePlan, WorkspaceOperationPlan,
+    WorkspacePathToken, WorkspaceRenamePlan,
+)
 
 
 @dataclass(frozen=True)
@@ -330,3 +333,157 @@ class WorkspaceGioAdapter:
             )
         except GLib.Error as exc:
             return rollback_failure(f"The item could not be renamed: {exc.message}")
+
+    @staticmethod
+    def _current_content_token(path: str) -> WorkspaceContentToken | None:
+        try:
+            stat_result = os.lstat(path)
+        except OSError:
+            return None
+        return WorkspaceContentToken(
+            stat_result.st_dev, stat_result.st_ino, stat_result.st_mode,
+            stat_result.st_size, stat_result.st_mtime_ns,
+        )
+
+    @staticmethod
+    def _delete_created_file(
+        path: str, expected_token: WorkspaceContentToken | None
+    ) -> bool:
+        if not os.path.lexists(path):
+            return True
+        if (
+            not HAVE_GIO
+            or expected_token is None
+            or os.path.islink(path)
+            or not os.path.isfile(path)
+            or WorkspaceGioAdapter._current_content_token(path) != expected_token
+        ):
+            return False
+        try:
+            Gio.File.new_for_path(path).delete(None)
+            return not os.path.lexists(path)
+        except GLib.Error:
+            return False
+
+    def duplicate_text_file(self, plan: WorkspaceDuplicatePlan) -> WorkspaceOperationResult:
+        if not isinstance(plan, WorkspaceDuplicatePlan):
+            raise TypeError("plan must be WorkspaceDuplicatePlan")
+        if plan.kind != "duplicate-text-file":
+            raise ValueError(f"unsupported Workspace operation: {plan.kind}")
+        if not HAVE_GIO:
+            return WorkspaceOperationResult(
+                False, plan.target_path, "GIO is unavailable; nothing was duplicated.", False
+            )
+
+        validated = self._validated_parent(plan)
+        if validated is None:
+            return WorkspaceOperationResult(
+                False, plan.target_path,
+                "The parent folder changed or resolves outside the Writing Workspace.", False,
+            )
+        root, _parent = validated
+        if (
+            os.path.islink(plan.source_path)
+            or not os.path.isfile(plan.source_path)
+            or self._current_content_token(plan.source_path) != plan.source_token
+            or not self._target_within_root(root, plan.source_path)
+        ):
+            return WorkspaceOperationResult(
+                False, plan.target_path,
+                "The selected text file changed before it could be duplicated.", False,
+            )
+        if os.path.lexists(plan.target_path):
+            return WorkspaceOperationResult(
+                False, plan.target_path, "The duplicate destination already exists.", False
+            )
+        managed_target = plan.target_path + ".source-notes.md"
+        if os.path.lexists(managed_target):
+            return WorkspaceOperationResult(
+                False, plan.target_path,
+                "A managed Source Notes sidecar already exists for the duplicate name.", False,
+            )
+        if plan.companion_source_path is not None:
+            if (
+                plan.companion_target_path != managed_target
+                or plan.companion_token is None
+                or os.path.islink(plan.companion_source_path)
+                or not os.path.isfile(plan.companion_source_path)
+                or self._current_content_token(plan.companion_source_path) != plan.companion_token
+            ):
+                return WorkspaceOperationResult(
+                    False, plan.target_path,
+                    "The managed Source Notes sidecar changed before duplication.", False,
+                )
+
+        created_primary = False
+        created_companion = False
+        primary_target_token = None
+        companion_target_token = None
+
+        def rollback_failure(message: str) -> WorkspaceOperationResult:
+            companion_ok = (not created_companion) or self._delete_created_file(
+                plan.companion_target_path or "", companion_target_token
+            )
+            primary_ok = (not created_primary) or self._delete_created_file(
+                plan.target_path, primary_target_token
+            )
+            rollback_failed = not (primary_ok and companion_ok)
+            return WorkspaceOperationResult(
+                False, plan.target_path,
+                f"{message} Rollback was incomplete." if rollback_failed else message,
+                committed=rollback_failed, source_path=plan.source_path,
+                companion_path=plan.companion_target_path or "",
+                rollback_failed=rollback_failed,
+            )
+
+        try:
+            source = Gio.File.new_for_path(plan.source_path)
+            target = Gio.File.new_for_path(plan.target_path)
+            source.copy(target, Gio.FileCopyFlags.NONE, None, None)
+            created_primary = True
+            primary_target_token = self._current_content_token(plan.target_path)
+            info = target.query_info(
+                "standard::type,standard::is-symlink",
+                Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None,
+            )
+            if (
+                info.get_is_symlink()
+                or info.get_file_type() != Gio.FileType.REGULAR
+                or not self._target_within_root(root, plan.target_path)
+                or self._current_content_token(plan.source_path) != plan.source_token
+            ):
+                return rollback_failure(
+                    "The duplicated file or source identity could not be verified."
+                )
+
+            if plan.companion_source_path is not None:
+                assert plan.companion_target_path is not None
+                companion_source = Gio.File.new_for_path(plan.companion_source_path)
+                companion_target = Gio.File.new_for_path(plan.companion_target_path)
+                companion_source.copy(
+                    companion_target, Gio.FileCopyFlags.NONE, None, None
+                )
+                created_companion = True
+                companion_target_token = self._current_content_token(
+                    plan.companion_target_path
+                )
+                companion_info = companion_target.query_info(
+                    "standard::type,standard::is-symlink",
+                    Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None,
+                )
+                if (
+                    companion_info.get_is_symlink()
+                    or companion_info.get_file_type() != Gio.FileType.REGULAR
+                    or self._current_content_token(plan.companion_source_path)
+                    != plan.companion_token
+                ):
+                    return rollback_failure(
+                        "The duplicated Source Notes companion could not be verified."
+                    )
+
+            return WorkspaceOperationResult(
+                True, plan.target_path, committed=True, source_path=plan.source_path,
+                companion_path=plan.companion_target_path or "",
+            )
+        except GLib.Error as exc:
+            return rollback_failure(f"The text file could not be duplicated: {exc.message}")

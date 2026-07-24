@@ -3,7 +3,10 @@ import tempfile
 import unittest
 
 from calamus_workspace_gio import HAVE_GIO, WorkspaceGioAdapter
-from calamus_workspace_operations import WorkspacePathToken, plan_new_folder, plan_new_text_file, plan_workspace_rename
+from calamus_workspace_operations import (
+    WorkspaceContentToken, WorkspacePathToken, plan_duplicate_text_file,
+    plan_new_folder, plan_new_text_file, plan_workspace_rename,
+)
 
 
 @unittest.skipUnless(HAVE_GIO, "PyGObject/GIO unavailable in this environment")
@@ -21,6 +24,11 @@ class WorkspaceGioAdapterTests(unittest.TestCase):
     def token(path):
         st = path.lstat()
         return WorkspacePathToken(st.st_dev, st.st_ino, st.st_mode)
+
+    @staticmethod
+    def content_token(path):
+        st = path.lstat()
+        return WorkspaceContentToken(st.st_dev, st.st_ino, st.st_mode, st.st_size, st.st_mtime_ns)
 
     def test_create_is_real_empty_regular_file(self):
         plan = plan_new_text_file(str(self.root), str(self.root), "Created", suffix=".md")
@@ -245,6 +253,68 @@ class WorkspaceGioAdapterTests(unittest.TestCase):
             self.skipTest(f"filesystem does not support direct case-only rename: {result.message}")
         self.assertFalse(source.exists())
         self.assertEqual(target.read_text(encoding="utf-8"), "case")
+
+    def test_duplicate_regular_text_file_is_real_no_overwrite_and_source_preserved(self):
+        source=self.root/'Draft.md'
+        source.write_text('draft content',encoding='utf-8')
+        plan=plan_duplicate_text_file(
+            str(self.root),str(source),[source.name],source_token=self.content_token(source)
+        )
+        result=self.adapter.duplicate_text_file(plan)
+        self.assertTrue(result.success,result.message)
+        target=self.root/'Draft copy.md'
+        self.assertEqual(source.read_text(encoding='utf-8'),'draft content')
+        self.assertEqual(target.read_text(encoding='utf-8'),'draft content')
+        self.assertFalse(target.is_symlink())
+
+    def test_duplicate_source_replacement_and_target_collision_fail_closed(self):
+        source=self.root/'Draft.md'
+        source.write_text('source',encoding='utf-8')
+        token=self.content_token(source)
+        plan=plan_duplicate_text_file(
+            str(self.root),str(source),[source.name],source_token=token
+        )
+        source.unlink()
+        outside=Path(self.tmp.name)/'Outside.md'
+        outside.write_text('outside',encoding='utf-8')
+        try:
+            source.symlink_to(outside)
+        except OSError:
+            self.skipTest('symlinks unavailable')
+        result=self.adapter.duplicate_text_file(plan)
+        self.assertFalse(result.success)
+        self.assertFalse((self.root/'Draft copy.md').exists())
+        self.assertEqual(outside.read_text(encoding='utf-8'),'outside')
+
+        source.unlink()
+        source.write_text('source',encoding='utf-8')
+        target=self.root/'Draft copy.md'
+        target.write_text('keep',encoding='utf-8')
+        plan=plan_duplicate_text_file(
+            str(self.root),str(source),[source.name],source_token=self.content_token(source)
+        )
+        # Force a late collision at the planned target.
+        Path(plan.target_path).write_text('late keep',encoding='utf-8')
+        result=self.adapter.duplicate_text_file(plan)
+        self.assertFalse(result.success)
+        self.assertEqual(Path(plan.target_path).read_text(encoding='utf-8'),'late keep')
+
+    def test_duplicate_managed_sidecar_is_transactional_and_preserves_source(self):
+        source=self.root/'Draft.md'
+        source.write_text('draft',encoding='utf-8')
+        sidecar=Path(str(source)+'.source-notes.md')
+        sidecar.write_text('notes',encoding='utf-8')
+        occupied=[p.name for p in self.root.iterdir()]
+        plan=plan_duplicate_text_file(
+            str(self.root),str(source),occupied,source_token=self.content_token(source),
+            companion_source_path=str(sidecar),companion_token=self.content_token(sidecar),
+        )
+        result=self.adapter.duplicate_text_file(plan)
+        self.assertTrue(result.success,result.message)
+        self.assertEqual((self.root/'Draft copy.md').read_text(encoding='utf-8'),'draft')
+        self.assertEqual((self.root/'Draft copy.md.source-notes.md').read_text(encoding='utf-8'),'notes')
+        self.assertEqual(source.read_text(encoding='utf-8'),'draft')
+        self.assertEqual(sidecar.read_text(encoding='utf-8'),'notes')
 
 
 if __name__ == "__main__":

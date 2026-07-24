@@ -22,6 +22,7 @@ class WorkspaceTreeView(Gtk.TreeView):
     __gsignals__ = {
         "file-activated": (GObject.SignalFlags.RUN_LAST, None, (object,)),
         "folder-activated": (GObject.SignalFlags.RUN_LAST, None, (object,)),
+        "item-context-menu": (GObject.SignalFlags.RUN_LAST, None, (object, object)),
     }
 
     def __init__(self) -> None:
@@ -57,6 +58,8 @@ class WorkspaceTreeView(Gtk.TreeView):
         self.selection.set_mode(Gtk.SelectionMode.SINGLE)
         self.connect("row-activated", self._on_row_activated)
         self.connect("key-press-event", self._on_key_press)
+        self.connect("button-press-event", self._on_button_press)
+        self.connect("popup-menu", self._on_popup_menu)
 
     def render(self, snapshot: WorkspaceSnapshot | None) -> None:
         # Xed exposes restore-expand-state and Geany stores fold state before
@@ -169,6 +172,38 @@ class WorkspaceTreeView(Gtk.TreeView):
                 return False
             return self.activate_tree_path(model.get_path(tree_iter))
         return False
+
+    def _select_context_path(self, tree_path):
+        try:
+            tree_iter = self.store.get_iter(tree_path)
+        except (TypeError, ValueError):
+            return None
+        item = self.store[tree_iter][COL_ITEM]
+        if not isinstance(item, WorkspaceItem):
+            return None
+        self.selection.unselect_all()
+        self.selection.select_path(tree_path)
+        self.set_cursor(tree_path, self.get_column(0), False)
+        return item
+
+    def _on_button_press(self, _tree, event) -> bool:
+        if getattr(event, "button", 0) != Gdk.BUTTON_SECONDARY:
+            return False
+        hit = self.get_path_at_pos(int(event.x), int(event.y))
+        if hit is None:
+            return False
+        item = self._select_context_path(hit[0])
+        if item is None:
+            return False
+        self.emit("item-context-menu", item, event)
+        return True
+
+    def _on_popup_menu(self, _tree) -> bool:
+        item = self.selected_item()
+        if item is None:
+            return False
+        self.emit("item-context-menu", item, None)
+        return True
 
     def _icon_for(self, item: WorkspaceItem) -> str:
         if item.is_symlink:

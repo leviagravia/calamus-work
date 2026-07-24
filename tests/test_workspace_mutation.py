@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 import tempfile
 import unittest
@@ -27,6 +28,23 @@ class RealExclusiveLocalAdapter:
         except OSError as exc:
             return WorkspaceOperationResult(False, plan.target_path, str(exc), committed=False)
 
+    def duplicate_text_file(self, plan):
+        try:
+            if os.path.lexists(plan.target_path):
+                raise FileExistsError(plan.target_path)
+            shutil.copyfile(plan.source_path, plan.target_path)
+            if plan.companion_source_path:
+                if os.path.lexists(plan.companion_target_path):
+                    os.unlink(plan.target_path)
+                    raise FileExistsError(plan.companion_target_path)
+                shutil.copyfile(plan.companion_source_path, plan.companion_target_path)
+            return WorkspaceOperationResult(
+                True, plan.target_path, committed=True, source_path=plan.source_path,
+                companion_path=plan.companion_target_path or '',
+            )
+        except OSError as exc:
+            return WorkspaceOperationResult(False, plan.target_path, str(exc), committed=False)
+
     def rename_item(self, plan):
         try:
             if os.path.lexists(plan.target_path):
@@ -52,6 +70,13 @@ class CommittedFailureAdapter:
         Path(plan.target_path).mkdir()
         return WorkspaceOperationResult(
             False, plan.target_path, "created but verification failed", committed=True
+        )
+
+    def duplicate_text_file(self, plan):
+        Path(plan.target_path).write_bytes(b"partial")
+        return WorkspaceOperationResult(
+            False, plan.target_path, "copied but verification failed", committed=True,
+            source_path=plan.source_path,
         )
 
 
@@ -262,6 +287,40 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
         self.assertTrue(self.runtime.rename_item(self.view.selected, "Chapter.md"))
         self.assertFalse(sidecar.exists())
         self.assertEqual((self.drafts / "Chapter.md.source-notes.md").read_text(encoding="utf-8"), "notes")
+
+    def test_duplicate_regular_text_file_rescans_selects_without_open_or_identity_reconciliation(self):
+        source=self.drafts/'Existing.md'
+        sidecar=Path(str(source)+'.source-notes.md')
+        sidecar.write_text('notes',encoding='utf-8')
+        self.view.selected=self.view.snapshot.by_relative_path('Drafts/Existing.md')
+        self.continue_allowed=False
+        self.assertTrue(self.runtime.duplicate_text_file(self.view.selected))
+        target=self.drafts/'Existing copy.md'
+        self.assertEqual(target.read_text(encoding='utf-8'),'existing')
+        self.assertEqual(Path(str(target)+'.source-notes.md').read_text(encoding='utf-8'),'notes')
+        self.assertEqual(self.opens,[])
+        self.assertEqual(self.reconciled,[])
+        self.assertEqual(self.view.selected_paths,[str(target)])
+
+    def test_duplicate_uses_next_available_name_without_overwrite(self):
+        (self.drafts/'Existing copy.md').write_text('first',encoding='utf-8')
+        self.workspace_runtime.refresh()
+        self.view.selected=self.view.snapshot.by_relative_path('Drafts/Existing.md')
+        self.assertTrue(self.runtime.duplicate_text_file(self.view.selected))
+        self.assertEqual((self.drafts/'Existing copy.md').read_text(encoding='utf-8'),'first')
+        self.assertEqual((self.drafts/'Existing copy 2.md').read_text(encoding='utf-8'),'existing')
+
+    def test_duplicate_rejects_folder_non_text_and_managed_sidecar(self):
+        (self.drafts/'Image.png').write_bytes(b'png')
+        sidecar=self.drafts/'Existing.md.source-notes.md'
+        sidecar.write_text('notes',encoding='utf-8')
+        self.workspace_runtime.refresh()
+        for rel in ('Drafts','Drafts/Image.png','Drafts/Existing.md.source-notes.md'):
+            with self.subTest(rel=rel):
+                self.errors.clear()
+                item=self.view.snapshot.by_relative_path(rel)
+                self.assertFalse(self.runtime.duplicate_text_file(item))
+                self.assertTrue(self.errors)
 
 
 if __name__ == "__main__":

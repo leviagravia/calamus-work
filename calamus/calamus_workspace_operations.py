@@ -38,6 +38,15 @@ class WorkspacePathToken:
 
 
 @dataclass(frozen=True)
+class WorkspaceContentToken:
+    device: int
+    inode: int
+    mode: int
+    size: int
+    mtime_ns: int
+
+
+@dataclass(frozen=True)
 class WorkspaceRenamePlan:
     kind: str
     root: str
@@ -52,6 +61,21 @@ class WorkspaceRenamePlan:
     companion_target_path: str | None = None
     companion_token: WorkspacePathToken | None = None
     managed_target_path: str | None = None
+
+
+@dataclass(frozen=True)
+class WorkspaceDuplicatePlan:
+    kind: str
+    root: str
+    parent_path: str
+    source_path: str
+    target_path: str
+    source_name: str
+    display_name: str
+    source_token: WorkspaceContentToken
+    companion_source_path: str | None = None
+    companion_target_path: str | None = None
+    companion_token: WorkspaceContentToken | None = None
 
 
 def normalize_text_suffix(suffix: str) -> str:
@@ -277,4 +301,123 @@ def plan_workspace_rename(
         companion_target_path=companion_target,
         companion_token=companion_token,
         managed_target_path=managed_target,
+    )
+
+def _truncate_utf8_component(value: str, max_bytes: int) -> str:
+    if max_bytes < 1:
+        raise WorkspaceOperationError("The duplicate file name cannot fit on this filesystem.")
+    candidate = value
+    while candidate and len(os.fsencode(candidate)) > max_bytes:
+        candidate = candidate[:-1]
+    if not candidate:
+        raise WorkspaceOperationError("The duplicate file name cannot fit on this filesystem.")
+    return candidate
+
+
+def next_duplicate_text_name(
+    source_name: str,
+    occupied_names: tuple[str, ...] | list[str],
+    *,
+    reserve_managed_sidecar: bool = True,
+) -> str:
+    """Return a deterministic, case-conservative duplicate basename.
+
+    Mature GTK file managers generate a sibling copy name rather than opening a
+    second Save As workflow.  Calamus keeps that behavior bounded to one text
+    file and treats the managed Source Notes destination as reserved too.
+    """
+    if not isinstance(source_name, str):
+        raise TypeError("source_name must be a string")
+    if not isinstance(occupied_names, (tuple, list)) or not all(
+        isinstance(name, str) for name in occupied_names
+    ):
+        raise TypeError("occupied_names must be a tuple or list of strings")
+    if not isinstance(reserve_managed_sidecar, bool):
+        raise TypeError("reserve_managed_sidecar must be boolean")
+    if source_name.endswith(".source-notes.md"):
+        raise WorkspaceOperationError("Duplicate the document, not its managed Source Notes sidecar.")
+    suffix = Path(source_name).suffix.casefold()
+    if suffix not in ALLOWED_TEXT_SUFFIXES:
+        raise WorkspaceOperationError("Only regular .txt and .md Workspace files can be duplicated.")
+    stem = source_name[:-len(suffix)]
+    occupied = {name.casefold() for name in occupied_names}
+    for index in range(1, 10001):
+        marker = " copy" if index == 1 else f" copy {index}"
+        max_stem_bytes = MAX_BASENAME_BYTES - len(os.fsencode(marker + suffix))
+        fitted_stem = _truncate_utf8_component(stem, max_stem_bytes)
+        candidate = f"{fitted_stem}{marker}{suffix}"
+        companion = candidate + ".source-notes.md"
+        if candidate.casefold() in occupied:
+            continue
+        if reserve_managed_sidecar and companion.casefold() in occupied:
+            continue
+        return candidate
+    raise WorkspaceOperationError("No safe duplicate name is available in this folder.")
+
+
+def plan_duplicate_text_file(
+    root: str,
+    source_path: str,
+    occupied_names: tuple[str, ...] | list[str],
+    *,
+    source_token: WorkspaceContentToken,
+    companion_source_path: str | None = None,
+    companion_token: WorkspaceContentToken | None = None,
+) -> WorkspaceDuplicatePlan:
+    """Build one same-parent, no-overwrite text-file duplication plan."""
+    if not isinstance(root, str) or not root.strip():
+        raise WorkspaceOperationError("A valid root is required.")
+    if not isinstance(source_path, str) or not source_path.strip():
+        raise WorkspaceOperationError("Select one .txt or .md Workspace file to duplicate.")
+    if not isinstance(source_token, WorkspaceContentToken):
+        raise TypeError("source_token must be WorkspaceContentToken")
+
+    canonical_root = os.path.abspath(root)
+    canonical_source = os.path.abspath(source_path)
+    parent = os.path.dirname(canonical_source)
+    try:
+        if canonical_source == canonical_root or os.path.commonpath((canonical_root, canonical_source)) != canonical_root:
+            raise WorkspaceOperationError("The selected file resolves outside the Writing Workspace.")
+        if os.path.commonpath((canonical_root, parent)) != canonical_root:
+            raise WorkspaceOperationError("The duplicate destination resolves outside the Writing Workspace.")
+    except ValueError as exc:
+        raise WorkspaceOperationError("The selected file is incompatible with the Workspace root.") from exc
+
+    source_name = os.path.basename(canonical_source)
+    display_name = next_duplicate_text_name(
+        source_name, occupied_names, reserve_managed_sidecar=True
+    )
+    target = os.path.abspath(os.path.join(parent, display_name))
+    try:
+        if os.path.dirname(target) != parent or os.path.commonpath((canonical_root, target)) != canonical_root:
+            raise WorkspaceOperationError("The duplicate would escape the Writing Workspace.")
+    except ValueError as exc:
+        raise WorkspaceOperationError("The duplicate destination is invalid.") from exc
+
+    companion_source = None
+    companion_target = None
+    if companion_source_path is not None:
+        if not isinstance(companion_source_path, str) or companion_token is None:
+            raise WorkspaceOperationError("The managed Source Notes companion is inconsistent.")
+        companion_source = os.path.abspath(companion_source_path)
+        if companion_source != canonical_source + ".source-notes.md":
+            raise WorkspaceOperationError("The managed Source Notes companion is inconsistent.")
+        if not isinstance(companion_token, WorkspaceContentToken):
+            raise TypeError("companion_token must be WorkspaceContentToken")
+        companion_target = target + ".source-notes.md"
+    elif companion_token is not None:
+        raise WorkspaceOperationError("A companion token requires a companion path.")
+
+    return WorkspaceDuplicatePlan(
+        kind="duplicate-text-file",
+        root=canonical_root,
+        parent_path=parent,
+        source_path=canonical_source,
+        target_path=target,
+        source_name=source_name,
+        display_name=display_name,
+        source_token=source_token,
+        companion_source_path=companion_source,
+        companion_target_path=companion_target,
+        companion_token=companion_token,
     )

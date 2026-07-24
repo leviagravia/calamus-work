@@ -81,5 +81,57 @@ class WorkspaceGtkSemanticsTests(unittest.TestCase):
             self.assertTrue(tree.row_expanded(refreshed_folder))
             self.assertEqual(tree.selected_item().relative_path, "Drafts/chapter.md")
 
+    def test_secondary_click_and_keyboard_popup_select_item_before_semantic_context_signal(self):
+        ready, detail = _gtk_display_ready()
+        if not ready:
+            self.skipTest(f"GTK display unavailable: {detail}")
+        from calamus_workspace import scan_workspace
+        from calamus_workspace_tree import WorkspaceTreeView
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'first.md').write_text('first',encoding='utf-8')
+            (root/'second.md').write_text('second',encoding='utf-8')
+            tree=WorkspaceTreeView()
+            window=Gtk.Window()
+            # Gtk.TreeView.get_path_at_pos() only resolves rows that are actually
+            # displayed.  Give the test window a real allocation large enough for
+            # both rows before deriving event coordinates from get_cell_area().
+            window.set_default_size(320, 240)
+            window.add(tree)
+            tree.render(scan_workspace(str(root)))
+            window.show_all()
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+            events=[]
+            tree.connect('item-context-menu',lambda _tree,item,event: events.append((item.name,event)))
+            second_path=tree.path_for_relative('second.md')
+            tree.scroll_to_cell(second_path, None, False, 0.0, 0.0)
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+            self.assertTrue(tree.get_realized())
+            area=tree.get_cell_area(second_path,tree.get_column(0))
+            self.assertGreater(area.width, 0)
+            self.assertGreater(area.height, 0)
+            # get_cell_area() is in bin-window coordinates.  Stay inside
+            # the rectangle even when the production column is only one pixel
+            # wide; the former max(1, width - 1) expression could step outside.
+            click_x = area.x + max(0, min(area.width - 1, area.width // 2))
+            click_y = area.y + max(0, min(area.height - 1, area.height // 2))
+            hit = tree.get_path_at_pos(int(click_x), int(click_y))
+            self.assertIsNotNone(hit)
+            self.assertEqual(hit[0].to_string(), second_path.to_string())
+            event=type('Event',(),{
+                'button':Gdk.BUTTON_SECONDARY,
+                'x':click_x,
+                'y':click_y,
+            })()
+            self.assertTrue(tree._on_button_press(tree,event))
+            self.assertEqual(tree.selected_item().name,'second.md')
+            self.assertEqual(events[-1][0],'second.md')
+            self.assertIs(events[-1][1],event)
+            self.assertTrue(tree._on_popup_menu(tree))
+            self.assertEqual(events[-1],('second.md',None))
+            window.destroy()
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

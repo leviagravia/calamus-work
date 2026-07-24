@@ -8,10 +8,13 @@ from calamus_workspace_operations import (
     normalize_text_suffix,
     normalize_workspace_basename,
     normalize_workspace_folder_name,
+    WorkspaceContentToken,
     WorkspacePathToken,
+    next_duplicate_text_name,
     normalize_workspace_rename_name,
     plan_new_folder,
     plan_new_text_file,
+    plan_duplicate_text_file,
     plan_workspace_rename,
 )
 
@@ -135,6 +138,48 @@ class WorkspaceOperationPlannerTests(unittest.TestCase):
             plan_workspace_rename(
                 str(self.root), str(self.parent / "Draft.md.source-notes.md"), "Other.md",
                 source_is_directory=False, source_token=token,
+            )
+
+    def content_token(self, path):
+        st=path.lstat()
+        return WorkspaceContentToken(st.st_dev, st.st_ino, st.st_mode, st.st_size, st.st_mtime_ns)
+
+    def test_duplicate_name_is_deterministic_case_conservative_and_sidecar_aware(self):
+        occupied=['Chapter.md', 'Chapter copy.md', 'CHAPTER COPY 2.MD.source-notes.md']
+        self.assertEqual(
+            next_duplicate_text_name('Chapter.md', occupied),
+            'Chapter copy 3.md',
+        )
+        self.assertEqual(next_duplicate_text_name('Notes.txt', []), 'Notes copy.txt')
+
+    def test_duplicate_name_rejects_non_text_and_managed_sidecar(self):
+        for source in ('image.png', 'Chapter.md.source-notes.md'):
+            with self.subTest(source=source):
+                with self.assertRaises(WorkspaceOperationError):
+                    next_duplicate_text_name(source, [])
+
+    def test_duplicate_plan_is_same_parent_confined_and_carries_optional_sidecar(self):
+        source=self.parent/'Chapter.md'
+        source.write_text('chapter',encoding='utf-8')
+        sidecar=Path(str(source)+'.source-notes.md')
+        sidecar.write_text('notes',encoding='utf-8')
+        plan=plan_duplicate_text_file(
+            str(self.root), str(source), tuple(p.name for p in self.parent.iterdir()),
+            source_token=self.content_token(source),
+            companion_source_path=str(sidecar), companion_token=self.content_token(sidecar),
+        )
+        self.assertEqual(plan.kind,'duplicate-text-file')
+        self.assertEqual(plan.target_path,str(self.parent/'Chapter copy.md'))
+        self.assertEqual(plan.companion_target_path,str(self.parent/'Chapter copy.md.source-notes.md'))
+        with self.assertRaises(Exception):
+            plan.target_path='other'
+
+    def test_duplicate_plan_rejects_source_outside_root(self):
+        outside=Path(self.tmp.name)/'Outside.md'
+        outside.write_text('outside',encoding='utf-8')
+        with self.assertRaises(WorkspaceOperationError):
+            plan_duplicate_text_file(
+                str(self.root), str(outside), [], source_token=self.content_token(outside)
             )
 
 
