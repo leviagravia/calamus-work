@@ -38,6 +38,7 @@ class StateManager:
         self.settings_file = os.path.join(config_dir, "settings.json")
         self.recent_file = os.path.join(config_dir, "recent.json")
         self.favourites_file = os.path.join(config_dir, "favourites.json")
+        self.recent_workspaces_file = os.path.join(config_dir, "recent-workspaces.json")
 
     def ensure_dir(self) -> None:
         os.makedirs(self.config_dir, exist_ok=True)
@@ -92,6 +93,22 @@ class StateManager:
             return save_favourites(items, limit)
         return save_json_file(self.favourites_file, _dedupe_paths(items)[:limit])
 
+
+    def load_recent_workspaces(self, limit: int = 10) -> list[str]:
+        return _clean_existing_directories(load_json_file(self.recent_workspaces_file, []), limit)
+
+    def save_recent_workspaces(self, items: list[str], limit: int = 10) -> bool:
+        return save_json_file(self.recent_workspaces_file, _dedupe_paths(items)[:limit])
+
+    def add_recent_workspace(self, path: str, limit: int = 10) -> list[str]:
+        if not isinstance(path, str) or not path:
+            return self.load_recent_workspaces(limit)
+        absolute = os.path.abspath(path)
+        items = [item for item in self.load_recent_workspaces(limit) if item != absolute]
+        items.insert(0, absolute)
+        self.save_recent_workspaces(items, limit)
+        return items[:limit]
+
     def load_clips(self, limit: int = 200) -> list[dict[str, Any]]:
         return load_clips(self.config_dir, limit)
 
@@ -119,6 +136,18 @@ def _clean_existing_paths(items: Any, limit: int) -> list[str]:
         if isinstance(item, str):
             path = os.path.abspath(item)
             if os.path.exists(path) and path not in clean:
+                clean.append(path)
+        if len(clean) >= limit:
+            break
+    return clean
+
+
+def _clean_existing_directories(items: Any, limit: int) -> list[str]:
+    clean: list[str] = []
+    for item in items if isinstance(items, list) else []:
+        if isinstance(item, str):
+            path = os.path.abspath(item)
+            if os.path.isdir(path) and path not in clean:
                 clean.append(path)
         if len(clean) >= limit:
             break

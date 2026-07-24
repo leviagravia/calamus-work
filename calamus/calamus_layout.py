@@ -14,8 +14,12 @@ CLIP_PANEL_MIN_WIDTH = RIGHT_PANEL_MIN_WIDTH
 CLIP_PANEL_MAX_FRACTION = RIGHT_PANEL_MAX_FRACTION
 
 
-# The left Navigator is a transient view of the current document structure.
-# It remains compact and never stores a parallel outline.
+# The canonical left panel hosts exactly Navigator and Writing Workspace.
+LEFT_PANEL_DEFAULT_WIDTH = 248
+LEFT_PANEL_MIN_WIDTH = 196
+LEFT_PANEL_MAX_FRACTION = 0.30
+
+# Compatibility constants for the original Navigator-specific host.
 NAVIGATOR_PANEL_DEFAULT_WIDTH = 220
 NAVIGATOR_PANEL_MIN_WIDTH = 176
 NAVIGATOR_PANEL_MAX_FRACTION = 0.28

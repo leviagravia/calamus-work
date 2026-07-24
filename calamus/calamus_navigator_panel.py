@@ -151,6 +151,9 @@ class NavigatorPanelRuntime:
         self._menu_item = menu_item
         self._editor_focus = editor_focus
         self._syncing_menu = False
+        subscribe = getattr(self._host, "subscribe", None)
+        if callable(subscribe):
+            subscribe(self._on_host_visibility)
 
     @property
     def is_visible(self) -> bool:
@@ -180,6 +183,11 @@ class NavigatorPanelRuntime:
         if self._syncing_menu:
             return
         self.set_visible(menu_item.get_active())
+
+    def _on_host_visibility(self, visible: bool) -> None:
+        if not visible:
+            self._view.cancel_pending()
+        self._sync_menu(bool(visible))
 
     def _sync_menu(self, visible: bool) -> None:
         if self._menu_item.get_active() == bool(visible):

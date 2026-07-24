@@ -46,8 +46,14 @@ from calamus_search_dialogs import run_find_all_dialog, run_find_replace_dialog
 from calamus_navigation_gateway import NavigationController
 from calamus_navigation_view import NavigationViewAdapter
 from calamus_navigation_dialogs import run_go_to_line_dialog, run_go_to_section_dialog
-from calamus_navigator_panel import NavigatorPanelHost, NavigatorPanelRuntime
+from calamus_navigator_panel import NavigatorPanelRuntime
 from calamus_navigator_panel_view import build_navigator_panel_view
+from calamus_left_panel import LeftPanelHost
+from calamus_workspace_controller import WorkspaceController
+from calamus_workspace_application import WorkspaceApplicationRuntime
+from calamus_workspace_menu import populate_recent_workspaces_menu as workspace_populate_recent_menu
+from calamus_workspace_panel import WorkspacePanelView, WorkspacePanelRuntime
+from calamus_workspace_external import open_external_path, reveal_in_file_manager
 from calamus_history import TextHistory
 from calamus_external import open_character_map as external_open_character_map
 from calamus_writing import (
@@ -62,7 +68,7 @@ from calamus_spellcheck import (
     hunspell_suggestions as spell_hunspell_suggestions,
 )
 from calamus_dialogs import (
-    SHORTCUT_ROWS, ask_save as dialog_ask_save, choose_open_file, choose_save_file,
+    SHORTCUT_ROWS, ask_save as dialog_ask_save, choose_open_file, choose_workspace_folder, choose_save_file,
     choose_save_template, run_manage_templates_dialog,
     run_spelling_dialog,
     show_about, show_error, show_info, show_keyboard_shortcuts, show_large_info,
@@ -162,6 +168,9 @@ class App(Gtk.Window):
         self._opacity_widget_api = Gtk.Widget
         self.document = Document(file_path=self.settings.get("last_file") or None)
         self.current_file = self.document.file_path
+        configured_workspace = self.settings.get("workspace_root")
+        self.workspace_root = configured_workspace if isinstance(configured_workspace, str) and os.path.isdir(configured_workspace) else None
+        self.workspace_visible = bool(self.settings.get("workspace_visible", False))
 
         self.modified = self.document.modified
         self.loading = False
@@ -181,11 +190,12 @@ class App(Gtk.Window):
         self.trim_trailing_on_save = bool(self.settings.get("trim_trailing_on_save", False))
 
         self.set_default_size(width, height)
-        # Set only a minimum size; do not set maximum geometry hints.
-        # Maximum hints and size-allocate clamps made the window fight the WM
-        # and caused long pasted text/Enter-heavy documents to stretch or lock
-        # the top-level window. Child scrollers must contain document growth.
-        self.set_size_request(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
+        # Mature GTK editors use a default size plus WM geometry hints; they do
+        # not export a GtkWidget size request from the top-level window.  A
+        # positive Gtk.Window size request can keep the initial natural width
+        # authoritative after a side panel is attached and make interactive
+        # shrinking appear locked.  The minimum remains owned solely by
+        # apply_window_geometry_hints(); child scrollers contain content growth.
         self.apply_window_geometry_hints()
         self.set_resizable(True)
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -228,21 +238,50 @@ class App(Gtk.Window):
         self.navigation_controller = NavigationController(
             NavigationViewAdapter(self.text)
         )
+        self.left_panel_host = LeftPanelHost(self.workspace_paned, self.queue_wrap_reflow)
         self.navigator_panel_view = build_navigator_panel_view(
             self.navigation_controller,
             lambda: self.navigator_panel_runtime.hide(),
         )
-        self.navigator_panel_host = NavigatorPanelHost(
-            self.workspace_paned,
-            self.navigator_panel_view.widget,
-            self.queue_wrap_reflow,
-        )
+        self.navigator_panel_host = self.left_panel_host.register("navigator", self.navigator_panel_view.widget)
         self.navigator_panel_runtime = NavigatorPanelRuntime(
             self.navigator_panel_host,
             self.navigator_panel_view,
             self.navigator_item,
             self.text.grab_focus,
         )
+
+        self.workspace_controller = WorkspaceController()
+        self.workspace_panel_view = WorkspacePanelView(
+            on_hide=lambda: self.workspace_panel_runtime.hide(),
+            on_choose_root=self.on_select_workspace_folder,
+            on_refresh=self.on_refresh_workspace,
+            on_reveal=self.on_reveal_workspace,
+            on_activate_item=lambda item: self.workspace_application_runtime.activate_item(item),
+        )
+        self.workspace_application_runtime = WorkspaceApplicationRuntime(
+            self.workspace_controller,
+            self.workspace_panel_view,
+            self.state,
+            may_continue=self.may_continue,
+            open_document=self.open_path,
+            open_external=open_external_path,
+            reveal_external=reveal_in_file_manager,
+            save_settings=self.save_settings,
+            report_error=self.error,
+            on_root_changed=lambda root: setattr(self, "workspace_root", root),
+            on_recent_changed=self.populate_recent_workspaces_menu,
+        )
+        self.workspace_panel_host = self.left_panel_host.register("workspace", self.workspace_panel_view.widget)
+        self.workspace_panel_runtime = WorkspacePanelRuntime(
+            self.workspace_panel_host,
+            self.workspace_panel_view,
+            self.workspace_item,
+            self.text.grab_focus,
+            self.on_workspace_visibility_changed,
+        )
+        workspace_bound = self.workspace_application_runtime.bind_startup_root(self.workspace_root)
+        startup_workspace_visible = bool(workspace_bound and self.workspace_visible)
 
         self.right_panel_host = RightPanelHost(self.body_paned, self.queue_wrap_reflow)
         self.build_clip_collection()
@@ -259,6 +298,14 @@ class App(Gtk.Window):
 
         self.status = Gtk.Label()
         self.status.set_xalign(0)
+        # Xed and FeatherPad keep status information semantic and bounded.
+        # The full document path belongs in the window title/tooltip, not in a
+        # non-ellipsized status label that can become the GtkWindow minimum.
+        self.status.set_ellipsize(Pango.EllipsizeMode.END)
+        self.status.set_single_line_mode(True)
+        self.status.set_max_width_chars(72)
+        self.status.set_size_request(1, -1)
+        self.status.set_hexpand(True)
         self.status.set_margin_start(8)
         self.status.set_margin_end(8)
         self.status.set_margin_top(3)
@@ -277,6 +324,8 @@ class App(Gtk.Window):
         else:
             self.reset_undo_history()
 
+        if startup_workspace_visible:
+            self.workspace_panel_runtime.set_visible(True)
         self.update_title()
 
     def apply_window_geometry_hints(self):
@@ -392,6 +441,8 @@ class App(Gtk.Window):
             "font_family": self.font_family,
             "word_wrap": self.word_wrap_item.get_active() if hasattr(self, "word_wrap_item") else self.word_wrap,
             "last_file": self.current_file,
+            "workspace_root": getattr(self, "workspace_root", None),
+            "workspace_visible": bool(getattr(self, "workspace_visible", False)),
             "spell_lang": self.spell_lang,
             "inline_spell": False,
             "always_on_top": self.always_item.get_active() if hasattr(self, "always_item") else False,
@@ -664,6 +715,7 @@ class App(Gtk.Window):
 
     def update_title(self):
         name = self.current_file or "Untitled"
+        visible_name = os.path.basename(self.current_file) if self.current_file else "Untitled"
         status = "not saved" if self.modified else "saved"
         mark = " *" if self.modified else ""
         self.set_title(f"{APP_TITLE} - {name} ({status})")
@@ -674,7 +726,10 @@ class App(Gtk.Window):
         words, chars, lines = self.text_stats()
         ln = "lines ON" if self.line_numbers_enabled else "lines OFF"
         undo_note = " | undo limited" if getattr(self.history, "disabled_reason", None) else ""
-        self.status.set_text(f"{name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln}{undo_note}")
+        visible_status = f"{visible_name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln}{undo_note}"
+        full_status = f"{name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln}{undo_note}"
+        self.status.set_text(visible_status)
+        self.status.set_tooltip_text(full_status)
 
     def apply_font(self):
         css = build_application_css(
@@ -743,6 +798,8 @@ class App(Gtk.Window):
         self.modified = self.document.modified
         self.reset_undo_history()
         getattr(self, "sync_source_notes_document", lambda: None)()
+        if hasattr(self, "workspace_panel_view") and self.current_file:
+            self.workspace_panel_view.select_path(self.current_file)
         self.update_title()
         return True
 
@@ -780,6 +837,8 @@ class App(Gtk.Window):
         self.reset_undo_history()
         self.add_recent_file(self.current_file)
         getattr(self, "sync_source_notes_document", lambda: None)()
+        if hasattr(self, "workspace_panel_view") and self.current_file:
+            self.workspace_panel_view.select_path(self.current_file)
         self.update_title()
         self.save_settings()
         if plan.large_file and not silent:
@@ -2213,6 +2272,60 @@ class App(Gtk.Window):
             line = text.count("\n", 0, max(0, min(off, len(text)))) + 1
             lines.append(f"{i}. Line {line} — offset {off}")
         self.large_info("Bookmarks", "\n".join(lines))
+
+    def populate_recent_workspaces_menu(self):
+        if not hasattr(self, "recent_workspaces_menu"):
+            return ()
+        return workspace_populate_recent_menu(
+            self.recent_workspaces_menu,
+            self.state.load_recent_workspaces(),
+            self.activate_workspace_path,
+        )
+
+    def show_workspace_panel(self, *_):
+        if not getattr(self, "workspace_root", None):
+            return self.on_select_workspace_folder()
+        return self.workspace_panel_runtime.set_visible(True)
+
+    def on_select_workspace_folder(self, *_):
+        selected = choose_workspace_folder(self, getattr(self, "workspace_root", None))
+        if not selected:
+            return False
+        return self.activate_workspace_path(selected)
+
+    def open_workspace_path(self, path):
+        return self.workspace_application_runtime.open_root(path)
+
+    def activate_workspace_path(self, path):
+        """Commit one root and expose the same operational panel for every caller."""
+        if not self.open_workspace_path(path):
+            return False
+        self.workspace_panel_runtime.set_visible(True)
+        self.workspace_panel_view.focus_tree()
+        return True
+
+    def on_close_workspace(self, *_):
+        self.workspace_panel_runtime.hide()
+        return self.workspace_application_runtime.close_root()
+
+    def on_refresh_workspace(self, *_):
+        return self.workspace_application_runtime.refresh()
+
+    def on_reveal_workspace(self, *_):
+        return self.workspace_application_runtime.reveal()
+
+    def on_workspace_item_toggled(self, item):
+        return self.workspace_panel_runtime.on_menu_toggled(item)
+
+    def toggle_workspace_panel(self, *_):
+        return self.workspace_panel_runtime.toggle()
+
+    def on_workspace_visibility_changed(self, visible):
+        target = bool(visible)
+        if getattr(self, "workspace_visible", False) == target:
+            return
+        self.workspace_visible = target
+        self.save_settings({"workspace_visible": target})
 
     def on_navigator_item_toggled(self, item):
         return self.navigator_panel_runtime.on_menu_toggled(item)

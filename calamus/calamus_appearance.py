@@ -149,6 +149,18 @@ def build_application_css(
             background-color: #2b62b8;
             background-image: none;
         }
+        #calamus-workspace-tree, #calamus-workspace-tree.view {
+            color: #111111;
+            background-color: #ffffff;
+            background-image: none;
+        }
+        #calamus-workspace-tree:selected, #calamus-workspace-tree.view:selected {
+            color: #ffffff;
+            background-color: #2b62b8;
+        }
+        #calamus-workspace-root, #calamus-workspace-status, #calamus-workspace-hint {
+            color: #111111;
+        }
         scrolledwindow, viewport {
             background-color: #ffffff;
         }
@@ -258,11 +270,40 @@ def build_application_css(
         row label {
             color: #f5f5f5;
         }
+        #calamus-workspace-tree, #calamus-workspace-tree.view {
+            color: #f7f7f7;
+            background-color: #242424;
+            background-image: none;
+        }
+        #calamus-workspace-tree:selected, #calamus-workspace-tree.view:selected {
+            color: #ffffff;
+            background-color: #2b62b8;
+        }
+        #calamus-workspace-root, #calamus-workspace-status, #calamus-workspace-hint {
+            color: #f7f7f7;
+        }
         separator {
             background-color: #555555;
         }
         """
     css = f"""
+    /* System-mode fallback: use GTK theme colors explicitly for the Workspace
+       instead of inheriting disabled/insensitive colors from a surrounding
+       chooser or generic tree rule. Explicit light/dark palettes below take
+       precedence when Calamus owns the appearance mode. */
+    #calamus-workspace-tree, #calamus-workspace-tree.view {{
+        color: @theme_text_color;
+        background-color: @theme_base_color;
+        background-image: none;
+    }}
+    #calamus-workspace-tree:selected, #calamus-workspace-tree.view:selected {{
+        color: @theme_selected_fg_color;
+        background-color: @theme_selected_bg_color;
+    }}
+    #calamus-workspace-root, #calamus-workspace-status, #calamus-workspace-hint {{
+        color: @theme_fg_color;
+    }}
+
     /* The gutter is a viewport-sized drawing surface. Calamus owns one
        semantic divider; no second scroller, label or scrollbar exists. */
     #line-gutter {{

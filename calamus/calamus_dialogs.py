@@ -4,6 +4,8 @@ This module keeps transient UI dialogs out of the main application class while
 preserving GTK3 widgets and the existing lightweight behaviour.
 """
 
+import os
+
 from gi.repository import Gtk, Gdk
 
 from calamus_shortcuts import shortcut_rows
@@ -54,6 +56,102 @@ def choose_open_file(parent):
     filename = dialog.get_filename() if dialog.run() == Gtk.ResponseType.OK else None
     dialog.destroy()
     return filename
+
+
+def _workspace_folder_filter(info, _data=None):
+    """Show directories only in the Workspace-root chooser."""
+    filename = getattr(info, "filename", None)
+    return bool(filename and os.path.isdir(filename))
+
+
+def choose_workspace_folder(parent, initial_path=None):
+    """Choose one local root folder; document opening belongs to the panel."""
+    dialog = Gtk.FileChooserDialog(
+        title="Set Writing Workspace Folder",
+        parent=parent,
+        action=Gtk.FileChooserAction.SELECT_FOLDER,
+    )
+    dialog.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
+    dialog.add_button("Set Current Folder as Workspace", Gtk.ResponseType.OK)
+    dialog.set_default_response(Gtk.ResponseType.OK)
+    dialog.set_local_only(True)
+    dialog.set_select_multiple(False)
+    dialog.set_create_folders(False)
+
+    # Mature file-browser integrations keep root selection and file activation
+    # as separate surfaces. Hide regular files here so this dialog cannot be
+    # mistaken for the real Workspace tree.
+    folder_filter = Gtk.FileFilter()
+    folder_filter.set_name("Folders")
+    folder_filter.add_custom(
+        Gtk.FileFilterFlags.FILENAME,
+        _workspace_folder_filter,
+        None,
+    )
+    dialog.add_filter(folder_filter)
+    dialog.set_filter(folder_filter)
+
+    guidance_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    guidance = Gtk.Label()
+    guidance.set_markup(
+        "<b>This window sets the Workspace folder; it does not open files.</b>"
+    )
+    guidance.set_xalign(0)
+    guidance.set_line_wrap(True)
+    detail = Gtk.Label(
+        label=(
+            "Navigate into the folder you want, then press "
+            "“Set Current Folder as Workspace”. Open .txt and .md files "
+            "after this window closes, from the Writing Workspace panel."
+        )
+    )
+    detail.set_xalign(0)
+    detail.set_line_wrap(True)
+    current = Gtk.Label()
+    current.set_xalign(0)
+    current.set_selectable(True)
+    current.set_line_wrap(True)
+    guidance_box.pack_start(guidance, False, False, 0)
+    guidance_box.pack_start(detail, False, False, 0)
+    guidance_box.pack_start(current, False, False, 0)
+    for setter in (
+        guidance_box.set_margin_start,
+        guidance_box.set_margin_end,
+        guidance_box.set_margin_top,
+        guidance_box.set_margin_bottom,
+    ):
+        setter(8)
+    dialog.set_extra_widget(guidance_box)
+
+    if isinstance(initial_path, str) and os.path.isdir(initial_path):
+        try:
+            dialog.set_current_folder(os.path.abspath(initial_path))
+        except Exception:
+            pass
+
+    def update_current_folder(*_args):
+        candidate = dialog.get_current_folder()
+        current.set_text(
+            f"Current folder to set as Workspace: {candidate or 'None'}"
+        )
+
+    dialog.connect("current-folder-changed", update_current_folder)
+    dialog.connect("selection-changed", update_current_folder)
+    update_current_folder()
+
+    response = dialog.run()
+    selected = None
+    if response == Gtk.ResponseType.OK:
+        # If a directory row is selected use it; otherwise use the folder the
+        # user has navigated into. Regular files are never valid candidates.
+        filename = dialog.get_filename()
+        current_folder = dialog.get_current_folder()
+        for candidate in (filename, current_folder):
+            if isinstance(candidate, str) and os.path.isdir(candidate):
+                selected = os.path.abspath(candidate)
+                break
+    dialog.destroy()
+    return selected
 
 
 def choose_save_file(parent):

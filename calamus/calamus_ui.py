@@ -55,6 +55,31 @@ def build_menu(app) -> None:
     app.recent_item.set_submenu(app.recent_menu)
     filem.append(app.recent_item)
     app.populate_recent_menu()
+    add_separator(filem)
+    app.workspace_file_item = Gtk.MenuItem(label="Writing Workspace")
+    app.workspace_file_menu = Gtk.Menu()
+    app.workspace_file_item.set_submenu(app.workspace_file_menu)
+    filem.append(app.workspace_file_item)
+    app.workspace_show_item = add_item(
+        app.workspace_file_menu,
+        "Show Workspace Panel",
+        app.show_workspace_panel,
+    )
+    add_item(
+        app.workspace_file_menu,
+        "Change Workspace Folder…",
+        app.on_select_workspace_folder,
+    )
+    app.recent_workspaces_item = Gtk.MenuItem(label="Recent Workspaces")
+    app.recent_workspaces_menu = Gtk.Menu()
+    app.recent_workspaces_item.set_submenu(app.recent_workspaces_menu)
+    app.workspace_file_menu.append(app.recent_workspaces_item)
+    app.populate_recent_workspaces_menu()
+    add_separator(app.workspace_file_menu)
+    add_item(app.workspace_file_menu, "Rescan Folder Contents", app.on_refresh_workspace)
+    add_item(app.workspace_file_menu, "Reveal Workspace Folder in File Manager", app.on_reveal_workspace)
+    add_item(app.workspace_file_menu, "Close Workspace", app.on_close_workspace)
+    add_separator(filem)
     add_item(filem, "Save\tCtrl+S", app.on_save)
     add_item(filem, "Save As…\tCtrl+Shift+S", app.on_save_as)
     add_item(filem, "Save as Template…", app.on_save_as_template)
@@ -120,6 +145,10 @@ def build_menu(app) -> None:
     app.navigator_item.set_active(False)
     app.navigator_item.connect("toggled", app.on_navigator_item_toggled)
     navigatem.append(app.navigator_item)
+    app.workspace_item = Gtk.CheckMenuItem(label="Writing Workspace")
+    app.workspace_item.set_active(False)
+    app.workspace_item.connect("toggled", app.on_workspace_item_toggled)
+    navigatem.append(app.workspace_item)
     add_separator(navigatem)
     add_item(navigatem, "Go to Line…\tCtrl+L", app.on_go_to_line)
     add_item(navigatem, "Go to Section…\tCtrl+Shift+L", app.on_go_to_section)
