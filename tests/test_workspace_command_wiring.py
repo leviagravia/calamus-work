@@ -23,11 +23,16 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         for forbidden in ('open(', 'subprocess', 'os.scandir', 'read_text_file', 'App.open_path'):
             self.assertNotIn(forbidden,view)
 
-    def test_workspace_scope_is_read_only(self):
+    def test_workspace_mutation_scope_is_bounded_to_new_text_file(self):
         combined='\n'.join((ROOT/'calamus'/name).read_text(encoding='utf-8') for name in (
             'calamus_workspace.py','calamus_workspace_controller.py','calamus_workspace_application.py',
-            'calamus_workspace_tree.py','calamus_workspace_panel.py'))
-        for forbidden in ('os.rename','os.remove','os.unlink','shutil.move','copytree','send2trash','Gio.FileMonitor'):
+            'calamus_workspace_tree.py','calamus_workspace_panel.py',
+            'calamus_workspace_operations.py','calamus_workspace_gio.py',
+            'calamus_workspace_mutation.py'))
+        self.assertIn('new-text-file', combined)
+        self.assertIn('target.create(Gio.FileCreateFlags.NONE, None)', combined)
+        for forbidden in ('os.rename','os.remove','os.unlink','shutil.move','copytree','send2trash',
+                          'Gio.FileMonitor','set_display_name','trash(','make_directory('):
             self.assertNotIn(forbidden,combined)
 
     def test_chooser_and_panel_are_unambiguously_distinct(self):
@@ -38,7 +43,7 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('Set Current Folder as Workspace',dialogs)
         self.assertIn('folder_filter.add_custom',dialogs)
         self.assertIn('dialog.get_current_folder()',dialogs)
-        self.assertIn('Open files here · double-click or Enter · read-only tree',panel)
+        self.assertIn('Open files · create one text file · bounded writing tree',panel)
         self.assertIn('os.path.basename(snapshot.root.rstrip(os.sep))',panel)
         self.assertIn('self.root_label.set_max_width_chars(24)',panel)
         self.assertIn('self.scroll.set_propagate_natural_width(False)',panel)
@@ -57,19 +62,24 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         visible=launcher.index('if startup_workspace_visible:')
         self.assertLess(zero,visible)
 
-    def test_menu_exposes_no_mutating_workspace_commands(self):
+    def test_menu_exposes_only_new_text_file_mutation(self):
         ui=(ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8')
-        self.assertIn('Change Workspace Folder…',ui)
-        self.assertIn('Show Workspace Panel',ui)
-        self.assertIn('Close Workspace',ui)
-        for forbidden in ('New Workspace File','Rename Workspace','Move Workspace','Delete Workspace','Trash Workspace'):
-            self.assertNotIn(forbidden,ui)
+        start=ui.index('app.workspace_file_item = Gtk.MenuItem(label="Writing Workspace")')
+        end=ui.index('add_separator(filem)', start)
+        workspace_menu=ui[start:end]
+        self.assertIn('New Text File…', workspace_menu)
+        self.assertIn('Change Workspace Folder…',workspace_menu)
+        self.assertIn('Show Workspace Panel',workspace_menu)
+        self.assertIn('Close Workspace',workspace_menu)
+        for forbidden in ('New Folder', 'Rename…', 'Duplicate', 'Move to Trash',
+                          'Delete Workspace', 'Copy Workspace', 'Move Workspace'):
+            self.assertNotIn(forbidden,workspace_menu)
 
     def test_file_menu_groups_workspace_commands_in_one_submenu(self):
         ui=(ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8')
         self.assertIn('app.workspace_file_item = Gtk.MenuItem(label="Writing Workspace")',ui)
         self.assertIn('app.workspace_file_item.set_submenu(app.workspace_file_menu)',ui)
-        for label in ('Show Workspace Panel','Change Workspace Folder…','Recent Workspaces','Rescan Folder Contents','Reveal Workspace Folder in File Manager','Close Workspace'):
+        for label in ('Show Workspace Panel','New Text File…','Change Workspace Folder…','Recent Workspaces','Rescan Folder Contents','Reveal Workspace Folder in File Manager','Close Workspace'):
             self.assertIn(label,ui)
         top_level_block=ui[ui.index('app.workspace_file_item ='):ui.index('add_separator(filem)',ui.index('app.workspace_file_item ='))]
         self.assertNotIn('add_item(filem, "Refresh Writing Workspace"',top_level_block)
@@ -100,6 +110,36 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('Rescan Folder Contents', ui)
         self.assertIn('Rescan after files or folders changed outside Calamus', panel)
         self.assertNotIn('"Refresh", app.on_refresh_workspace', ui)
+
+
+    def test_new_text_file_uses_pure_plan_one_gio_commit_and_reconciliation(self):
+        planner=(ROOT/'calamus/calamus_workspace_operations.py').read_text(encoding='utf-8')
+        adapter=(ROOT/'calamus/calamus_workspace_gio.py').read_text(encoding='utf-8')
+        runtime=(ROOT/'calamus/calamus_workspace_mutation.py').read_text(encoding='utf-8')
+        launcher=(ROOT/'bin/calamus').read_text(encoding='utf-8')
+        panel=(ROOT/'calamus/calamus_workspace_panel.py').read_text(encoding='utf-8')
+        self.assertNotIn('gi.repository', planner)
+        self.assertNotIn('Gtk', planner)
+        self.assertIn('WorkspaceOperationPlan', planner)
+        self.assertIn('target.create(Gio.FileCreateFlags.NONE, None)', adapter)
+        self.assertIn('if not self._may_continue():', runtime)
+        self.assertLess(runtime.index('if not self._may_continue():'), runtime.index('result = self._controller.execute(plan)'))
+        self.assertIn('self._workspace_runtime.refresh()', runtime)
+        self.assertIn('self._view.select_path(result.path)', runtime)
+        self.assertIn('self._open_document(result.path)', runtime)
+        self.assertIn('WorkspaceMutationRuntime(', launcher)
+        self.assertIn('open_document=self.open_path', launcher)
+        self.assertIn('document-new-symbolic', panel)
+
+    def test_new_text_file_dialog_is_input_only(self):
+        dialogs=(ROOT/'calamus/calamus_dialogs.py').read_text(encoding='utf-8')
+        block=dialogs[dialogs.index('def prompt_new_workspace_text_file'):dialogs.index('def choose_save_file')]
+        self.assertIn('New Text File in Writing Workspace', block)
+        self.assertIn('Create and Open', block)
+        self.assertIn('Plain text (.txt)', block)
+        self.assertIn('Markdown (.md)', block)
+        for forbidden in ('Gio.File', 'open(', 'write(', 'os.mkdir', 'os.rename'):
+            self.assertNotIn(forbidden, block)
 
     def test_toplevel_geometry_uses_wm_hints_not_widget_size_request(self):
         launcher = (ROOT / "bin" / "calamus").read_text(encoding="utf-8")

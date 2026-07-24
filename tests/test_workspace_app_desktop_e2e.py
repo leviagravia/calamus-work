@@ -175,6 +175,43 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
             win.destroy()
             _pump()
 
+
+    def test_real_app_new_text_file_command_creates_rescans_selects_and_opens(self):
+        workspace, _alt_workspace = self._require_environment()
+        _write_settings(workspace)
+        drafts = os.path.join(workspace, "01_Drafts")
+        target = os.path.join(drafts, "W80_Created.md")
+        try:
+            os.unlink(target)
+        except FileNotFoundError:
+            pass
+        module = _load_app_module()
+        win = module.App()
+        try:
+            win.show_all()
+            _pump()
+            self.assertTrue(win.workspace_panel_view.tree.select_absolute_path(drafts))
+            self.assertTrue(win.create_workspace_text_file("W80_Created", ".md"))
+            _pump()
+            self.assertTrue(os.path.isfile(target))
+            self.assertEqual(Path(target).read_bytes(), b"")
+            self.assertEqual(win.current_file, os.path.abspath(target))
+            self.assertEqual(win.buffer_text(), "")
+            self.assertIn(os.path.abspath(target), win.state.load_recent_files())
+            selected = win.workspace_panel_view.selected_item()
+            self.assertIsNotNone(selected)
+            self.assertEqual(selected.path, os.path.abspath(target))
+            self.assertTrue(win.workspace_new_text_file_item.get_sensitive())
+            print("W80_REAL_APP_NEW_TEXT_FILE=PASS")
+            print("W80_REAL_APP_RESCAN_SELECT_OPEN=PASS")
+        finally:
+            win.destroy()
+            _pump()
+            try:
+                os.unlink(target)
+            except FileNotFoundError:
+                pass
+
     def test_real_app_opens_real_workspace_file_from_real_tree_signal(self):
         workspace, _alt_workspace = self._require_environment()
         _write_settings(workspace)

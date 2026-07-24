@@ -60,6 +60,10 @@ class WorkspaceController:
         self._snapshot = snapshot
         return snapshot
 
+    def current_item(self, item: WorkspaceItem) -> WorkspaceItem:
+        """Return the item only when it still belongs to the current snapshot."""
+        return self._require_current(item)
+
     def activation_for(self, item: WorkspaceItem) -> WorkspaceActivation:
         current = self._require_current(item)
         if current.is_directory:

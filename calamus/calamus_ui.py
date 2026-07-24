@@ -65,6 +65,13 @@ def build_menu(app) -> None:
         "Show Workspace Panel",
         app.show_workspace_panel,
     )
+    app.workspace_new_text_file_item = add_item(
+        app.workspace_file_menu,
+        "New Text File…",
+        app.on_new_workspace_text_file,
+    )
+    app.workspace_new_text_file_item.set_sensitive(bool(getattr(app, "workspace_root", None)))
+    add_separator(app.workspace_file_menu)
     add_item(
         app.workspace_file_menu,
         "Change Workspace Folder…",
