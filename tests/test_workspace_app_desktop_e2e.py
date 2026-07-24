@@ -212,6 +212,46 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
             except FileNotFoundError:
                 pass
 
+
+    def test_real_app_new_folder_command_creates_rescans_and_selects_without_opening(self):
+        workspace, _alt_workspace = self._require_environment()
+        _write_settings(workspace)
+        drafts = os.path.join(workspace, "01_Drafts")
+        target = os.path.join(drafts, "W81_Created_Folder")
+        if os.path.isdir(target):
+            os.rmdir(target)
+        module = _load_app_module()
+        win = module.App()
+        try:
+            win.show_all()
+            _pump()
+            _activate_relative(win, "01_Drafts/Capitolo_1.md")
+            current_before = win.current_file
+            buffer = win.text.get_buffer()
+            buffer.set_text(win.buffer_text() + "\nUnsaved W81 marker")
+            _pump()
+            text_before = win.buffer_text()
+            self.assertTrue(win.workspace_panel_view.tree.select_absolute_path(drafts))
+            self.assertTrue(win.create_workspace_folder("W81_Created_Folder"))
+            _pump()
+            self.assertTrue(os.path.isdir(target))
+            self.assertFalse(os.path.islink(target))
+            self.assertEqual(win.current_file, current_before)
+            self.assertEqual(win.buffer_text(), text_before)
+            selected = win.workspace_panel_view.selected_item()
+            self.assertIsNotNone(selected)
+            self.assertEqual(selected.path, os.path.abspath(target))
+            self.assertTrue(selected.is_directory)
+            self.assertTrue(win.workspace_new_folder_item.get_sensitive())
+            print("W81_REAL_APP_NEW_FOLDER=PASS")
+            print("W81_REAL_APP_RESCAN_SELECT=PASS")
+            print("W81_ACTIVE_DOCUMENT_UNCHANGED=PASS")
+        finally:
+            win.destroy()
+            _pump()
+            if os.path.isdir(target):
+                os.rmdir(target)
+
     def test_real_app_opens_real_workspace_file_from_real_tree_signal(self):
         workspace, _alt_workspace = self._require_environment()
         _write_settings(workspace)

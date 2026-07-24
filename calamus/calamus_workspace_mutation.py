@@ -8,7 +8,7 @@ from typing import Any
 from calamus_workspace import WorkspaceError, WorkspaceItem, path_is_within_root
 from calamus_workspace_controller import WorkspaceController
 from calamus_workspace_gio import WorkspaceGioAdapter, WorkspaceOperationResult
-from calamus_workspace_operations import WorkspaceOperationPlan, plan_new_text_file
+from calamus_workspace_operations import WorkspaceOperationPlan, plan_new_folder, plan_new_text_file
 
 
 class WorkspaceMutationController:
@@ -55,8 +55,21 @@ class WorkspaceMutationController:
         parent = self.destination_for_selection(selected)
         return plan_new_text_file(root, parent, raw_name, suffix=suffix)
 
+    def plan_new_folder(
+        self,
+        selected: WorkspaceItem | None,
+        raw_name: str,
+    ) -> WorkspaceOperationPlan:
+        root = self._workspace.root
+        parent = self.destination_for_selection(selected)
+        return plan_new_folder(root, parent, raw_name)
+
     def execute(self, plan: WorkspaceOperationPlan) -> WorkspaceOperationResult:
-        return self._adapter.create_new_text_file(plan)
+        if plan.kind == "new-text-file":
+            return self._adapter.create_new_text_file(plan)
+        if plan.kind == "new-folder":
+            return self._adapter.create_new_folder(plan)
+        raise ValueError(f"unsupported Workspace operation: {plan.kind}")
 
 
 class WorkspaceMutationRuntime:
@@ -123,4 +136,33 @@ class WorkspaceMutationRuntime:
                 "The text file was created, but it could not be opened in Calamus."
             )
             return False
+        return True
+
+    def create_new_folder(
+        self,
+        selected: WorkspaceItem | None,
+        raw_name: str,
+    ) -> bool:
+        try:
+            plan = self._controller.plan_new_folder(selected, raw_name)
+        except (OSError, TypeError, ValueError) as exc:
+            self._report_error(str(exc))
+            return False
+
+        # New Folder does not replace the active document.  Therefore it must
+        # not invoke the unsaved-document gate merely to mutate the tree.
+        result = self._controller.execute(plan)
+        if not result.success:
+            if result.committed:
+                self._workspace_runtime.refresh()
+                self._view.select_path(result.path)
+            self._report_error(result.message or "The folder could not be created.")
+            return False
+
+        if not self._workspace_runtime.refresh():
+            self._report_error(
+                "The folder was created, but the Writing Workspace could not be rescanned."
+            )
+            return False
+        self._view.select_path(result.path)
         return True

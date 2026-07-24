@@ -21,12 +21,13 @@ class WorkspacePanelView:
         *,
         on_hide: Callable[[], None],
         on_new_text_file: Callable[[], None],
+        on_new_folder: Callable[[], None],
         on_choose_root: Callable[[], None],
         on_refresh: Callable[[], None],
         on_reveal: Callable[[], None],
         on_activate_item: Callable[[WorkspaceItem], None],
     ) -> None:
-        for callback in (on_hide, on_new_text_file, on_choose_root, on_refresh, on_reveal, on_activate_item):
+        for callback in (on_hide, on_new_text_file, on_new_folder, on_choose_root, on_refresh, on_reveal, on_activate_item):
             if not callable(callback):
                 raise TypeError("workspace panel callbacks must be callable")
         self._on_activate_item = on_activate_item
@@ -61,6 +62,7 @@ class WorkspacePanelView:
         self.action_row.set_halign(Gtk.Align.START)
         for index, (icon_name, tooltip, callback) in enumerate((
             ("document-new-symbolic", "Create a new .txt or .md file in the selected folder", on_new_text_file),
+            ("folder-new-symbolic", "Create a new folder in the selected folder", on_new_folder),
             ("folder-open-symbolic", "Change the Workspace folder", on_choose_root),
             ("view-refresh-symbolic", "Rescan after files or folders changed outside Calamus", on_refresh),
             ("folder-symbolic", "Reveal the current Workspace folder in File Manager", on_reveal),
@@ -90,7 +92,7 @@ class WorkspacePanelView:
         self.root_label.set_max_width_chars(24)
         self.widget.pack_start(self.root_label, False, False, 0)
 
-        self.hint = Gtk.Label(label="Open files · create one text file · bounded writing tree")
+        self.hint = Gtk.Label(label="Open files · create text files and folders · bounded writing tree")
         self.hint.set_name("calamus-workspace-hint")
         self.hint.set_xalign(0)
         self.hint.set_hexpand(True)

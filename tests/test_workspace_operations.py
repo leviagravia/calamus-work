@@ -7,6 +7,8 @@ from calamus_workspace_operations import (
     WorkspaceOperationError,
     normalize_text_suffix,
     normalize_workspace_basename,
+    normalize_workspace_folder_name,
+    plan_new_folder,
     plan_new_text_file,
 )
 
@@ -62,6 +64,26 @@ class WorkspaceOperationPlannerTests(unittest.TestCase):
     def test_planner_is_compute_only_and_does_not_create_target(self):
         plan = plan_new_text_file(str(self.root), str(self.parent), "New", suffix=".txt")
         self.assertFalse(os.path.exists(plan.target_path))
+
+    def test_folder_name_is_one_visible_component(self):
+        self.assertEqual(normalize_workspace_folder_name("  Chapter Notes  "), "Chapter Notes")
+        for value in ("", "../escape", "folder/name", r"folder\name", ".hidden", ".", "..", "bad\x00name", "x" * 256):
+            with self.subTest(value=value):
+                with self.assertRaises((TypeError, WorkspaceOperationError)):
+                    normalize_workspace_folder_name(value)
+
+    def test_new_folder_plan_is_single_level_confined_and_not_opened(self):
+        plan = plan_new_folder(str(self.root), str(self.parent), "Research")
+        self.assertEqual(plan.kind, "new-folder")
+        self.assertEqual(plan.target_path, str(self.parent / "Research"))
+        self.assertFalse(plan.open_after_commit)
+        self.assertFalse(os.path.exists(plan.target_path))
+
+    def test_new_folder_plan_rejects_parent_outside_root(self):
+        outside = Path(self.tmp.name) / "Outside"
+        outside.mkdir()
+        with self.assertRaises(WorkspaceOperationError):
+            plan_new_folder(str(self.root), str(outside), "Research")
 
 
 if __name__ == "__main__":

@@ -227,6 +227,66 @@ def prompt_new_workspace_text_file(parent, destination_label):
     return result
 
 
+def prompt_new_workspace_folder(parent, destination_label):
+    """Collect one directory basename; perform no filesystem mutation."""
+    dialog = Gtk.Dialog(
+        title="New Folder in Writing Workspace",
+        transient_for=parent,
+        modal=True,
+    )
+    dialog.add_buttons(
+        Gtk.STOCK_CANCEL,
+        Gtk.ResponseType.CANCEL,
+        "Create Folder",
+        Gtk.ResponseType.OK,
+    )
+    dialog.set_default_response(Gtk.ResponseType.OK)
+
+    box = dialog.get_content_area()
+    box.set_spacing(8)
+    for setter in (box.set_margin_start, box.set_margin_end, box.set_margin_top, box.set_margin_bottom):
+        setter(12)
+
+    destination = Gtk.Label(label=f"Create inside: {destination_label}")
+    destination.set_xalign(0)
+    destination.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+    destination.set_tooltip_text(destination_label)
+    box.pack_start(destination, False, False, 0)
+
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    label = Gtk.Label(label="Folder name:")
+    label.set_xalign(0)
+    entry = Gtk.Entry()
+    entry.set_placeholder_text("Chapter_Notes")
+    entry.set_activates_default(True)
+    entry.set_hexpand(True)
+    label.set_mnemonic_widget(entry)
+    row.pack_start(label, False, False, 0)
+    row.pack_start(entry, True, True, 0)
+    box.pack_start(row, False, False, 0)
+
+    hint = Gtk.Label(
+        label="Creates one local folder without overwrite or nested-path syntax."
+    )
+    hint.set_xalign(0)
+    hint.set_line_wrap(True)
+    box.pack_start(hint, False, False, 0)
+
+    ok_button = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+    ok_button.set_sensitive(False)
+    entry.connect(
+        "changed",
+        lambda widget: ok_button.set_sensitive(bool(widget.get_text().strip())),
+    )
+
+    dialog.show_all()
+    entry.grab_focus()
+    response = dialog.run()
+    result = entry.get_text() if response == Gtk.ResponseType.OK else None
+    dialog.destroy()
+    return result
+
+
 def choose_save_file(parent):
     dialog = Gtk.FileChooserDialog(
         "Save text file", parent, Gtk.FileChooserAction.SAVE,

@@ -28,20 +28,14 @@ class WorkspaceOperationResult:
 class WorkspaceGioAdapter:
     """Execute exactly one already-validated local filesystem mutation."""
 
-    def create_new_text_file(self, plan: WorkspaceOperationPlan) -> WorkspaceOperationResult:
-        if not isinstance(plan, WorkspaceOperationPlan):
-            raise TypeError("plan must be WorkspaceOperationPlan")
-        if plan.kind != "new-text-file":
-            raise ValueError(f"unsupported Workspace operation: {plan.kind}")
-
-        # Revalidate the parent at the mutation boundary.  The pure planner may
-        # have run before an external rename or symlink replacement; GIO must
-        # never follow that stale destination outside the bound root.
+    @staticmethod
+    def _validated_parent(plan: WorkspaceOperationPlan) -> tuple[str, str] | None:
+        """Revalidate root, parent and target-parent identity at commit time."""
         root = os.path.abspath(plan.root)
         parent = os.path.abspath(plan.parent_path)
         target_parent = os.path.abspath(os.path.dirname(plan.target_path))
         try:
-            parent_safe = (
+            safe = (
                 target_parent == parent
                 and os.path.isdir(root)
                 and not os.path.islink(root)
@@ -51,14 +45,34 @@ class WorkspaceGioAdapter:
                 == os.path.realpath(root)
             )
         except (OSError, TypeError, ValueError):
-            parent_safe = False
-        if not parent_safe:
+            safe = False
+        return (root, parent) if safe else None
+
+    @staticmethod
+    def _target_within_root(root: str, target_path: str) -> bool:
+        try:
+            return (
+                os.path.commonpath((os.path.realpath(root), os.path.realpath(target_path)))
+                == os.path.realpath(root)
+            )
+        except (OSError, TypeError, ValueError):
+            return False
+
+    def create_new_text_file(self, plan: WorkspaceOperationPlan) -> WorkspaceOperationResult:
+        if not isinstance(plan, WorkspaceOperationPlan):
+            raise TypeError("plan must be WorkspaceOperationPlan")
+        if plan.kind != "new-text-file":
+            raise ValueError(f"unsupported Workspace operation: {plan.kind}")
+
+        validated = self._validated_parent(plan)
+        if validated is None:
             return WorkspaceOperationResult(
                 False,
                 plan.target_path,
                 "The destination folder changed or resolves outside the Writing Workspace.",
                 False,
             )
+        root, _parent = validated
 
         if not HAVE_GIO:
             return WorkspaceOperationResult(
@@ -84,17 +98,10 @@ class WorkspaceGioAdapter:
                 Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
                 None,
             )
-            try:
-                target_within_root = (
-                    os.path.commonpath((os.path.realpath(root), os.path.realpath(plan.target_path)))
-                    == os.path.realpath(root)
-                )
-            except (OSError, TypeError, ValueError):
-                target_within_root = False
             if (
                 info.get_is_symlink()
                 or info.get_file_type() != Gio.FileType.REGULAR
-                or not target_within_root
+                or not self._target_within_root(root, plan.target_path)
             ):
                 return WorkspaceOperationResult(
                     False,
@@ -120,3 +127,63 @@ class WorkspaceGioAdapter:
                     stream.close(None)
                 except GLib.Error:
                     pass
+
+    def create_new_folder(self, plan: WorkspaceOperationPlan) -> WorkspaceOperationResult:
+        if not isinstance(plan, WorkspaceOperationPlan):
+            raise TypeError("plan must be WorkspaceOperationPlan")
+        if plan.kind != "new-folder":
+            raise ValueError(f"unsupported Workspace operation: {plan.kind}")
+
+        validated = self._validated_parent(plan)
+        if validated is None:
+            return WorkspaceOperationResult(
+                False,
+                plan.target_path,
+                "The destination folder changed or resolves outside the Writing Workspace.",
+                False,
+            )
+        root, _parent = validated
+
+        if not HAVE_GIO:
+            return WorkspaceOperationResult(
+                False,
+                plan.target_path,
+                "GIO is unavailable; the folder was not created.",
+                False,
+            )
+
+        target = Gio.File.new_for_path(plan.target_path)
+        committed = False
+        try:
+            # One-level, exclusive create. Recursive directory creation is
+            # deliberately excluded so a basename cannot acquire path semantics.
+            target.make_directory(None)
+            committed = True
+            info = target.query_info(
+                "standard::type,standard::is-symlink",
+                Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
+                None,
+            )
+            if (
+                info.get_is_symlink()
+                or info.get_file_type() != Gio.FileType.DIRECTORY
+                or not self._target_within_root(root, plan.target_path)
+            ):
+                return WorkspaceOperationResult(
+                    False,
+                    plan.target_path,
+                    "The folder was created, but its confined directory identity could not be verified.",
+                    True,
+                )
+            return WorkspaceOperationResult(True, plan.target_path, committed=True)
+        except GLib.Error as exc:
+            return WorkspaceOperationResult(
+                False,
+                plan.target_path,
+                (
+                    f"The folder was created, but final verification failed: {exc.message}"
+                    if committed
+                    else f"The folder could not be created: {exc.message}"
+                ),
+                committed,
+            )

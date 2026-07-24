@@ -19,10 +19,23 @@ class RealExclusiveLocalAdapter:
         except OSError as exc:
             return WorkspaceOperationResult(False, plan.target_path, str(exc), committed=False)
 
+    def create_new_folder(self, plan):
+        try:
+            os.mkdir(plan.target_path)
+            return WorkspaceOperationResult(True, plan.target_path, committed=True)
+        except OSError as exc:
+            return WorkspaceOperationResult(False, plan.target_path, str(exc), committed=False)
+
 
 class CommittedFailureAdapter:
     def create_new_text_file(self, plan):
         Path(plan.target_path).write_bytes(b"")
+        return WorkspaceOperationResult(
+            False, plan.target_path, "created but verification failed", committed=True
+        )
+
+    def create_new_folder(self, plan):
+        Path(plan.target_path).mkdir()
         return WorkspaceOperationResult(
             False, plan.target_path, "created but verification failed", committed=True
         )
@@ -155,6 +168,36 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
         link = self.view.snapshot.by_relative_path("Link")
         self.assertFalse(self.runtime.create_new_text_file(link, "Nope", suffix=".txt"))
         self.assertFalse((outside / "Nope.txt").exists())
+
+    def test_new_folder_selected_folder_rescans_selects_without_open_or_unsaved_gate(self):
+        self.continue_allowed = False
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts")
+        self.assertTrue(self.runtime.create_new_folder(self.view.selected, "Research"))
+        target = str(self.drafts / "Research")
+        self.assertTrue(Path(target).is_dir())
+        self.assertEqual(self.opens, [])
+        self.assertEqual(self.view.selected_paths[-1], target)
+        self.assertIsNotNone(self.workspace_controller.snapshot.by_absolute_path(target))
+
+    def test_new_folder_selected_file_creates_sibling(self):
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        self.assertTrue(self.runtime.create_new_folder(self.view.selected, "SiblingFolder"))
+        self.assertTrue((self.drafts / "SiblingFolder").is_dir())
+
+    def test_new_folder_collision_and_invalid_name_fail_closed(self):
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts")
+        (self.drafts / "ExistingFolder").mkdir()
+        self.assertFalse(self.runtime.create_new_folder(self.view.selected, "ExistingFolder"))
+        self.assertTrue((self.drafts / "ExistingFolder").is_dir())
+        self.assertFalse(self.runtime.create_new_folder(self.view.selected, "../escape"))
+        self.assertFalse((self.root.parent / "escape").exists())
+
+    def test_new_folder_no_selection_creates_in_root(self):
+        self.assertTrue(self.runtime.create_new_folder(None, "RootFolder"))
+        target = self.root / "RootFolder"
+        self.assertTrue(target.is_dir())
+        self.assertEqual(self.view.selected_paths[-1], str(target))
+        self.assertEqual(self.opens, [])
 
 
 if __name__ == "__main__":

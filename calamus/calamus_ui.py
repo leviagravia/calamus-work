@@ -71,6 +71,12 @@ def build_menu(app) -> None:
         app.on_new_workspace_text_file,
     )
     app.workspace_new_text_file_item.set_sensitive(bool(getattr(app, "workspace_root", None)))
+    app.workspace_new_folder_item = add_item(
+        app.workspace_file_menu,
+        "New Folder…",
+        app.on_new_workspace_folder,
+    )
+    app.workspace_new_folder_item.set_sensitive(bool(getattr(app, "workspace_root", None)))
     add_separator(app.workspace_file_menu)
     add_item(
         app.workspace_file_menu,
