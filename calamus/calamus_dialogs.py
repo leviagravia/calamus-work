@@ -5,6 +5,7 @@ preserving GTK3 widgets and the existing lightweight behaviour.
 """
 
 import os
+from pathlib import Path
 
 from gi.repository import Gtk, Gdk, Pango
 
@@ -281,6 +282,59 @@ def prompt_new_workspace_folder(parent, destination_label):
 
     dialog.show_all()
     entry.grab_focus()
+    response = dialog.run()
+    result = entry.get_text() if response == Gtk.ResponseType.OK else None
+    dialog.destroy()
+    return result
+
+
+def prompt_rename_workspace_item(parent, current_name, *, is_directory):
+    """Collect one replacement basename; perform no filesystem mutation."""
+    kind = "Folder" if is_directory else "File"
+    dialog = Gtk.Dialog(
+        title=f"Rename {kind} in Writing Workspace",
+        transient_for=parent,
+        modal=True,
+    )
+    dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, "Rename", Gtk.ResponseType.OK)
+    dialog.set_default_response(Gtk.ResponseType.OK)
+    box = dialog.get_content_area()
+    box.set_spacing(8)
+    for setter in (box.set_margin_start, box.set_margin_end, box.set_margin_top, box.set_margin_bottom):
+        setter(12)
+    current = Gtk.Label(label=f"Current name: {current_name}")
+    current.set_xalign(0)
+    current.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+    current.set_tooltip_text(current_name)
+    box.pack_start(current, False, False, 0)
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    label = Gtk.Label(label="New name:")
+    label.set_xalign(0)
+    entry = Gtk.Entry()
+    entry.set_text(current_name)
+    entry.set_activates_default(True)
+    entry.set_hexpand(True)
+    label.set_mnemonic_widget(entry)
+    row.pack_start(label, False, False, 0)
+    row.pack_start(entry, True, True, 0)
+    box.pack_start(row, False, False, 0)
+    hint = Gtk.Label(label=(
+        "Renames one selected regular file or folder without overwrite. "
+        "An active document keeps its buffer and follows the new path."
+    ))
+    hint.set_xalign(0)
+    hint.set_line_wrap(True)
+    box.pack_start(hint, False, False, 0)
+    ok = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+    entry.connect("changed", lambda widget: ok.set_sensitive(bool(widget.get_text().strip())))
+    dialog.show_all()
+    entry.grab_focus()
+    if is_directory:
+        entry.select_region(0, -1)
+    else:
+        suffix = Path(current_name).suffix
+        end = len(current_name) - len(suffix) if suffix else len(current_name)
+        entry.select_region(0, end)
     response = dialog.run()
     result = entry.get_text() if response == Gtk.ResponseType.OK else None
     dialog.destroy()

@@ -252,6 +252,113 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
             if os.path.isdir(target):
                 os.rmdir(target)
 
+    def test_real_app_rename_active_modified_file_updates_identity_sidecar_and_path_stores(self):
+        workspace, _alt_workspace = self._require_environment()
+        _write_settings(workspace)
+        source = os.path.join(workspace, "01_Drafts", "W82_Active.md")
+        target = os.path.join(workspace, "01_Drafts", "W82_Renamed.md")
+        sidecar = source + ".source-notes.md"
+        target_sidecar = target + ".source-notes.md"
+        for path in (source, target, sidecar, target_sidecar):
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
+        Path(source).write_text("W82 original", encoding="utf-8")
+        Path(sidecar).write_text("# Calamus Source Notes v1\n", encoding="utf-8")
+        module = _load_app_module()
+        win = module.App()
+        try:
+            win.show_all()
+            _pump()
+            win.open_path(source)
+            buffer = win.text.get_buffer()
+            buffer.set_text("W82 unsaved marker")
+            _pump()
+            self.assertTrue(win.modified)
+            win.state.save_recent_files([source, os.path.join(workspace, "01_Drafts", "Appunti.txt")])
+            win.state.save_favourites([source])
+            win.workspace_application_runtime.refresh()
+            self.assertTrue(win.workspace_panel_view.select_path(source))
+            self.assertTrue(win.rename_workspace_item("W82_Renamed.md"))
+            _pump()
+            self.assertFalse(os.path.exists(source))
+            self.assertTrue(os.path.isfile(target))
+            self.assertFalse(os.path.exists(sidecar))
+            self.assertTrue(os.path.isfile(target_sidecar))
+            self.assertEqual(win.current_file, os.path.abspath(target))
+            self.assertEqual(win.document.file_path, os.path.abspath(target))
+            self.assertEqual(win.buffer_text(), "W82 unsaved marker")
+            self.assertTrue(win.modified)
+            self.assertIn(os.path.abspath(target), win.state.load_recent_file_store())
+            self.assertNotIn(os.path.abspath(source), win.state.load_recent_file_store())
+            self.assertIn(os.path.abspath(target), win.state.load_favourite_store())
+            self.assertNotIn(os.path.abspath(source), win.state.load_favourite_store())
+            self.assertIn(os.path.abspath(target), win.get_title())
+            self.assertTrue(win.save_file())
+            self.assertEqual(Path(target).read_text(encoding="utf-8"), "W82 unsaved marker")
+            self.assertFalse(win.modified)
+            print("W82_SAVE_AFTER_RENAME=PASS")
+            selected = win.workspace_panel_view.selected_item()
+            self.assertIsNotNone(selected)
+            self.assertEqual(selected.path, os.path.abspath(target))
+            print("W82_REAL_APP_RENAME_ACTIVE_FILE=PASS")
+            print("W82_ACTIVE_UNSAVED_IDENTITY=PASS")
+            print("W82_SOURCE_NOTES_COMPANION=PASS")
+            print("W82_RECENT_FAVOURITES_REWRITE=PASS")
+        finally:
+            win.destroy()
+            _pump()
+            for path in (source, target, sidecar, target_sidecar):
+                try:
+                    os.unlink(path)
+                except FileNotFoundError:
+                    pass
+
+    def test_real_app_rename_folder_rewrites_active_descendant_identity(self):
+        workspace, _alt_workspace = self._require_environment()
+        _write_settings(workspace)
+        source_folder = os.path.join(workspace, "W82_Folder")
+        target_folder = os.path.join(workspace, "W82_Renamed_Folder")
+        for folder in (source_folder, target_folder):
+            if os.path.isdir(folder):
+                import shutil
+                shutil.rmtree(folder)
+        os.mkdir(source_folder)
+        source_file = os.path.join(source_folder, "Inside.md")
+        target_file = os.path.join(target_folder, "Inside.md")
+        Path(source_file).write_text("inside", encoding="utf-8")
+        module = _load_app_module()
+        win = module.App()
+        try:
+            win.show_all()
+            _pump()
+            win.open_path(source_file)
+            win.text.get_buffer().set_text("inside unsaved")
+            _pump()
+            win.state.save_recent_files([source_file])
+            win.state.save_favourites([source_file])
+            win.workspace_application_runtime.refresh()
+            self.assertTrue(win.workspace_panel_view.select_path(source_folder))
+            self.assertTrue(win.rename_workspace_item("W82_Renamed_Folder"))
+            _pump()
+            self.assertFalse(os.path.exists(source_folder))
+            self.assertTrue(os.path.isfile(target_file))
+            self.assertEqual(win.current_file, os.path.abspath(target_file))
+            self.assertEqual(win.buffer_text(), "inside unsaved")
+            self.assertTrue(win.modified)
+            self.assertIn(os.path.abspath(target_file), win.state.load_recent_file_store())
+            self.assertIn(os.path.abspath(target_file), win.state.load_favourite_store())
+            print("W82_REAL_APP_RENAME_FOLDER=PASS")
+            print("W82_ACTIVE_DESCENDANT_IDENTITY=PASS")
+        finally:
+            win.destroy()
+            _pump()
+            import shutil
+            for folder in (source_folder, target_folder):
+                if os.path.isdir(folder):
+                    shutil.rmtree(folder)
+
     def test_real_app_opens_real_workspace_file_from_real_tree_signal(self):
         workspace, _alt_workspace = self._require_environment()
         _write_settings(workspace)

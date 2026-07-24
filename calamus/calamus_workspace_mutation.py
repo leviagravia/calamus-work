@@ -8,7 +8,11 @@ from typing import Any
 from calamus_workspace import WorkspaceError, WorkspaceItem, path_is_within_root
 from calamus_workspace_controller import WorkspaceController
 from calamus_workspace_gio import WorkspaceGioAdapter, WorkspaceOperationResult
-from calamus_workspace_operations import WorkspaceOperationPlan, plan_new_folder, plan_new_text_file
+from calamus_workspace_identity import WorkspacePathReferenceSnapshot
+from calamus_workspace_operations import (
+    WorkspaceOperationPlan, WorkspacePathToken, WorkspaceRenamePlan,
+    plan_new_folder, plan_new_text_file, plan_workspace_rename,
+)
 
 
 class WorkspaceMutationController:
@@ -64,11 +68,46 @@ class WorkspaceMutationController:
         parent = self.destination_for_selection(selected)
         return plan_new_folder(root, parent, raw_name)
 
-    def execute(self, plan: WorkspaceOperationPlan) -> WorkspaceOperationResult:
+    @staticmethod
+    def _path_token(path: str) -> WorkspacePathToken:
+        stat_result = os.lstat(path)
+        return WorkspacePathToken(stat_result.st_dev, stat_result.st_ino, stat_result.st_mode)
+
+    def plan_rename(
+        self, selected: WorkspaceItem | None, raw_name: str
+    ) -> WorkspaceRenamePlan:
+        if selected is None:
+            raise WorkspaceError("Select one Workspace file or folder to rename.")
+        current = self._workspace.current_item(selected)
+        if current.is_symlink or os.path.islink(current.path):
+            raise WorkspaceError("Symbolic links cannot be renamed from Writing Workspace.")
+        if not current.is_directory and not os.path.isfile(current.path):
+            raise WorkspaceError("Only regular files and folders can be renamed.")
+        companion_path = None
+        companion_token = None
+        if current.internal_text and not current.is_directory:
+            candidate = current.path + ".source-notes.md"
+            if os.path.lexists(candidate):
+                if os.path.islink(candidate) or not os.path.isfile(candidate):
+                    raise WorkspaceError("The managed Source Notes sidecar is not a regular file.")
+                companion_path = candidate
+                companion_token = self._path_token(candidate)
+        return plan_workspace_rename(
+            self._workspace.root, current.path, raw_name,
+            source_is_directory=current.is_directory,
+            source_token=self._path_token(current.path),
+            companion_source_path=companion_path,
+            companion_token=companion_token,
+            manage_source_notes=bool(current.internal_text and not current.is_directory),
+        )
+
+    def execute(self, plan: WorkspaceOperationPlan | WorkspaceRenamePlan) -> WorkspaceOperationResult:
         if plan.kind == "new-text-file":
             return self._adapter.create_new_text_file(plan)
         if plan.kind == "new-folder":
             return self._adapter.create_new_folder(plan)
+        if plan.kind == "rename":
+            return self._adapter.rename_item(plan)
         raise ValueError(f"unsupported Workspace operation: {plan.kind}")
 
 
@@ -84,6 +123,8 @@ class WorkspaceMutationRuntime:
         may_continue: Callable[[], bool],
         open_document: Callable[[str], bool],
         report_error: Callable[[str], None],
+        capture_path_references: Callable[[], WorkspacePathReferenceSnapshot] | None = None,
+        reconcile_rename: Callable[[WorkspaceRenamePlan, WorkspacePathReferenceSnapshot], bool] | None = None,
     ) -> None:
         if not isinstance(controller, WorkspaceMutationController):
             raise TypeError("controller must be WorkspaceMutationController")
@@ -96,6 +137,10 @@ class WorkspaceMutationRuntime:
         self._may_continue = may_continue
         self._open_document = open_document
         self._report_error = report_error
+        self._capture_path_references = capture_path_references or (lambda: WorkspacePathReferenceSnapshot())
+        self._reconcile_rename = reconcile_rename or (lambda _plan, _references: True)
+        if not callable(self._capture_path_references) or not callable(self._reconcile_rename):
+            raise TypeError("Workspace rename reconciliation callbacks must be callable")
 
     def create_new_text_file(
         self,
@@ -165,4 +210,36 @@ class WorkspaceMutationRuntime:
             )
             return False
         self._view.select_path(result.path)
+        return True
+
+
+    def rename_item(self, selected: WorkspaceItem | None, raw_name: str) -> bool:
+        try:
+            plan = self._controller.plan_rename(selected, raw_name)
+            references = self._capture_path_references()
+            if not isinstance(references, WorkspacePathReferenceSnapshot):
+                raise TypeError("capture_path_references must return WorkspacePathReferenceSnapshot")
+        except (OSError, TypeError, ValueError) as exc:
+            self._report_error(str(exc))
+            return False
+
+        # Rename changes filesystem identity but never replaces editor content,
+        # so an unsaved document remains active and no save/discard gate runs.
+        result = self._controller.execute(plan)
+        if not result.success:
+            if result.committed:
+                self._workspace_runtime.refresh()
+                self._view.select_path(result.path)
+            self._report_error(result.message or "The selected item could not be renamed.")
+            return False
+
+        if not self._workspace_runtime.refresh():
+            self._report_error("The item was renamed, but the Writing Workspace could not be rescanned.")
+            return False
+        self._view.select_path(result.path)
+        if not self._reconcile_rename(plan, references):
+            self._report_error(
+                "The item was renamed, but Calamus could not fully reconcile document path references."
+            )
+            return False
         return True

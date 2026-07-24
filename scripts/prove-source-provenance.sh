@@ -53,6 +53,7 @@ modules = [
     "calamus_workspace_operations",
     "calamus_workspace_gio",
     "calamus_workspace_mutation",
+    "calamus_workspace_identity",
     "calamus_panel_chrome",
     "calamus_references",
     "calamus_reference_store",

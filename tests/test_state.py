@@ -34,6 +34,17 @@ class StateManagerTests(unittest.TestCase):
             self.assertTrue(state.save_favourites([existing, existing, os.path.join(td, "missing")]))
             self.assertEqual(state.load_favourites(), [os.path.abspath(existing)])
 
+    def test_raw_recent_and_favourite_loaders_preserve_temporarily_missing_paths(self):
+        with tempfile.TemporaryDirectory() as td:
+            state = StateManager(td)
+            missing = os.path.join(td, "renamed-away.md")
+            self.assertTrue(state.save_recent_files([missing]))
+            self.assertTrue(state.save_favourites([missing]))
+            self.assertEqual(state.load_recent_files(), [])
+            self.assertEqual(state.load_favourites(), [])
+            self.assertEqual(state.load_recent_file_store(), [missing])
+            self.assertEqual(state.load_favourite_store(), [missing])
+
     def test_clips_roundtrip_through_state(self):
         with tempfile.TemporaryDirectory() as td:
             state = StateManager(td)

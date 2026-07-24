@@ -56,10 +56,16 @@ class StateManager:
             return save_settings(data)
         return save_json_file(self.settings_file, data)
 
+    def load_recent_file_store(self, limit: int = 10) -> list[str]:
+        """Load canonical recent paths without dropping temporarily missing entries."""
+        if self.config_dir == CONFIG_DIR:
+            return _dedupe_paths(load_json_file(RECENT_FILE, []))[:limit]
+        return _dedupe_paths(load_json_file(self.recent_file, []))[:limit]
+
     def load_recent_files(self, limit: int = 10) -> list[str]:
         if self.config_dir == CONFIG_DIR:
             return load_recent_files(limit)
-        return _clean_existing_paths(load_json_file(self.recent_file, []), limit)
+        return _clean_existing_paths(self.load_recent_file_store(limit), limit)
 
     def save_recent_files(self, items: list[str], limit: int = 10) -> bool:
         if self.config_dir == CONFIG_DIR:

@@ -41,7 +41,7 @@ class ReleaseRegressionTests(unittest.TestCase):
             "calamus_workspace_application.py", "calamus_workspace_menu.py",
             "calamus_workspace_external.py", "calamus_workspace_tree.py",
             "calamus_workspace_panel.py", "calamus_workspace_operations.py",
-            "calamus_workspace_gio.py", "calamus_workspace_mutation.py",
+            "calamus_workspace_gio.py", "calamus_workspace_mutation.py", "calamus_workspace_identity.py",
             "calamus_panel_chrome.py",
             "calamus_references.py", "calamus_reference_store.py",
             "calamus_reference_controller.py", "calamus_reference_panel.py",

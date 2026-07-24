@@ -92,7 +92,7 @@ class WorkspacePanelView:
         self.root_label.set_max_width_chars(24)
         self.widget.pack_start(self.root_label, False, False, 0)
 
-        self.hint = Gtk.Label(label="Open files · create text files and folders · bounded writing tree")
+        self.hint = Gtk.Label(label="Open, create and rename · bounded writing tree")
         self.hint.set_name("calamus-workspace-hint")
         self.hint.set_xalign(0)
         self.hint.set_hexpand(True)

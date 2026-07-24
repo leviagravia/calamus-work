@@ -8,8 +8,11 @@ from calamus_workspace_operations import (
     normalize_text_suffix,
     normalize_workspace_basename,
     normalize_workspace_folder_name,
+    WorkspacePathToken,
+    normalize_workspace_rename_name,
     plan_new_folder,
     plan_new_text_file,
+    plan_workspace_rename,
 )
 
 
@@ -84,6 +87,55 @@ class WorkspaceOperationPlannerTests(unittest.TestCase):
         outside.mkdir()
         with self.assertRaises(WorkspaceOperationError):
             plan_new_folder(str(self.root), str(outside), "Research")
+
+    def test_rename_name_is_one_visible_component_without_suffix_policy(self):
+        self.assertEqual(normalize_workspace_rename_name("  Chapter.pdf  "), "Chapter.pdf")
+        for value in ("", "../escape", "nested/name", r"nested\name", ".hidden", ".", ".."):
+            with self.subTest(value=value):
+                with self.assertRaises(WorkspaceOperationError):
+                    normalize_workspace_rename_name(value)
+
+    def test_file_rename_plan_is_same_parent_confined_and_can_carry_sidecar(self):
+        source = self.parent / "Draft.md"
+        sidecar = Path(str(source) + ".source-notes.md")
+        token = WorkspacePathToken(1, 2, 3)
+        companion_token = WorkspacePathToken(1, 4, 5)
+        plan = plan_workspace_rename(
+            str(self.root), str(source), "Chapter.md", source_is_directory=False,
+            source_token=token, companion_source_path=str(sidecar),
+            companion_token=companion_token, manage_source_notes=True,
+        )
+        self.assertEqual(plan.target_path, str(self.parent / "Chapter.md"))
+        self.assertEqual(plan.companion_target_path, str(self.parent / "Chapter.md.source-notes.md"))
+        self.assertFalse(plan.source_is_directory)
+
+    def test_folder_rename_plan_has_no_document_open_or_recursive_move_semantics(self):
+        source = self.parent / "Old"
+        plan = plan_workspace_rename(
+            str(self.root), str(source), "New", source_is_directory=True,
+            source_token=WorkspacePathToken(1, 2, 3),
+        )
+        self.assertEqual(plan.parent_path, str(self.parent))
+        self.assertEqual(plan.target_path, str(self.parent / "New"))
+        self.assertIsNone(plan.companion_source_path)
+
+    def test_rename_rejects_noop_root_and_managed_sidecar_directly(self):
+        token = WorkspacePathToken(1, 2, 3)
+        with self.assertRaises(WorkspaceOperationError):
+            plan_workspace_rename(
+                str(self.root), str(self.parent / "Draft.md"), "Draft.md",
+                source_is_directory=False, source_token=token,
+            )
+        with self.assertRaises(WorkspaceOperationError):
+            plan_workspace_rename(
+                str(self.root), str(self.root), "Other",
+                source_is_directory=True, source_token=token,
+            )
+        with self.assertRaises(WorkspaceOperationError):
+            plan_workspace_rename(
+                str(self.root), str(self.parent / "Draft.md.source-notes.md"), "Other.md",
+                source_is_directory=False, source_token=token,
+            )
 
 
 if __name__ == "__main__":

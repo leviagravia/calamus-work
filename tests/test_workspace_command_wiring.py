@@ -23,17 +23,17 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         for forbidden in ('open(', 'subprocess', 'os.scandir', 'read_text_file', 'App.open_path'):
             self.assertNotIn(forbidden,view)
 
-    def test_workspace_mutation_scope_is_bounded_to_new_text_file_and_folder(self):
+    def test_workspace_mutation_scope_is_bounded_to_create_and_rename_only(self):
         combined='\n'.join((ROOT/'calamus'/name).read_text(encoding='utf-8') for name in (
             'calamus_workspace.py','calamus_workspace_controller.py','calamus_workspace_application.py',
             'calamus_workspace_tree.py','calamus_workspace_panel.py',
             'calamus_workspace_operations.py','calamus_workspace_gio.py',
-            'calamus_workspace_mutation.py'))
+            'calamus_workspace_mutation.py','calamus_workspace_identity.py'))
         self.assertIn('new-text-file', combined)
         self.assertIn('new-folder', combined)
         self.assertIn('target.create(Gio.FileCreateFlags.NONE, None)', combined)
-        for forbidden in ('os.rename','os.remove','os.unlink','shutil.move','copytree','send2trash',
-                          'Gio.FileMonitor','set_display_name','trash(','make_directory_with_parents'):
+        for forbidden in ('os.remove','os.unlink','shutil.move','copytree','send2trash',
+                          'Gio.FileMonitor','trash(','make_directory_with_parents'):
             self.assertNotIn(forbidden,combined)
 
     def test_chooser_and_panel_are_unambiguously_distinct(self):
@@ -44,7 +44,7 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('Set Current Folder as Workspace',dialogs)
         self.assertIn('folder_filter.add_custom',dialogs)
         self.assertIn('dialog.get_current_folder()',dialogs)
-        self.assertIn('Open files · create text files and folders · bounded writing tree',panel)
+        self.assertIn('Open, create and rename · bounded writing tree',panel)
         self.assertIn('os.path.basename(snapshot.root.rstrip(os.sep))',panel)
         self.assertIn('self.root_label.set_max_width_chars(24)',panel)
         self.assertIn('self.scroll.set_propagate_natural_width(False)',panel)
@@ -63,17 +63,18 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         visible=launcher.index('if startup_workspace_visible:')
         self.assertLess(zero,visible)
 
-    def test_menu_exposes_only_new_text_file_and_new_folder_mutations(self):
+    def test_menu_exposes_create_and_single_item_rename_only(self):
         ui=(ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8')
         start=ui.index('app.workspace_file_item = Gtk.MenuItem(label="Writing Workspace")')
         end=ui.index('add_separator(filem)', start)
         workspace_menu=ui[start:end]
         self.assertIn('New Text File…', workspace_menu)
         self.assertIn('New Folder…', workspace_menu)
+        self.assertIn('Rename Selected Item…', workspace_menu)
         self.assertIn('Change Workspace Folder…',workspace_menu)
         self.assertIn('Show Workspace Panel',workspace_menu)
         self.assertIn('Close Workspace',workspace_menu)
-        for forbidden in ('Rename…', 'Duplicate', 'Move to Trash',
+        for forbidden in ('Duplicate', 'Move to Trash',
                           'Delete Workspace', 'Copy Workspace', 'Move Workspace'):
             self.assertNotIn(forbidden,workspace_menu)
 
@@ -81,7 +82,7 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         ui=(ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8')
         self.assertIn('app.workspace_file_item = Gtk.MenuItem(label="Writing Workspace")',ui)
         self.assertIn('app.workspace_file_item.set_submenu(app.workspace_file_menu)',ui)
-        for label in ('Show Workspace Panel','New Text File…','New Folder…','Change Workspace Folder…','Recent Workspaces','Rescan Folder Contents','Reveal Workspace Folder in File Manager','Close Workspace'):
+        for label in ('Show Workspace Panel','New Text File…','New Folder…','Rename Selected Item…','Change Workspace Folder…','Recent Workspaces','Rescan Folder Contents','Reveal Workspace Folder in File Manager','Close Workspace'):
             self.assertIn(label,ui)
         top_level_block=ui[ui.index('app.workspace_file_item ='):ui.index('add_separator(filem)',ui.index('app.workspace_file_item ='))]
         self.assertNotIn('add_item(filem, "Refresh Writing Workspace"',top_level_block)
@@ -171,6 +172,46 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('Folder name:', block)
         for forbidden in ('Gio.File', 'open(', 'write(', 'os.mkdir', 'os.rename', 'make_directory'):
             self.assertNotIn(forbidden, block)
+
+
+    def test_rename_uses_pure_plan_gio_set_display_name_and_identity_reconciliation(self):
+        planner=(ROOT/'calamus/calamus_workspace_operations.py').read_text(encoding='utf-8')
+        adapter=(ROOT/'calamus/calamus_workspace_gio.py').read_text(encoding='utf-8')
+        runtime=(ROOT/'calamus/calamus_workspace_mutation.py').read_text(encoding='utf-8')
+        identity=(ROOT/'calamus/calamus_workspace_identity.py').read_text(encoding='utf-8')
+        launcher=(ROOT/'bin/calamus').read_text(encoding='utf-8')
+        self.assertIn('class WorkspaceRenamePlan', planner)
+        self.assertIn('def plan_workspace_rename(', planner)
+        self.assertNotIn('os.rename', planner)
+        self.assertIn('.set_display_name(', adapter)
+        self.assertIn('def rename_item(', runtime)
+        block=runtime[runtime.index('def rename_item('):]
+        self.assertNotIn('self._may_continue()', block)
+        self.assertIn('self._workspace_runtime.refresh()', block)
+        self.assertIn('self._reconcile_rename(plan, references)', block)
+        self.assertIn('def plan_workspace_rename_identity(', identity)
+        self.assertIn('self.document.file_path = identity.current_file_after', launcher)
+        self.assertIn('self.sync_source_notes_document(force=True)', launcher)
+        self.assertIn('self.state.save_recent_files', launcher)
+        self.assertIn('self.state.save_favourites', launcher)
+
+    def test_rename_dialog_is_input_only_and_prefills_current_name(self):
+        dialogs=(ROOT/'calamus/calamus_dialogs.py').read_text(encoding='utf-8')
+        block=dialogs[dialogs.index('def prompt_rename_workspace_item'):dialogs.index('def choose_save_file')]
+        self.assertIn('Rename {kind} in Writing Workspace', block)
+        self.assertIn('entry.set_text(current_name)', block)
+        self.assertIn('entry.select_region', block)
+        for forbidden in ('Gio.File', 'os.rename', 'set_display_name', 'shutil.move'):
+            self.assertNotIn(forbidden, block)
+
+    def test_rename_scope_rejects_bulk_move_delete_and_root_rename(self):
+        combined='\n'.join((ROOT/'calamus'/name).read_text(encoding='utf-8') for name in (
+            'calamus_workspace_operations.py','calamus_workspace_gio.py',
+            'calamus_workspace_mutation.py','calamus_workspace_identity.py'))
+        self.assertIn('The Workspace root itself cannot be renamed here.', combined)
+        self.assertIn('Select one Workspace file or folder to rename.', combined)
+        for forbidden in ('bulk rename','move_to','MovePlan','delete_permanently','send2trash'):
+            self.assertNotIn(forbidden, combined)
 
     def test_toplevel_geometry_uses_wm_hints_not_widget_size_request(self):
         launcher = (ROOT / "bin" / "calamus").read_text(encoding="utf-8")

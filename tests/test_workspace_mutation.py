@@ -6,6 +6,7 @@ import unittest
 from calamus_workspace_application import WorkspaceApplicationRuntime
 from calamus_workspace_controller import WorkspaceController
 from calamus_workspace_gio import WorkspaceOperationResult
+from calamus_workspace_identity import WorkspacePathReferenceSnapshot
 from calamus_workspace_mutation import WorkspaceMutationController, WorkspaceMutationRuntime
 
 
@@ -25,6 +26,19 @@ class RealExclusiveLocalAdapter:
             return WorkspaceOperationResult(True, plan.target_path, committed=True)
         except OSError as exc:
             return WorkspaceOperationResult(False, plan.target_path, str(exc), committed=False)
+
+    def rename_item(self, plan):
+        try:
+            if os.path.lexists(plan.target_path):
+                raise FileExistsError(plan.target_path)
+            if plan.companion_target_path and os.path.lexists(plan.companion_target_path):
+                raise FileExistsError(plan.companion_target_path)
+            if plan.companion_source_path:
+                os.rename(plan.companion_source_path, plan.companion_target_path)
+            os.rename(plan.source_path, plan.target_path)
+            return WorkspaceOperationResult(True, plan.target_path, committed=True, source_path=plan.source_path)
+        except OSError as exc:
+            return WorkspaceOperationResult(False, plan.target_path, str(exc), committed=False, source_path=plan.source_path)
 
 
 class CommittedFailureAdapter:
@@ -73,6 +87,8 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
         self.errors = []
         self.opens = []
         self.continue_allowed = True
+        self.reconciled = []
+        self.references = WorkspacePathReferenceSnapshot()
         self.workspace_controller = WorkspaceController()
         self.workspace_runtime = WorkspaceApplicationRuntime(
             self.workspace_controller,
@@ -98,6 +114,8 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
             may_continue=lambda: self.continue_allowed,
             open_document=lambda path: self.opens.append(path) or True,
             report_error=self.errors.append,
+            capture_path_references=lambda: self.references,
+            reconcile_rename=lambda plan, refs: self.reconciled.append((plan, refs)) or True,
         )
 
     def tearDown(self):
@@ -198,6 +216,52 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
         self.assertTrue(target.is_dir())
         self.assertEqual(self.view.selected_paths[-1], str(target))
         self.assertEqual(self.opens, [])
+
+    def test_rename_file_rescans_selects_and_reconciles_without_open_or_unsaved_gate(self):
+        self.continue_allowed = False
+        source = self.drafts / "Existing.md"
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        self.assertTrue(self.runtime.rename_item(self.view.selected, "Renamed.md"))
+        target = self.drafts / "Renamed.md"
+        self.assertFalse(source.exists())
+        self.assertEqual(target.read_text(encoding="utf-8"), "existing")
+        self.assertEqual(self.opens, [])
+        self.assertEqual(self.view.selected_paths[-1], str(target))
+        self.assertEqual(self.reconciled[-1][0].source_path, str(source))
+
+    def test_rename_folder_preserves_children_and_reconciles_descendant_paths(self):
+        folder = self.drafts / "Folder"
+        folder.mkdir()
+        (folder / "Inside.md").write_text("inside", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts/Folder")
+        self.assertTrue(self.runtime.rename_item(self.view.selected, "RenamedFolder"))
+        self.assertEqual((self.drafts / "RenamedFolder" / "Inside.md").read_text(encoding="utf-8"), "inside")
+        self.assertTrue(self.reconciled[-1][0].source_is_directory)
+
+    def test_rename_requires_selection_and_rejects_collision_and_managed_sidecar(self):
+        self.assertFalse(self.runtime.rename_item(None, "Nothing"))
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        (self.drafts / "Collision.md").write_text("collision", encoding="utf-8")
+        self.assertFalse(self.runtime.rename_item(self.view.selected, "Collision.md"))
+        self.assertEqual((self.drafts / "Existing.md").read_text(encoding="utf-8"), "existing")
+
+        sidecar = self.drafts / "Existing.md.source-notes.md"
+        sidecar.write_text("notes", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        sidecar_item = self.view.snapshot.by_relative_path("Drafts/Existing.md.source-notes.md")
+        self.assertFalse(self.runtime.rename_item(sidecar_item, "Other.md"))
+        self.assertTrue(sidecar.exists())
+
+    def test_rename_text_file_moves_managed_sidecar(self):
+        source = self.drafts / "Existing.md"
+        sidecar = Path(str(source) + ".source-notes.md")
+        sidecar.write_text("notes", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        self.assertTrue(self.runtime.rename_item(self.view.selected, "Chapter.md"))
+        self.assertFalse(sidecar.exists())
+        self.assertEqual((self.drafts / "Chapter.md.source-notes.md").read_text(encoding="utf-8"), "notes")
 
 
 if __name__ == "__main__":
