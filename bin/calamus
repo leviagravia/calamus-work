@@ -101,6 +101,8 @@ from calamus_citation_dialogs import choose_citation_key, run_quick_cite_dialog
 from calamus_source_note_runtime import SourceNotePanelRuntime
 from calamus_research_integrity_controller import ResearchIntegrityController
 from calamus_research_integrity_runtime import ResearchIntegrityRuntime
+from calamus_research_export_controller import ResearchExportController
+from calamus_research_export_runtime import ResearchExportRuntime
 from calamus_research_panel import ResearchPanelRuntime
 from calamus_research_panel_view import ResearchPanelViewAdapter
 from calamus_navigation import line_to_buffer_index
@@ -2105,6 +2107,19 @@ class App(Gtk.Window):
             records_provider=lambda: self.reference_panel_runtime.records,
             selected_key_provider=lambda: self.reference_panel_runtime.selected_key,
         )
+        self.research_export_controller = ResearchExportController(
+            reference_store=self.reference_store,
+            document_path_provider=lambda: self.document.file_path,
+            document_text_provider=self.buffer_text,
+            document_structure_provider=lambda: self.navigation_controller.structure,
+        )
+        self.research_export_runtime = ResearchExportRuntime(
+            self,
+            self.research_export_controller,
+            document_path_provider=lambda: self.document.file_path,
+            show_error=lambda message: show_error(self, message),
+            show_info=lambda message: show_info(self, message),
+        )
 
     def refresh_clip_list(self):
         self.clip_collection.refresh()
@@ -2185,6 +2200,9 @@ class App(Gtk.Window):
 
     def on_research_check(self, *_):
         return self.research_integrity_runtime.research_check()
+
+    def on_export_research_apparatus(self, *_):
+        return self.research_export_runtime.export()
 
     def show_heading_target(self, target):
         return self.navigation_controller.navigate_identifier(target) is not None
