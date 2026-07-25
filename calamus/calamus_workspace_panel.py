@@ -24,17 +24,19 @@ class WorkspacePanelView:
         on_new_folder: Callable[[], None],
         on_rename_item: Callable[[], None],
         on_duplicate_file: Callable[[], None],
+        on_move_to_trash: Callable[[], None],
         on_choose_root: Callable[[], None],
         on_refresh: Callable[[], None],
         on_reveal: Callable[[], None],
         on_activate_item: Callable[[WorkspaceItem], None],
     ) -> None:
-        for callback in (on_hide, on_new_text_file, on_new_folder, on_rename_item, on_duplicate_file, on_choose_root, on_refresh, on_reveal, on_activate_item):
+        for callback in (on_hide, on_new_text_file, on_new_folder, on_rename_item, on_duplicate_file, on_move_to_trash, on_choose_root, on_refresh, on_reveal, on_activate_item):
             if not callable(callback):
                 raise TypeError("workspace panel callbacks must be callable")
         self._on_activate_item = on_activate_item
         self._on_rename_item = on_rename_item
         self._on_duplicate_file = on_duplicate_file
+        self._on_move_to_trash = on_move_to_trash
         self._context_menu = None
         self.widget = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.widget.set_name("calamus-workspace-panel")
@@ -97,7 +99,7 @@ class WorkspacePanelView:
         self.root_label.set_max_width_chars(24)
         self.widget.pack_start(self.root_label, False, False, 0)
 
-        self.hint = Gtk.Label(label="Open, create, rename and duplicate · bounded writing tree")
+        self.hint = Gtk.Label(label="Open, create, rename, duplicate and trash · bounded writing tree")
         self.hint.set_name("calamus-workspace-hint")
         self.hint.set_xalign(0)
         self.hint.set_hexpand(True)
@@ -171,6 +173,17 @@ class WorkspacePanelView:
                 "activate", lambda _menu_item: self._on_duplicate_file()
             )
             menu.append(duplicate)
+
+        # W84 exposes only the canonical system-Trash gateway.  No permanent
+        # delete action exists, and symbolic links remain outside the bounded
+        # mutation scope.
+        if not item.is_symlink and not item.name.endswith(".source-notes.md"):
+            menu.append(Gtk.SeparatorMenuItem())
+            trash = Gtk.MenuItem(label="Move to Trash")
+            trash.connect(
+                "activate", lambda _menu_item: self._on_move_to_trash()
+            )
+            menu.append(trash)
 
         menu.show_all()
         self._context_menu = menu

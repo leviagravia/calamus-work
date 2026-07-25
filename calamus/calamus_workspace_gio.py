@@ -16,7 +16,7 @@ except Exception:  # Import remains possible in headless/source-only environment
 
 from calamus_workspace_operations import (
     WorkspaceContentToken, WorkspaceDuplicatePlan, WorkspaceOperationPlan,
-    WorkspacePathToken, WorkspaceRenamePlan,
+    WorkspacePathToken, WorkspaceRenamePlan, WorkspaceTrashPlan,
 )
 
 
@@ -487,3 +487,149 @@ class WorkspaceGioAdapter:
             )
         except GLib.Error as exc:
             return rollback_failure(f"The text file could not be duplicated: {exc.message}")
+
+
+    @staticmethod
+    def _validated_trash_source(plan: WorkspaceTrashPlan) -> tuple[str, str] | None:
+        root = os.path.abspath(plan.root)
+        parent = os.path.abspath(plan.parent_path)
+        source = os.path.abspath(plan.source_path)
+        try:
+            safe = (
+                source != root
+                and os.path.dirname(source) == parent
+                and os.path.isdir(root)
+                and not os.path.islink(root)
+                and os.path.isdir(parent)
+                and not os.path.islink(parent)
+                and os.path.commonpath((os.path.realpath(root), os.path.realpath(parent)))
+                == os.path.realpath(root)
+                and os.path.commonpath((root, source)) == root
+            )
+        except (OSError, TypeError, ValueError):
+            safe = False
+        return (root, parent) if safe else None
+
+    @staticmethod
+    def _trash_capability(file_obj, expected_type) -> tuple[bool, str]:
+        try:
+            info = file_obj.query_info(
+                "standard::type,standard::is-symlink,access::can-trash",
+                Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
+                None,
+            )
+        except GLib.Error as exc:
+            return False, f"Trash capability could not be verified: {exc.message}"
+        if info.get_is_symlink() or info.get_file_type() != expected_type:
+            return False, "The selected item changed type or became a symbolic link."
+        if info.has_attribute("access::can-trash") and not info.get_attribute_boolean(
+            "access::can-trash"
+        ):
+            return False, "The filesystem reports that this item cannot be moved to Trash."
+        return True, ""
+
+    def move_to_trash(self, plan: WorkspaceTrashPlan) -> WorkspaceOperationResult:
+        """Move one verified item to the system Trash with no delete fallback.
+
+        A managed Source Notes companion is preflighted before the primary item.
+        GIO does not provide a cross-item atomic Trash transaction, so the
+        primary document is trashed first.  A later companion failure is
+        reported as an explicit committed partial result; Calamus never falls
+        back to permanent deletion and never hides the partial outcome.
+        """
+        if not isinstance(plan, WorkspaceTrashPlan):
+            raise TypeError("plan must be WorkspaceTrashPlan")
+        if plan.kind != "move-to-trash":
+            raise ValueError(f"unsupported Workspace operation: {plan.kind}")
+        if not HAVE_GIO:
+            return WorkspaceOperationResult(
+                False, plan.parent_path, "GIO is unavailable; nothing was moved to Trash.", False
+            )
+
+        validated = self._validated_trash_source(plan)
+        if validated is None:
+            return WorkspaceOperationResult(
+                False, plan.parent_path,
+                "The selected item parent changed or resolves outside the Writing Workspace.",
+                False,
+            )
+        root, parent = validated
+        expected_type = Gio.FileType.DIRECTORY if plan.source_is_directory else Gio.FileType.REGULAR
+        if (
+            os.path.islink(plan.source_path)
+            or not self._same_token(plan.source_path, plan.source_token)
+            or plan.source_is_directory != os.path.isdir(plan.source_path)
+            or not self._target_within_root(root, plan.source_path)
+        ):
+            return WorkspaceOperationResult(
+                False, parent, "The selected item changed before it could be moved to Trash.", False
+            )
+
+        source = Gio.File.new_for_path(plan.source_path)
+        trashable, message = self._trash_capability(source, expected_type)
+        if not trashable:
+            return WorkspaceOperationResult(False, parent, message, False)
+
+        companion = None
+        if plan.companion_source_path is not None:
+            if (
+                plan.companion_token is None
+                or os.path.islink(plan.companion_source_path)
+                or not os.path.isfile(plan.companion_source_path)
+                or not self._same_token(plan.companion_source_path, plan.companion_token)
+                or not self._target_within_root(root, plan.companion_source_path)
+            ):
+                return WorkspaceOperationResult(
+                    False, parent,
+                    "The managed Source Notes sidecar changed before the item could be moved to Trash.",
+                    False,
+                )
+            companion = Gio.File.new_for_path(plan.companion_source_path)
+            companion_trashable, companion_message = self._trash_capability(
+                companion, Gio.FileType.REGULAR
+            )
+            if not companion_trashable:
+                return WorkspaceOperationResult(False, parent, companion_message, False)
+
+        try:
+            if not source.trash(None):
+                return WorkspaceOperationResult(
+                    False, parent, "The system Trash operation was not accepted.", False
+                )
+        except GLib.Error as exc:
+            return WorkspaceOperationResult(
+                False, parent, f"The item could not be moved to Trash: {exc.message}", False
+            )
+
+        primary_committed = not os.path.lexists(plan.source_path)
+        if not primary_committed:
+            return WorkspaceOperationResult(
+                False, parent,
+                "GIO reported success, but the selected item is still present at its original path.",
+                False,
+            )
+
+        if companion is not None:
+            try:
+                companion_ok = bool(companion.trash(None))
+            except GLib.Error as exc:
+                return WorkspaceOperationResult(
+                    False, parent,
+                    "The item was moved to Trash, but its managed Source Notes sidecar "
+                    f"could not be moved: {exc.message}",
+                    True, source_path=plan.source_path,
+                    companion_path=plan.companion_source_path or "",
+                )
+            if not companion_ok or os.path.lexists(plan.companion_source_path):
+                return WorkspaceOperationResult(
+                    False, parent,
+                    "The item was moved to Trash, but its managed Source Notes sidecar remains "
+                    "at the original path.",
+                    True, source_path=plan.source_path,
+                    companion_path=plan.companion_source_path or "",
+                )
+
+        return WorkspaceOperationResult(
+            True, parent, committed=True, source_path=plan.source_path,
+            companion_path=plan.companion_source_path or "",
+        )

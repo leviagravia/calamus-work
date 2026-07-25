@@ -1,4 +1,4 @@
-"""Pure application-identity reconciliation after a Workspace rename."""
+"""Pure application-identity reconciliation after Workspace rename or Trash."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -22,6 +22,81 @@ class WorkspaceRenameIdentityPlan:
     @property
     def document_identity_changed(self) -> bool:
         return self.current_file_before != self.current_file_after
+
+
+@dataclass(frozen=True)
+class WorkspaceTrashIdentityPlan:
+    current_file_before: str | None
+    current_file_after: str | None
+    active_document_detached: bool
+    recent_files_after: tuple[str, ...]
+    favourites_after: tuple[str, ...]
+
+
+def path_is_trashed(
+    path: str | None,
+    source_path: str,
+    *,
+    source_is_directory: bool,
+) -> bool:
+    if path is None:
+        return False
+    if not all(isinstance(value, str) and value for value in (path, source_path)):
+        raise TypeError("trash paths must be non-empty strings")
+    current = os.path.abspath(path)
+    source = os.path.abspath(source_path)
+    if current == source:
+        return True
+    if not source_is_directory:
+        return False
+    try:
+        return os.path.commonpath((source, current)) == source
+    except ValueError:
+        return False
+
+
+def filter_trashed_path_collection(
+    paths: Iterable[str],
+    source_path: str,
+    *,
+    source_is_directory: bool,
+) -> tuple[str, ...]:
+    kept: list[str] = []
+    for item in paths:
+        if not isinstance(item, str) or not item:
+            continue
+        if path_is_trashed(item, source_path, source_is_directory=source_is_directory):
+            continue
+        normalized = os.path.abspath(item)
+        if normalized not in kept:
+            kept.append(normalized)
+    return tuple(kept)
+
+
+def plan_workspace_trash_identity(
+    current_file: str | None,
+    references: WorkspacePathReferenceSnapshot,
+    source_path: str,
+    *,
+    source_is_directory: bool,
+) -> WorkspaceTrashIdentityPlan:
+    if not isinstance(references, WorkspacePathReferenceSnapshot):
+        raise TypeError("references must be WorkspacePathReferenceSnapshot")
+    current_before = os.path.abspath(current_file) if current_file else None
+    detach = path_is_trashed(
+        current_before, source_path, source_is_directory=source_is_directory
+    )
+    return WorkspaceTrashIdentityPlan(
+        current_file_before=current_before,
+        current_file_after=None if detach else current_before,
+        active_document_detached=detach,
+        recent_files_after=filter_trashed_path_collection(
+            references.recent_files, source_path, source_is_directory=source_is_directory
+        ),
+        favourites_after=filter_trashed_path_collection(
+            references.favourites, source_path, source_is_directory=source_is_directory
+        ),
+    )
 
 
 def path_after_rename(

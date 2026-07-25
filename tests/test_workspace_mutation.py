@@ -58,6 +58,30 @@ class RealExclusiveLocalAdapter:
         except OSError as exc:
             return WorkspaceOperationResult(False, plan.target_path, str(exc), committed=False, source_path=plan.source_path)
 
+    def move_to_trash(self, plan):
+        bucket = Path(plan.root).parent / "SystemTrash"
+        bucket.mkdir(exist_ok=True)
+        primary_target = bucket / plan.source_name
+        companion_target = (
+            bucket / Path(plan.companion_source_path).name
+            if plan.companion_source_path else None
+        )
+        try:
+            if primary_target.exists() or (companion_target and companion_target.exists()):
+                raise FileExistsError("trash collision")
+            os.rename(plan.source_path, primary_target)
+            if plan.companion_source_path:
+                os.rename(plan.companion_source_path, companion_target)
+            return WorkspaceOperationResult(
+                True, plan.parent_path, committed=True, source_path=plan.source_path,
+                companion_path=plan.companion_source_path or "",
+            )
+        except OSError as exc:
+            return WorkspaceOperationResult(
+                False, plan.parent_path, str(exc), committed=not os.path.lexists(plan.source_path),
+                source_path=plan.source_path, companion_path=plan.companion_source_path or "",
+            )
+
 
 class CommittedFailureAdapter:
     def create_new_text_file(self, plan):
@@ -77,6 +101,16 @@ class CommittedFailureAdapter:
         return WorkspaceOperationResult(
             False, plan.target_path, "copied but verification failed", committed=True,
             source_path=plan.source_path,
+        )
+
+    def move_to_trash(self, plan):
+        bucket = Path(plan.root).parent / "SystemTrashPartial"
+        bucket.mkdir(exist_ok=True)
+        os.rename(plan.source_path, bucket / plan.source_name)
+        return WorkspaceOperationResult(
+            False, plan.parent_path,
+            "item trashed but Source Notes companion remains", committed=True,
+            source_path=plan.source_path, companion_path=plan.companion_source_path or "",
         )
 
 
@@ -113,6 +147,9 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
         self.opens = []
         self.continue_allowed = True
         self.reconciled = []
+        self.trash_reconciled = []
+        self.trash_confirmed = []
+        self.current_document = None
         self.references = WorkspacePathReferenceSnapshot()
         self.workspace_controller = WorkspaceController()
         self.workspace_runtime = WorkspaceApplicationRuntime(
@@ -141,6 +178,9 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
             report_error=self.errors.append,
             capture_path_references=lambda: self.references,
             reconcile_rename=lambda plan, refs: self.reconciled.append((plan, refs)) or True,
+            current_document_path=lambda: self.current_document,
+            confirm_trash=lambda plan, active: self.trash_confirmed.append((plan, active)) or True,
+            reconcile_trash=lambda plan, refs: self.trash_reconciled.append((plan, refs)) or True,
         )
 
     def tearDown(self):
@@ -321,6 +361,89 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
                 item=self.view.snapshot.by_relative_path(rel)
                 self.assertFalse(self.runtime.duplicate_text_file(item))
                 self.assertTrue(self.errors)
+
+    def test_move_regular_text_file_and_sidecar_to_trash_reconciles_and_selects_parent(self):
+        source = self.drafts / "Existing.md"
+        sidecar = Path(str(source) + ".source-notes.md")
+        sidecar.write_text("notes", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        self.references = WorkspacePathReferenceSnapshot(
+            recent_files=(str(source),), favourites=(str(source),)
+        )
+        self.assertTrue(self.runtime.move_to_trash(self.view.selected))
+        self.assertFalse(source.exists())
+        self.assertFalse(sidecar.exists())
+        self.assertEqual(self.view.selected_paths[-1], str(self.drafts))
+        self.assertFalse(self.trash_confirmed[-1][1])
+        self.assertEqual(self.trash_reconciled[-1][0].source_path, str(source))
+
+    def test_move_folder_to_trash_marks_active_descendant_for_detach(self):
+        folder = self.drafts / "Book"
+        folder.mkdir()
+        active = folder / "Chapter.md"
+        active.write_text("chapter", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts/Book")
+        self.current_document = str(active)
+        self.assertTrue(self.runtime.move_to_trash(self.view.selected))
+        self.assertFalse(folder.exists())
+        self.assertTrue(self.trash_confirmed[-1][1])
+        self.assertTrue(self.trash_reconciled[-1][0].source_is_directory)
+
+    def test_trash_cancel_precedes_filesystem_mutation(self):
+        source = self.drafts / "Existing.md"
+        self.view.selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        runtime = WorkspaceMutationRuntime(
+            self.mutation_controller, self.workspace_runtime, self.view,
+            may_continue=lambda: True, open_document=lambda _path: True,
+            report_error=self.errors.append,
+            confirm_trash=lambda _plan, _active: False,
+        )
+        self.assertFalse(runtime.move_to_trash(self.view.selected))
+        self.assertTrue(source.exists())
+
+    def test_committed_partial_trash_still_reconciles_and_reports(self):
+        source = self.drafts / "Existing.md"
+        sidecar = Path(str(source) + ".source-notes.md")
+        sidecar.write_text("notes", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        controller = WorkspaceMutationController(
+            self.workspace_controller, CommittedFailureAdapter()
+        )
+        reconciled = []
+        runtime = WorkspaceMutationRuntime(
+            controller, self.workspace_runtime, self.view,
+            may_continue=lambda: True, open_document=lambda _path: True,
+            report_error=self.errors.append,
+            reconcile_trash=lambda plan, refs: reconciled.append((plan, refs)) or True,
+            confirm_trash=lambda _plan, _active: True,
+        )
+        self.assertFalse(runtime.move_to_trash(selected))
+        self.assertFalse(source.exists())
+        self.assertTrue(sidecar.exists())
+        self.assertTrue(reconciled)
+        self.assertIn("companion remains", self.errors[-1])
+
+    def test_trash_rejects_no_selection_symlink_and_managed_sidecar(self):
+        self.assertFalse(self.runtime.move_to_trash(None))
+        sidecar = self.drafts / "Existing.md.source-notes.md"
+        sidecar.write_text("notes", encoding="utf-8")
+        outside = Path(self.tmp.name) / "Outside.md"
+        outside.write_text("outside", encoding="utf-8")
+        try:
+            (self.drafts / "Link.md").symlink_to(outside)
+        except OSError:
+            pass
+        self.workspace_runtime.refresh()
+        for rel in ("Drafts/Existing.md.source-notes.md", "Drafts/Link.md"):
+            item = self.view.snapshot.by_relative_path(rel)
+            if item is None:
+                continue
+            self.errors.clear()
+            self.assertFalse(self.runtime.move_to_trash(item))
+            self.assertTrue(self.errors)
 
 
 if __name__ == "__main__":

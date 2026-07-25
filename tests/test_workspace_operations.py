@@ -15,6 +15,7 @@ from calamus_workspace_operations import (
     plan_new_folder,
     plan_new_text_file,
     plan_duplicate_text_file,
+    plan_move_to_trash,
     plan_workspace_rename,
 )
 
@@ -181,6 +182,51 @@ class WorkspaceOperationPlannerTests(unittest.TestCase):
             plan_duplicate_text_file(
                 str(self.root), str(outside), [], source_token=self.content_token(outside)
             )
+
+    def test_trash_plan_is_root_confined_single_item_and_can_carry_sidecar(self):
+        source = self.parent / "Draft.md"
+        sidecar = Path(str(source) + ".source-notes.md")
+        plan = plan_move_to_trash(
+            str(self.root), str(source), source_is_directory=False,
+            source_token=WorkspacePathToken(1, 2, 3),
+            companion_source_path=str(sidecar),
+            companion_token=WorkspacePathToken(1, 4, 5),
+        )
+        self.assertEqual(plan.kind, "move-to-trash")
+        self.assertEqual(plan.parent_path, str(self.parent))
+        self.assertEqual(plan.source_path, str(source))
+        self.assertEqual(plan.companion_source_path, str(sidecar))
+        with self.assertRaises(Exception):
+            plan.source_path = "other"
+
+    def test_trash_plan_rejects_root_outside_and_managed_sidecar_directly(self):
+        token = WorkspacePathToken(1, 2, 3)
+        with self.assertRaises(WorkspaceOperationError):
+            plan_move_to_trash(
+                str(self.root), str(self.root), source_is_directory=True,
+                source_token=token,
+            )
+        outside = Path(self.tmp.name) / "Outside.md"
+        with self.assertRaises(WorkspaceOperationError):
+            plan_move_to_trash(
+                str(self.root), str(outside), source_is_directory=False,
+                source_token=token,
+            )
+        with self.assertRaises(WorkspaceOperationError):
+            plan_move_to_trash(
+                str(self.root), str(self.parent / "Draft.md.source-notes.md"),
+                source_is_directory=False, source_token=token,
+            )
+
+    def test_folder_trash_plan_has_no_recursive_enumeration_or_destination(self):
+        source = self.parent / "Folder"
+        plan = plan_move_to_trash(
+            str(self.root), str(source), source_is_directory=True,
+            source_token=WorkspacePathToken(1, 2, 3),
+        )
+        self.assertTrue(plan.source_is_directory)
+        self.assertFalse(hasattr(plan, "target_path"))
+        self.assertIsNone(plan.companion_source_path)
 
 
 if __name__ == "__main__":

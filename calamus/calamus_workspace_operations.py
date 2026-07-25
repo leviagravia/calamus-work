@@ -78,6 +78,19 @@ class WorkspaceDuplicatePlan:
     companion_token: WorkspaceContentToken | None = None
 
 
+@dataclass(frozen=True)
+class WorkspaceTrashPlan:
+    kind: str
+    root: str
+    parent_path: str
+    source_path: str
+    source_name: str
+    source_is_directory: bool
+    source_token: WorkspacePathToken
+    companion_source_path: str | None = None
+    companion_token: WorkspacePathToken | None = None
+
+
 def normalize_text_suffix(suffix: str) -> str:
     if not isinstance(suffix, str):
         raise TypeError("suffix must be a string")
@@ -419,5 +432,74 @@ def plan_duplicate_text_file(
         source_token=source_token,
         companion_source_path=companion_source,
         companion_target_path=companion_target,
+        companion_token=companion_token,
+    )
+
+
+def plan_move_to_trash(
+    root: str,
+    source_path: str,
+    *,
+    source_is_directory: bool,
+    source_token: WorkspacePathToken,
+    companion_source_path: str | None = None,
+    companion_token: WorkspacePathToken | None = None,
+) -> WorkspaceTrashPlan:
+    """Build one root-confined system-Trash plan without filesystem I/O.
+
+    The final Trash destination is intentionally opaque and owned by GIO.  The
+    planner therefore records only the selected source identity, its parent and
+    an optional managed Source Notes companion.  Permanent deletion, arbitrary
+    move destinations and internal application trash directories are excluded.
+    """
+    if not isinstance(root, str) or not root.strip():
+        raise WorkspaceOperationError("A valid root is required.")
+    if not isinstance(source_path, str) or not source_path.strip():
+        raise WorkspaceOperationError("Select one Workspace file or folder to move to Trash.")
+    if not isinstance(source_is_directory, bool):
+        raise TypeError("source_is_directory must be boolean")
+    if not isinstance(source_token, WorkspacePathToken):
+        raise TypeError("source_token must be WorkspacePathToken")
+
+    canonical_root = os.path.abspath(root)
+    canonical_source = os.path.abspath(source_path)
+    parent = os.path.dirname(canonical_source)
+    try:
+        if canonical_source == canonical_root:
+            raise WorkspaceOperationError("The Writing Workspace root cannot be moved to Trash here.")
+        if os.path.commonpath((canonical_root, canonical_source)) != canonical_root:
+            raise WorkspaceOperationError("The selected item resolves outside the Writing Workspace.")
+        if os.path.commonpath((canonical_root, parent)) != canonical_root:
+            raise WorkspaceOperationError("The selected item parent resolves outside the Writing Workspace.")
+    except ValueError as exc:
+        raise WorkspaceOperationError("The selected item is incompatible with the Workspace root.") from exc
+
+    source_name = os.path.basename(canonical_source)
+    if source_name.endswith(".source-notes.md"):
+        raise WorkspaceOperationError(
+            "Move the document to Trash, not its managed Source Notes sidecar."
+        )
+
+    companion_source = None
+    if companion_source_path is not None:
+        if not isinstance(companion_source_path, str) or companion_token is None:
+            raise WorkspaceOperationError("The managed Source Notes companion is inconsistent.")
+        companion_source = os.path.abspath(companion_source_path)
+        if companion_source != canonical_source + ".source-notes.md":
+            raise WorkspaceOperationError("The managed Source Notes companion is inconsistent.")
+        if not isinstance(companion_token, WorkspacePathToken):
+            raise TypeError("companion_token must be WorkspacePathToken")
+    elif companion_token is not None:
+        raise WorkspaceOperationError("A companion token requires a companion path.")
+
+    return WorkspaceTrashPlan(
+        kind="move-to-trash",
+        root=canonical_root,
+        parent_path=parent,
+        source_path=canonical_source,
+        source_name=source_name,
+        source_is_directory=source_is_directory,
+        source_token=source_token,
+        companion_source_path=companion_source,
         companion_token=companion_token,
     )

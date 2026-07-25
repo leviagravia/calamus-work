@@ -89,6 +89,12 @@ def build_menu(app) -> None:
         app.on_duplicate_workspace_file,
     )
     app.workspace_duplicate_item.set_sensitive(bool(getattr(app, "workspace_root", None)))
+    app.workspace_trash_item = add_item(
+        app.workspace_file_menu,
+        "Move Selected Item to Trash",
+        app.on_move_workspace_item_to_trash,
+    )
+    app.workspace_trash_item.set_sensitive(bool(getattr(app, "workspace_root", None)))
     add_separator(app.workspace_file_menu)
     add_item(
         app.workspace_file_menu,

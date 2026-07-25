@@ -88,6 +88,19 @@ def _activate_relative(win, relative):
     _pump()
 
 
+def _semantic_menu_labels(menu):
+    """Return labels while representing separators by semantic type.
+
+    Gtk.SeparatorMenuItem.get_label() is binding/theme dependent and may
+    return an empty string rather than None.  The test contract is the widget
+    type, not that incidental label representation.
+    """
+    return [
+        None if isinstance(child, Gtk.SeparatorMenuItem) else child.get_label()
+        for child in menu.get_children()
+    ]
+
+
 class WorkspaceAppDesktopE2E(unittest.TestCase):
     def _require_environment(self):
         workspace = os.environ.get("CALAMUS_W79_E2E_WORKSPACE")
@@ -469,8 +482,8 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
             children = menu.get_children()
             _pump()
             self.assertTrue(menu.get_mapped())
-            labels = [child.get_label() for child in children]
-            self.assertEqual(labels, ["Rename…", "Duplicate"])
+            labels = _semantic_menu_labels(menu)
+            self.assertEqual(labels, ["Rename…", "Duplicate", None, "Move to Trash"])
             children[0].activate()
             _pump()
             self.assertFalse(os.path.exists(source))
@@ -520,8 +533,8 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
             self.assertIsNotNone(menu)
             self.assertTrue(menu.get_mapped())
             children = menu.get_children()
-            labels = [child.get_label() for child in children]
-            self.assertEqual(labels, ["Rename…", "Duplicate"])
+            labels = _semantic_menu_labels(menu)
+            self.assertEqual(labels, ["Rename…", "Duplicate", None, "Move to Trash"])
             children[1].activate()
             _pump()
             self.assertEqual(Path(source).read_text(encoding="utf-8"), "context duplicate")
@@ -539,8 +552,8 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
             self.assertIsNotNone(folder_menu)
             self.assertTrue(folder_menu.get_mapped())
             self.assertEqual(
-                [child.get_label() for child in folder_menu.get_children()],
-                ["Rename…"],
+                _semantic_menu_labels(folder_menu),
+                ["Rename…", None, "Move to Trash"],
             )
             folder_menu.popdown()
             print("W83_CONTEXT_DUPLICATE_CANONICAL_GATEWAY=PASS")
@@ -554,6 +567,103 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
                     os.unlink(path)
                 except FileNotFoundError:
                     pass
+
+    def test_real_app_move_to_trash_detaches_active_document_and_carries_sidecar(self):
+        workspace, _alt_workspace = self._require_environment()
+        _write_settings(workspace)
+        source = os.path.join(workspace, "01_Drafts", "W84_Active.md")
+        sidecar = source + ".source-notes.md"
+        Path(source).write_text("saved active", encoding="utf-8")
+        Path(sidecar).write_text(
+            "# Calamus Source Notes v1\n\n- [note-1] Active note\n",
+            encoding="utf-8",
+        )
+        module = _load_app_module()
+        original_confirm = module.confirm_move_workspace_item_to_trash
+        module.confirm_move_workspace_item_to_trash = lambda *_args, **_kwargs: True
+        win = module.App()
+        try:
+            win.show_all()
+            _pump()
+            win.workspace_application_runtime.refresh()
+            _activate_relative(win, "01_Drafts/W84_Active.md")
+            win.text.get_buffer().set_text("W84 preserved unsaved buffer")
+            win.modified = True
+            win.document.mark_modified("W84 preserved unsaved buffer")
+            win.add_recent_file(source)
+            win.state.save_favourites([source], limit=50)
+
+            tree = win.workspace_panel_view.tree
+            tree_path = tree.path_for_relative("01_Drafts/W84_Active.md")
+            self.assertIsNotNone(tree_path)
+            tree.selection.unselect_all()
+            tree.selection.select_path(tree_path)
+            tree.set_cursor(tree_path, tree.get_column(0), False)
+            self.assertTrue(win.on_move_workspace_item_to_trash())
+            _pump()
+
+            self.assertFalse(os.path.lexists(source))
+            self.assertFalse(os.path.lexists(sidecar))
+            self.assertIsNone(win.current_file)
+            self.assertIsNone(win.document.file_path)
+            self.assertEqual(win.buffer_text(), "W84 preserved unsaved buffer")
+            self.assertTrue(win.modified)
+            self.assertNotIn(os.path.abspath(source), win.state.load_recent_files())
+            self.assertNotIn(os.path.abspath(source), win.state.load_favourites())
+            self.assertIsNone(tree.path_for_relative("01_Drafts/W84_Active.md"))
+            print("W84_REAL_APP_TRASH_ACTIVE_FILE=PASS")
+            print("W84_ACTIVE_DOCUMENT_DETACHED=PASS")
+            print("W84_SOURCE_NOTES_TRASH=PASS")
+            print("W84_RECENT_FAVOURITES_FILTER=PASS")
+        finally:
+            module.confirm_move_workspace_item_to_trash = original_confirm
+            win.destroy()
+            _pump()
+
+    def test_real_app_context_menu_trash_folder_uses_canonical_gateway(self):
+        workspace, _alt_workspace = self._require_environment()
+        _write_settings(workspace)
+        folder = os.path.join(workspace, "01_Drafts", "W84_Context_Folder")
+        inside = os.path.join(folder, "Inside.md")
+        Path(folder).mkdir(exist_ok=True)
+        Path(inside).write_text("inside", encoding="utf-8")
+        module = _load_app_module()
+        original_confirm = module.confirm_move_workspace_item_to_trash
+        module.confirm_move_workspace_item_to_trash = lambda *_args, **_kwargs: True
+        win = module.App()
+        try:
+            win.show_all()
+            _pump()
+            win.workspace_application_runtime.refresh()
+            _activate_relative(win, "01_Drafts/W84_Context_Folder/Inside.md")
+            win.text.get_buffer().set_text("folder active buffer")
+            win.modified = True
+            win.document.mark_modified("folder active buffer")
+
+            tree = win.workspace_panel_view.tree
+            folder_path = tree.path_for_relative("01_Drafts/W84_Context_Folder")
+            self.assertIsNotNone(folder_path)
+            tree.selection.unselect_all()
+            tree.selection.select_path(folder_path)
+            tree.set_cursor(folder_path, tree.get_column(0), False)
+            self.assertTrue(tree._on_popup_menu(tree))
+            _pump()
+            menu = win.workspace_panel_view._context_menu
+            labels = _semantic_menu_labels(menu)
+            self.assertEqual(labels, ["Rename…", None, "Move to Trash"])
+            menu.get_children()[-1].activate()
+            _pump()
+            self.assertFalse(os.path.lexists(folder))
+            self.assertIsNone(win.current_file)
+            self.assertEqual(win.buffer_text(), "folder active buffer")
+            self.assertTrue(win.modified)
+            print("W84_REAL_APP_CONTEXT_TRASH=PASS")
+            print("W84_REAL_APP_TRASH_FOLDER=PASS")
+            print("W84_ACTIVE_DESCENDANT_DETACHED=PASS")
+        finally:
+            module.confirm_move_workspace_item_to_trash = original_confirm
+            win.destroy()
+            _pump()
 
     def test_real_app_opens_real_workspace_file_from_real_tree_signal(self):
         workspace, _alt_workspace = self._require_environment()

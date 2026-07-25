@@ -1,11 +1,16 @@
+import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
 from calamus_workspace_gio import HAVE_GIO, WorkspaceGioAdapter
 from calamus_workspace_operations import (
     WorkspaceContentToken, WorkspacePathToken, plan_duplicate_text_file,
-    plan_new_folder, plan_new_text_file, plan_workspace_rename,
+    plan_move_to_trash, plan_new_folder, plan_new_text_file,
+    plan_workspace_rename,
 )
 
 
@@ -315,6 +320,88 @@ class WorkspaceGioAdapterTests(unittest.TestCase):
         self.assertEqual((self.root/'Draft copy.md.source-notes.md').read_text(encoding='utf-8'),'notes')
         self.assertEqual(source.read_text(encoding='utf-8'),'draft')
         self.assertEqual(sidecar.read_text(encoding='utf-8'),'notes')
+
+
+    def test_move_to_system_trash_is_real_and_carries_managed_sidecar(self):
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as sandbox:
+            sandbox_path = Path(sandbox)
+            home = sandbox_path / "home"
+            xdg = sandbox_path / "xdg"
+            home.mkdir()
+            xdg.mkdir()
+            script = r'''
+import json
+import os
+from pathlib import Path
+from calamus_workspace_gio import WorkspaceGioAdapter
+from calamus_workspace_operations import WorkspacePathToken, plan_move_to_trash
+
+home = Path(os.environ["HOME"])
+root = home / "Workspace"
+root.mkdir()
+source = root / "Draft.md"
+source.write_text("draft", encoding="utf-8")
+sidecar = Path(str(source) + ".source-notes.md")
+sidecar.write_text("notes", encoding="utf-8")
+
+def token(path):
+    st = path.lstat()
+    return WorkspacePathToken(st.st_dev, st.st_ino, st.st_mode)
+
+plan = plan_move_to_trash(
+    str(root), str(source), source_is_directory=False,
+    source_token=token(source), companion_source_path=str(sidecar),
+    companion_token=token(sidecar),
+)
+result = WorkspaceGioAdapter().move_to_trash(plan)
+trash_files = Path(os.environ["XDG_DATA_HOME"]) / "Trash" / "files"
+print(json.dumps({
+    "success": result.success,
+    "committed": result.committed,
+    "message": result.message,
+    "source_exists": os.path.lexists(source),
+    "sidecar_exists": os.path.lexists(sidecar),
+    "trash_names": sorted(p.name for p in trash_files.iterdir()) if trash_files.exists() else [],
+}))
+'''
+            env = os.environ.copy()
+            env.update({
+                "HOME": str(home),
+                "XDG_DATA_HOME": str(xdg),
+                "PYTHONPATH": str(repo / "calamus"),
+            })
+            completed = subprocess.run(
+                [sys.executable, "-c", script],
+                env=env, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            payload = json.loads(completed.stdout.strip().splitlines()[-1])
+            self.assertTrue(payload["success"], payload["message"])
+            self.assertTrue(payload["committed"])
+            self.assertFalse(payload["source_exists"])
+            self.assertFalse(payload["sidecar_exists"])
+            self.assertIn("Draft.md", payload["trash_names"])
+            self.assertIn("Draft.md.source-notes.md", payload["trash_names"])
+
+    def test_trash_source_replacement_by_symlink_is_blocked(self):
+        source = self.root / "Draft.md"
+        source.write_text("draft", encoding="utf-8")
+        plan = plan_move_to_trash(
+            str(self.root), str(source), source_is_directory=False,
+            source_token=self.token(source),
+        )
+        source.unlink()
+        outside = Path(self.tmp.name) / "Outside.md"
+        outside.write_text("outside", encoding="utf-8")
+        try:
+            source.symlink_to(outside)
+        except OSError:
+            self.skipTest("symlinks unavailable")
+        result = self.adapter.move_to_trash(plan)
+        self.assertFalse(result.success)
+        self.assertFalse(result.committed)
+        self.assertEqual(outside.read_text(encoding="utf-8"), "outside")
 
 
 if __name__ == "__main__":

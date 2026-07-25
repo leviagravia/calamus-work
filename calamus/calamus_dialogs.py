@@ -753,3 +753,39 @@ def run_spelling_dialog(parent, word, suggestions):
     replacement = entry.get_text()
     dialog.destroy()
     return response, replacement
+
+
+def confirm_move_workspace_item_to_trash(
+    parent, current_name, *, is_directory, active_document_affected=False
+):
+    """Confirm one system-Trash operation; perform no filesystem mutation."""
+    kind = "folder" if is_directory else "file"
+    dialog = Gtk.MessageDialog(
+        parent,
+        0,
+        Gtk.MessageType.WARNING,
+        Gtk.ButtonsType.NONE,
+        f"Move this {kind} to Trash?",
+    )
+    dialog.format_secondary_text(
+        (
+            f"“{current_name}” contains the active document. Its text will remain "
+            "open as an unsaved Untitled document. The original item can be restored "
+            "from the system Trash."
+        )
+        if active_document_affected
+        else (
+            f"“{current_name}” will be moved to the system Trash and can be restored "
+            "from there. Calamus never permanently deletes Workspace items."
+        )
+    )
+    dialog.add_buttons(
+        Gtk.STOCK_CANCEL,
+        Gtk.ResponseType.CANCEL,
+        "Move to Trash",
+        Gtk.ResponseType.OK,
+    )
+    dialog.set_default_response(Gtk.ResponseType.CANCEL)
+    response = dialog.run()
+    dialog.destroy()
+    return response == Gtk.ResponseType.OK

@@ -8,11 +8,12 @@ from typing import Any
 from calamus_workspace import WorkspaceError, WorkspaceItem, path_is_within_root
 from calamus_workspace_controller import WorkspaceController
 from calamus_workspace_gio import WorkspaceGioAdapter, WorkspaceOperationResult
-from calamus_workspace_identity import WorkspacePathReferenceSnapshot
+from calamus_workspace_identity import WorkspacePathReferenceSnapshot, path_is_trashed
 from calamus_workspace_operations import (
     WorkspaceContentToken, WorkspaceDuplicatePlan, WorkspaceOperationPlan,
-    WorkspacePathToken, WorkspaceRenamePlan, plan_duplicate_text_file,
-    plan_new_folder, plan_new_text_file, plan_workspace_rename,
+    WorkspacePathToken, WorkspaceRenamePlan, WorkspaceTrashPlan,
+    plan_duplicate_text_file, plan_move_to_trash, plan_new_folder,
+    plan_new_text_file, plan_workspace_rename,
 )
 
 
@@ -115,6 +116,37 @@ class WorkspaceMutationController:
             companion_source_path=companion_path, companion_token=companion_token,
         )
 
+    def plan_move_to_trash(
+        self, selected: WorkspaceItem | None
+    ) -> WorkspaceTrashPlan:
+        if selected is None:
+            raise WorkspaceError("Select one Workspace file or folder to move to Trash.")
+        current = self._workspace.current_item(selected)
+        if current.is_symlink or os.path.islink(current.path):
+            raise WorkspaceError("Symbolic links cannot be moved to Trash from Writing Workspace.")
+        if not current.is_directory and not os.path.isfile(current.path):
+            raise WorkspaceError("Only regular files and folders can be moved to Trash.")
+        if current.name.endswith(".source-notes.md"):
+            raise WorkspaceError(
+                "Move the document to Trash, not its managed Source Notes sidecar."
+            )
+        companion_path = None
+        companion_token = None
+        if current.internal_text and not current.is_directory:
+            candidate = current.path + ".source-notes.md"
+            if os.path.lexists(candidate):
+                if os.path.islink(candidate) or not os.path.isfile(candidate):
+                    raise WorkspaceError("The managed Source Notes sidecar is not a regular file.")
+                companion_path = candidate
+                companion_token = self._path_token(candidate)
+        return plan_move_to_trash(
+            self._workspace.root, current.path,
+            source_is_directory=current.is_directory,
+            source_token=self._path_token(current.path),
+            companion_source_path=companion_path,
+            companion_token=companion_token,
+        )
+
     def plan_rename(
         self, selected: WorkspaceItem | None, raw_name: str
     ) -> WorkspaceRenamePlan:
@@ -144,7 +176,7 @@ class WorkspaceMutationController:
         )
 
     def execute(
-        self, plan: WorkspaceOperationPlan | WorkspaceRenamePlan | WorkspaceDuplicatePlan
+        self, plan: WorkspaceOperationPlan | WorkspaceRenamePlan | WorkspaceDuplicatePlan | WorkspaceTrashPlan
     ) -> WorkspaceOperationResult:
         if plan.kind == "new-text-file":
             return self._adapter.create_new_text_file(plan)
@@ -154,6 +186,8 @@ class WorkspaceMutationController:
             return self._adapter.rename_item(plan)
         if plan.kind == "duplicate-text-file":
             return self._adapter.duplicate_text_file(plan)
+        if plan.kind == "move-to-trash":
+            return self._adapter.move_to_trash(plan)
         raise ValueError(f"unsupported Workspace operation: {plan.kind}")
 
 
@@ -171,6 +205,9 @@ class WorkspaceMutationRuntime:
         report_error: Callable[[str], None],
         capture_path_references: Callable[[], WorkspacePathReferenceSnapshot] | None = None,
         reconcile_rename: Callable[[WorkspaceRenamePlan, WorkspacePathReferenceSnapshot], bool] | None = None,
+        current_document_path: Callable[[], str | None] | None = None,
+        confirm_trash: Callable[[WorkspaceTrashPlan, bool], bool] | None = None,
+        reconcile_trash: Callable[[WorkspaceTrashPlan, WorkspacePathReferenceSnapshot], bool] | None = None,
     ) -> None:
         if not isinstance(controller, WorkspaceMutationController):
             raise TypeError("controller must be WorkspaceMutationController")
@@ -185,8 +222,15 @@ class WorkspaceMutationRuntime:
         self._report_error = report_error
         self._capture_path_references = capture_path_references or (lambda: WorkspacePathReferenceSnapshot())
         self._reconcile_rename = reconcile_rename or (lambda _plan, _references: True)
-        if not callable(self._capture_path_references) or not callable(self._reconcile_rename):
-            raise TypeError("Workspace rename reconciliation callbacks must be callable")
+        self._current_document_path = current_document_path or (lambda: None)
+        self._confirm_trash = confirm_trash or (lambda _plan, _active: True)
+        self._reconcile_trash = reconcile_trash or (lambda _plan, _references: True)
+        for callback in (
+            self._capture_path_references, self._reconcile_rename,
+            self._current_document_path, self._confirm_trash, self._reconcile_trash,
+        ):
+            if not callable(callback):
+                raise TypeError("Workspace mutation reconciliation callbacks must be callable")
 
     def create_new_text_file(
         self,
@@ -282,6 +326,55 @@ class WorkspaceMutationRuntime:
             )
             return False
         self._view.select_path(result.path)
+        return True
+
+    def move_to_trash(self, selected: WorkspaceItem | None) -> bool:
+        try:
+            plan = self._controller.plan_move_to_trash(selected)
+            references = self._capture_path_references()
+            if not isinstance(references, WorkspacePathReferenceSnapshot):
+                raise TypeError(
+                    "capture_path_references must return WorkspacePathReferenceSnapshot"
+                )
+            current_document = self._current_document_path()
+            if current_document is not None and not isinstance(current_document, str):
+                raise TypeError("current_document_path must return a string or None")
+            active_affected = path_is_trashed(
+                current_document, plan.source_path,
+                source_is_directory=plan.source_is_directory,
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            self._report_error(str(exc))
+            return False
+
+        if not self._confirm_trash(plan, active_affected):
+            return False
+
+        result = self._controller.execute(plan)
+        if not result.committed:
+            self._report_error(result.message or "The selected item could not be moved to Trash.")
+            return False
+
+        # Once GIO has removed the original identity, application references
+        # must be reconciled even if the sidecar step or the visual rescan fails.
+        reconciled = self._reconcile_trash(plan, references)
+        refreshed = bool(self._workspace_runtime.refresh())
+        if refreshed:
+            self._view.select_path(plan.parent_path)
+
+        if not result.success:
+            self._report_error(result.message or "The Trash operation completed only partially.")
+            return False
+        if not reconciled:
+            self._report_error(
+                "The item was moved to Trash, but Calamus could not fully reconcile document path references."
+            )
+            return False
+        if not refreshed:
+            self._report_error(
+                "The item was moved to Trash, but the Writing Workspace could not be rescanned."
+            )
+            return False
         return True
 
     def rename_item(self, selected: WorkspaceItem | None, raw_name: str) -> bool:
