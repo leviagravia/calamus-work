@@ -172,6 +172,12 @@ def build_menu(app) -> None:
     add_item(researchm, "Research Check…", app.on_research_check)
     add_item(researchm, "Tag Integrity…", app.on_tag_integrity)
     add_separator(researchm)
+    add_item(researchm, "Import BibTeX/BibLaTeX…", app.on_import_bibtex_biblatex)
+    add_item(
+        researchm,
+        "Export References as BibTeX/BibLaTeX…",
+        app.on_export_references_bibtex_biblatex,
+    )
     add_item(researchm, "Export Research Apparatus…", app.on_export_research_apparatus)
 
     navigatem = top_menu(app, "Navigate")

@@ -48,6 +48,8 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("Research", "Quick Cite", "Ctrl+Alt+Q"),
     ShortcutSpec("Research", "Open Citation in References", "Ctrl+Alt+Shift+Q"),
     ShortcutSpec("Research", "Tag Integrity", "menu"),
+    ShortcutSpec("Research", "Import BibTeX/BibLaTeX", "menu"),
+    ShortcutSpec("Research", "Export References as BibTeX/BibLaTeX", "menu"),
     ShortcutSpec("Research", "Export Research Apparatus", "menu"),
     ShortcutSpec("Navigate", "Navigator Panel", "Ctrl+Alt+N"),
     ShortcutSpec("Navigate", "Writing Workspace", "menu"),

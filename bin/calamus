@@ -107,6 +107,8 @@ from calamus_tag_integrity_controller import TagIntegrityController
 from calamus_tag_integrity_runtime import TagIntegrityRuntime
 from calamus_research_export_controller import ResearchExportController
 from calamus_research_export_runtime import ResearchExportRuntime
+from calamus_bibtex_controller import BibtexController
+from calamus_bibtex_runtime import BibtexRuntime
 from calamus_research_panel import ResearchPanelRuntime
 from calamus_research_panel_view import ResearchPanelViewAdapter
 from calamus_navigation import line_to_buffer_index
@@ -2134,6 +2136,11 @@ class App(Gtk.Window):
             show_error=lambda message: show_error(self, message),
             show_info=lambda message: show_info(self, message),
         )
+        self.bibtex_controller = BibtexController(
+            self.reference_store,
+            refresh_references=self.reference_panel_runtime.reload,
+        )
+        self.bibtex_runtime = BibtexRuntime(self, self.bibtex_controller)
 
     def refresh_clip_list(self):
         self.clip_collection.refresh()
@@ -2217,6 +2224,12 @@ class App(Gtk.Window):
 
     def on_tag_integrity(self, *_):
         return self.tag_integrity_runtime.manage()
+
+    def on_import_bibtex_biblatex(self, *_):
+        return self.bibtex_runtime.import_references()
+
+    def on_export_references_bibtex_biblatex(self, *_):
+        return self.bibtex_runtime.export_references()
 
     def on_export_research_apparatus(self, *_):
         return self.research_export_runtime.export()

@@ -87,18 +87,23 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
         for future in ("scratchpad", "concepts", '"tags"'):
             self.assertNotIn(future, block)
 
-    def test_w77_adds_quick_cite_without_advanced_bibliography_ownership(self):
-        combined = "\n".join(source(path) for path in (LAUNCHER, UI, ROOT / "calamus" / "calamus_reference_runtime.py"))
+    def test_reference_panel_keeps_crud_and_quick_cite_without_import_export_ownership(self):
+        runtime = source(ROOT / "calamus" / "calamus_reference_runtime.py")
+        panel = source(ROOT / "calamus" / "calamus_reference_panel.py")
+        combined = runtime + "\n" + panel
         self.assertIn("Quick Cite", combined)
-        self.assertIn("Open Citation in References", combined)
         for forbidden in (
-            "Bibliography Check",
             "BibLaTeX",
+            "parse_bibliography",
+            "export_references",
             "citeproc",
             "DOI lookup",
             "PDF manager",
         ):
             self.assertNotIn(forbidden, combined)
+        launcher = source(LAUNCHER)
+        self.assertIn("BibtexRuntime", launcher)
+        self.assertIn("self.reference_store", method_source("build_research_panel"))
 
 
 if __name__ == "__main__":

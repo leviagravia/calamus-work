@@ -18,7 +18,9 @@ A typical path is:
 4. Place the cursor where the citation belongs and use `Research → Quick Cite…` to insert `[@ratzinger1968]`.
 5. Use `Research → Research Check…` before exporting to find missing citation keys, broken targets, duplicate aliases and tag-identity collisions.
 6. Use `Research → Tag Integrity…` to inspect, rename, merge, remove or normalize Research tags without changing the document text.
-7. Use `Research → Export Research Apparatus…` to create a derived Markdown dossier or one of its component reports.
+7. Use `Research → Import BibTeX/BibLaTeX…` when a trusted `.bib` library must be reviewed and merged into `references.md`.
+8. Use `Research → Export References as BibTeX/BibLaTeX…` to create a derived `.bib` file for another bibliographic tool.
+9. Use `Research → Export Research Apparatus…` to create a derived Markdown dossier or one of its component reports.
 
 The document, `references.md` and the document Source Notes sidecar remain separate authorities. Derived reports are not authorities and may be regenerated.
 
@@ -102,6 +104,56 @@ Scopes are `References and Source Notes`, `References only`, and `Current Source
 Practical example: the current Reference has tags `Faith`, `church history`, `temporary`; a Source Note has `FAITH`, `church history`, `temporary`. Select `Faith`, choose `Rename / Merge…`, enter `doctrine`, review the impact preview and confirm. Only the logical variants of `Faith` become `doctrine`; unrelated tags such as `church history` and `temporary` remain unchanged. The active document remains byte-identical.
 
 The colour swatch is deterministic and derived from tag identity. It is presentation only: it is not stored in References or Source Notes and cannot create a colour-only tag.
+
+## Import BibTeX/BibLaTeX
+
+`Research → Import BibTeX/BibLaTeX…` imports selected entries from a local `.bib` file into the canonical References library:
+
+`$XDG_DATA_HOME/calamus/research/references.md`
+
+The `.bib` file is input only, never a second authority. Calamus asks for an explicit BibTeX or BibLaTeX mode, parses without writing, reports malformed or non-entry blocks, then opens **Review Entries**.
+
+The review table has one transient decision per entry. Select a row and use the fixed **Choose one action** controls on the right:
+
+- `Import`: add a new, non-colliding key.
+- `Skip`: leave the existing library unchanged for that entry.
+- `Replace existing`: replace the record with the same primary key.
+- `Merge missing fields`: retain existing values and fill only missing data; tags are combined.
+- `Import with new key`: create a deterministic unique key and keep the incoming record separate.
+
+New references may start as `Import`; invalid entries are locked to `Skip`. A collision with different content has no implicit decision. Review Impact… remains disabled until every ambiguous collision has an explicit action. The right side shows **Current local reference** and **Incoming reference** so the choice is informed. Selection never changes data by itself.
+
+### Practical click-by-click example
+
+1. Open `Research → Import BibTeX/BibLaTeX…`.
+2. Choose `~/Downloads/theology-library.bib`.
+3. Choose `BibLaTeX` explicitly and press `Continue`.
+4. In **Review Entries**, select the colliding row `ratzinger1968`.
+5. Compare the current and incoming summaries. If the local title must remain but the incoming record supplies a missing DOI, activate `Merge missing fields`.
+6. Select the new row `guardini1950`; leave `Import` active.
+7. Confirm malformed entries remain `Skip` and their action controls are disabled.
+8. Confirm the unresolved-collision message has disappeared and `Review Impact…` is enabled.
+9. Press `Review Impact…` and check the exact Import, Replace, Merge, Re-keyed and Skip counts.
+10. Confirm that only `references.md` will change, then press `Apply Import`.
+11. Open `Research → References` and verify the imported and merged records.
+
+**STOP without applying** when the current/incoming summaries do not match the selected row, an invalid entry becomes importable, `Review Impact…` is enabled while a collision is unresolved, the impact counts differ from the selected decisions, or the dialog stops responding.
+
+Parser diagnostics remain visible. Duplicate keys, duplicate fields and malformed blocks are never handled by silent “last value wins”. `@string` values may be consumed to resolve entry data and are reported as a lossy conversion. `@comment` and `@preamble` blocks are reported but not imported because they have no valid owner in a Reference record. Unsupported scalar fields are preserved in `extra_fields` when possible.
+
+If the `.bib` source or `references.md` changes after preview, Calamus fails closed and writes nothing. The import never modifies the `.bib` source, the active document or Source Notes.
+
+## Export References as BibTeX/BibLaTeX
+
+`Research → Export References as BibTeX/BibLaTeX…` creates a derived `.bib` representation of the global References library. It does not alter `references.md`.
+
+Practical example: choose `BibLaTeX`, inspect the read-only preview and representability warnings, then save to:
+
+`~/Documents/Book/Exports/calamus-references.bib`
+
+The export is deterministic UTF-8 with a fixed field order. Unknown scalar fields are emitted when their names are representable. Calamus reports lossy type or field mappings, does not recreate original `@string`, `@comment` or `@preamble` factoring, and does not claim byte-for-byte round trip. BibTeX and BibLaTeX are explicit modes because fields such as `date`, `journaltitle`, `location` and `langid` have different conventions.
+
+The destination cannot replace the canonical `references.md` authority. If References changes after the preview, no `.bib` output is written.
 
 ## Export Research Apparatus
 
