@@ -632,6 +632,11 @@ Key features:
 - Document statistics
 - Focus and distraction-free modes
 - Lightweight themes
+- Research Panel with Markdown References and document Source Notes
+- Quick Cite, Research Check and citation navigation
+- Derived Research apparatus export
+- Tag Integrity with impact preview and safe cross-authority updates
+- An offline User Guide with practical workflows
 
 What Calamus is not:
 Calamus is not an IDE. It does not include code intelligence, LSP integration, heavy plugin systems, background indexing or cloud services.

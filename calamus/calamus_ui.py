@@ -170,6 +170,7 @@ def build_menu(app) -> None:
     add_separator(researchm)
     add_item(researchm, "Rename Reference Key…", app.on_rename_reference_key)
     add_item(researchm, "Research Check…", app.on_research_check)
+    add_item(researchm, "Tag Integrity…", app.on_tag_integrity)
     add_separator(researchm)
     add_item(researchm, "Export Research Apparatus…", app.on_export_research_apparatus)
 
@@ -266,7 +267,9 @@ def build_menu(app) -> None:
     add_item(toolsm, "System Info…", app.on_system_info)
 
     helpm = top_menu(app, "Help")
+    add_item(helpm, "User Guide…", app.on_user_guide)
     add_item(helpm, "Keyboard Shortcuts\tCtrl+/", app.on_keyboard_shortcuts)
+    add_separator(helpm)
     add_item(helpm, "About\tF1", app.on_about)
 
 

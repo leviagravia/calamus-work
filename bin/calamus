@@ -90,6 +90,8 @@ APP_ICON = "calamus"
 RUNTIME_ABOUT_NAME = "Calamus-Working-Copy"
 from calamus_version import APP_VERSION as VERSION
 from calamus_logging import log_nonfatal
+from calamus_help import load_user_guide
+from calamus_help_dialogs import show_user_guide
 from calamus_editor import build_editor_widgets, apply_text_wrap_policy
 from calamus_clip_collection import ClipCollectionController
 from calamus_clip_panel import build_clip_collection_view
@@ -101,6 +103,8 @@ from calamus_citation_dialogs import choose_citation_key, run_quick_cite_dialog
 from calamus_source_note_runtime import SourceNotePanelRuntime
 from calamus_research_integrity_controller import ResearchIntegrityController
 from calamus_research_integrity_runtime import ResearchIntegrityRuntime
+from calamus_tag_integrity_controller import TagIntegrityController
+from calamus_tag_integrity_runtime import TagIntegrityRuntime
 from calamus_research_export_controller import ResearchExportController
 from calamus_research_export_runtime import ResearchExportRuntime
 from calamus_research_panel import ResearchPanelRuntime
@@ -2107,6 +2111,16 @@ class App(Gtk.Window):
             records_provider=lambda: self.reference_panel_runtime.records,
             selected_key_provider=lambda: self.reference_panel_runtime.selected_key,
         )
+        self.tag_integrity_controller = TagIntegrityController(
+            reference_store=self.reference_store,
+            document_path_provider=lambda: self.document.file_path,
+            refresh_references=self.reference_panel_runtime.reload,
+            refresh_source_notes=lambda: self.source_note_panel_runtime.sync_document(force=True),
+        )
+        self.tag_integrity_runtime = TagIntegrityRuntime(
+            self,
+            self.tag_integrity_controller,
+        )
         self.research_export_controller = ResearchExportController(
             reference_store=self.reference_store,
             document_path_provider=lambda: self.document.file_path,
@@ -2200,6 +2214,9 @@ class App(Gtk.Window):
 
     def on_research_check(self, *_):
         return self.research_integrity_runtime.research_check()
+
+    def on_tag_integrity(self, *_):
+        return self.tag_integrity_runtime.manage()
 
     def on_export_research_apparatus(self, *_):
         return self.research_export_runtime.export()
@@ -2797,6 +2814,9 @@ class App(Gtk.Window):
 
     def shortcut_rows(self):
         return SHORTCUT_ROWS
+
+    def on_user_guide(self, *_):
+        show_user_guide(self, load_user_guide())
 
     def on_keyboard_shortcuts(self, *_):
         show_keyboard_shortcuts(self, self.shortcut_rows())

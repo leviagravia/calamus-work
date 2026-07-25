@@ -14,6 +14,7 @@ from calamus_citations import CitationCluster, CitationItem, parse_citation_clus
 from calamus_document_structure import DocumentStructure
 from calamus_references import ReferenceRecord, is_valid_reference_key, normalize_key
 from calamus_source_notes import SourceNote
+from calamus_tag_integrity import build_tag_inventory
 
 
 @dataclass(frozen=True)
@@ -449,6 +450,18 @@ def run_research_check(
                 "document-structure-diagnostic",
                 f"line {diagnostic.line}",
                 diagnostic.message,
+            )
+        )
+
+    for item in build_tag_inventory(records_tuple, notes_tuple).items:
+        if not item.needs_normalization:
+            continue
+        issues.append(
+            ResearchIssue(
+                "warning",
+                "tag-identity-collision",
+                item.canonical,
+                "Tag variants share one logical identity: " + ", ".join(item.variants) + ".",
             )
         )
 

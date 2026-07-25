@@ -47,6 +47,7 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("Research", "Source Notes", "menu"),
     ShortcutSpec("Research", "Quick Cite", "Ctrl+Alt+Q"),
     ShortcutSpec("Research", "Open Citation in References", "Ctrl+Alt+Shift+Q"),
+    ShortcutSpec("Research", "Tag Integrity", "menu"),
     ShortcutSpec("Research", "Export Research Apparatus", "menu"),
     ShortcutSpec("Navigate", "Navigator Panel", "Ctrl+Alt+N"),
     ShortcutSpec("Navigate", "Writing Workspace", "menu"),
@@ -88,6 +89,7 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("Options", "Font Smaller", "Ctrl+-"),
     ShortcutSpec("Tools", "External Spellcheck", "F7"),
     ShortcutSpec("Tools", "Document Statistics", "Ctrl+Alt+W"),
+    ShortcutSpec("Help", "User Guide", "menu"),
     ShortcutSpec("Help", "Keyboard Shortcuts", "Ctrl+/"),
     ShortcutSpec("Help", "About", "F1"),
 )
