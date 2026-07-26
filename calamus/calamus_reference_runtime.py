@@ -56,6 +56,14 @@ class ReferencePanelRuntime:
         selected = self._controller.selected_record()
         return selected.key if selected is not None else None
 
+    def records_snapshot(self, *, force: bool = False):
+        selected = self.selected_key
+        if force:
+            self._controller.load()
+            if selected:
+                self._controller.select_key(selected)
+        return self.records
+
     def resolve_key(self, key: str) -> str | None:
         self._controller.ensure_loaded()
         return self._controller.resolve_key(key)

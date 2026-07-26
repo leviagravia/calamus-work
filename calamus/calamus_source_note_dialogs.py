@@ -16,9 +16,14 @@ def run_source_note_dialog(
     target_options,
     existing_ids,
     note: SourceNote | None = None,
+    *,
+    draft: SourceNote | None = None,
 ) -> SourceNote | None:
     from gi.repository import Gtk
 
+    if note is not None and draft is not None:
+        raise ValueError("note and draft are mutually exclusive")
+    initial = note or draft
     keys = tuple(dict.fromkeys(reference_keys))
     targets = tuple(dict.fromkeys(target_options))
     dialog = Gtk.Dialog(
@@ -26,6 +31,7 @@ def run_source_note_dialog(
         transient_for=parent,
         modal=True,
     )
+    dialog.set_name("calamus-source-note-dialog")
     dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
     dialog.add_button("Save", Gtk.ResponseType.OK)
     dialog.set_default_size(650, 650)
@@ -47,8 +53,9 @@ def run_source_note_dialog(
     id_label = Gtk.Label(label="ID")
     id_label.set_xalign(0)
     id_entry = Gtk.Entry()
+    id_entry.set_name("source-note-id")
     id_entry.set_text(
-        note.id if note else new_source_note_id(existing_ids)
+        initial.id if initial else new_source_note_id(existing_ids)
     )
     id_entry.set_editable(False)
     content.attach(id_label, 0, 0, 1, 1)
@@ -57,22 +64,24 @@ def run_source_note_dialog(
     kind_label = Gtk.Label(label="Type")
     kind_label.set_xalign(0)
     kind_combo = Gtk.ComboBoxText()
+    kind_combo.set_name("source-note-kind")
     for kind in source_note_kinds():
         kind_combo.append(kind, kind.capitalize())
-    kind_combo.set_active_id(note.kind if note else "quote")
+    kind_combo.set_active_id(initial.kind if initial else "quote")
     content.attach(kind_label, 0, 1, 1, 1)
     content.attach(kind_combo, 1, 1, 2, 1)
 
     reference_label = Gtk.Label(label="Reference")
     reference_label.set_xalign(0)
     reference_combo = Gtk.ComboBoxText()
+    reference_combo.set_name("source-note-reference")
     reference_combo.append("__none__", "No reference (Comment only)")
     for key in keys:
         reference_combo.append(key, key)
-    if note and note.reference_key and note.reference_key not in keys:
-        reference_combo.append(note.reference_key, f"Missing: {note.reference_key}")
+    if initial and initial.reference_key and initial.reference_key not in keys:
+        reference_combo.append(initial.reference_key, f"Missing: {initial.reference_key}")
     reference_combo.set_active_id(
-        note.reference_key if note and note.reference_key else "__none__"
+        initial.reference_key if initial and initial.reference_key else "__none__"
     )
     content.attach(reference_label, 0, 2, 1, 1)
     content.attach(reference_combo, 1, 2, 2, 1)
@@ -80,15 +89,17 @@ def run_source_note_dialog(
     tags_label = Gtk.Label(label="Tags")
     tags_label.set_xalign(0)
     tags_entry = Gtk.Entry()
-    tags_entry.set_text(", ".join(note.tags) if note else "")
+    tags_entry.set_name("source-note-tags")
+    tags_entry.set_text(", ".join(initial.tags) if initial else "")
     content.attach(tags_label, 0, 3, 1, 1)
     content.attach(tags_entry, 1, 3, 2, 1)
 
     text_label = Gtk.Label(label="Text")
     text_label.set_xalign(0)
     text_view = Gtk.TextView()
+    text_view.set_name("source-note-text")
     text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-    text_view.get_buffer().set_text(note.text if note else "")
+    text_view.get_buffer().set_text(initial.text if initial else "")
     text_scroll = Gtk.ScrolledWindow()
     text_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
     text_scroll.set_size_request(-1, 210)
@@ -99,8 +110,9 @@ def run_source_note_dialog(
     comment_label = Gtk.Label(label="Comment")
     comment_label.set_xalign(0)
     comment_view = Gtk.TextView()
+    comment_view.set_name("source-note-comment")
     comment_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-    comment_view.get_buffer().set_text(note.comment if note else "")
+    comment_view.get_buffer().set_text(initial.comment if initial else "")
     comment_scroll = Gtk.ScrolledWindow()
     comment_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
     comment_scroll.set_size_request(-1, 150)
@@ -111,19 +123,20 @@ def run_source_note_dialog(
     target_label = Gtk.Label(label="Document Target")
     target_label.set_xalign(0)
     target_combo = Gtk.ComboBoxText()
+    target_combo.set_name("source-note-target")
     target_combo.append("__none__", "No document target")
     target_ids = set()
     for target, label in targets:
         target_combo.append(target, label)
         target_ids.add(target)
-    if note and note.target and note.target not in target_ids:
-        target_combo.append(note.target, f"Missing or ambiguous: {note.target}")
-    target_combo.set_active_id(note.target if note and note.target else "__none__")
+    if initial and initial.target and initial.target not in target_ids:
+        target_combo.append(initial.target, f"Missing or ambiguous: {initial.target}")
+    target_combo.set_active_id(initial.target if initial and initial.target else "__none__")
     locator_grid.attach(target_label, 0, 0, 1, 1)
     locator_grid.attach(target_combo, 1, 0, 1, 1)
 
     locator_entries = {}
-    locator_values = note.locator if note else SourceLocator()
+    locator_values = initial.locator if initial else SourceLocator()
     for row, (label, name) in enumerate((
         ("Page", "page"),
         ("Page End", "page_end"),
@@ -134,6 +147,7 @@ def run_source_note_dialog(
         lab = Gtk.Label(label=label)
         lab.set_xalign(0)
         entry = Gtk.Entry()
+        entry.set_name(f"source-note-locator-{name}")
         entry.set_text(getattr(locator_values, name))
         locator_grid.attach(lab, 0, row, 1, 1)
         locator_grid.attach(entry, 1, row, 1, 1)
@@ -179,9 +193,9 @@ def run_source_note_dialog(
                 text=text_buffer.get_text(text_start, text_end, True),
                 comment=comment_buffer.get_text(comment_start, comment_end, True),
                 tags=tuple(tags_entry.get_text().split(",")),
-                created=note.created if note and note.created else stamp,
+                created=initial.created if initial and initial.created else stamp,
                 modified=stamp,
-                extra_fields=note.extra_fields if note else (),
+                extra_fields=initial.extra_fields if initial else (),
             )
         except ValueError as error:
             message = Gtk.MessageDialog(

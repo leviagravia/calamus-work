@@ -160,6 +160,14 @@ def build_menu(app) -> None:
     add_item(researchm, "Clip Collection", app.show_clip_collection)
     add_item(researchm, "References", app.show_references)
     add_item(researchm, "Source Notes", app.show_source_notes)
+    add_item(researchm, "Authoring Bridge", app.show_authoring_bridge)
+    add_separator(researchm)
+    add_item(
+        researchm,
+        "Create Source Note from Selection…",
+        app.on_create_source_note_from_selection,
+    )
+    add_item(researchm, "Insert Link to Heading…", app.on_insert_link_to_heading)
     add_separator(researchm)
     add_item(researchm, "Quick Cite…	Ctrl+Alt+Q", app.on_quick_cite)
     add_item(

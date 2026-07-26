@@ -28,6 +28,7 @@ class SourceNotePanelViewAdapter:
         self._action_widgets = action_widgets
         self._rows: dict[str, Any] = {}
         self._syncing_reference_filter = False
+        self._syncing_filters = False
 
     def bind_filters(
         self,
@@ -37,14 +38,19 @@ class SourceNotePanelViewAdapter:
     ) -> None:
         if not all(callable(callback) for callback in (on_search, on_kind, on_reference)):
             raise TypeError("filter callbacks must be callable")
-        self.search.connect("search-changed", lambda entry: on_search(entry.get_text()))
-        self._kind_filter.connect(
-            "changed",
-            lambda combo: on_kind(combo.get_active_id() or "all"),
-        )
+        def search_changed(entry):
+            if not self._syncing_filters:
+                on_search(entry.get_text())
+
+        def kind_changed(combo):
+            if not self._syncing_filters:
+                on_kind(combo.get_active_id() or "all")
+
+        self.search.connect("search-changed", search_changed)
+        self._kind_filter.connect("changed", kind_changed)
 
         def reference_changed(combo):
-            if not self._syncing_reference_filter:
+            if not self._syncing_filters and not self._syncing_reference_filter:
                 on_reference(combo.get_active_id() or "all")
 
         self._reference_filter.connect("changed", reference_changed)
@@ -151,6 +157,15 @@ class SourceNotePanelViewAdapter:
             return False
         self._listbox.select_row(row)
         return True
+
+    def reset_filters(self) -> None:
+        self._syncing_filters = True
+        try:
+            self.search.set_text("")
+            self._kind_filter.set_active_id("all")
+            self._reference_filter.set_active_id("all")
+        finally:
+            self._syncing_filters = False
 
     def focus_search(self) -> None:
         if self.search.get_sensitive():

@@ -101,6 +101,8 @@ from calamus_reference_store import MarkdownReferenceStore
 from calamus_citation_controller import CitationController
 from calamus_citation_dialogs import choose_citation_key, run_quick_cite_dialog
 from calamus_source_note_runtime import SourceNotePanelRuntime
+from calamus_authoring_bridge import EditorSelectionSnapshot, HeadingLinkPlan
+from calamus_authoring_bridge_runtime import AuthoringBridgeRuntime
 from calamus_research_integrity_controller import ResearchIntegrityController
 from calamus_research_integrity_runtime import ResearchIntegrityRuntime
 from calamus_tag_integrity_controller import TagIntegrityController
@@ -2071,6 +2073,21 @@ class App(Gtk.Window):
             reference_key_resolver=self.reference_panel_runtime.resolve_key,
             show_target=self.show_heading_target,
         )
+        self.authoring_bridge_runtime = AuthoringBridgeRuntime(
+            self,
+            reference_records_provider=lambda: self.reference_panel_runtime.records_snapshot(force=True),
+            document_text_provider=self.buffer_text,
+            source_notes_provider=self.source_notes_snapshot,
+            document_structure_provider=lambda: self.navigation_controller.structure,
+            selected_reference_provider=lambda: self.reference_panel_runtime.selected_key,
+            current_heading_provider=self.current_heading_identifier,
+            selection_provider=self.authoring_selection_snapshot,
+            navigate_document=self.navigate_authoring_occurrence,
+            show_source_note=self.show_source_note_id,
+            create_source_note_from_snapshot=self.create_source_note_from_authoring_snapshot,
+            apply_heading_link_plan=self.apply_heading_link_plan,
+            on_error=lambda message: show_error(self, message),
+        )
         self.research_panel_view = ResearchPanelViewAdapter(
             lambda: self.research_panel_runtime.hide(),
         )
@@ -2090,6 +2107,12 @@ class App(Gtk.Window):
             "Source Notes",
             self.source_note_panel_runtime.widget,
             self.source_note_panel_runtime.activate,
+        )
+        self.research_panel_view.register_client(
+            "authoring-bridge",
+            "Authoring Bridge",
+            self.authoring_bridge_runtime.widget,
+            self.authoring_bridge_runtime.activate,
         )
         self.right_panel_host.register("research", self.research_panel_view.widget)
         self.research_panel_runtime = ResearchPanelRuntime(
@@ -2159,6 +2182,83 @@ class App(Gtk.Window):
 
     def show_source_notes(self, *_):
         return self.research_panel_runtime.show("source-notes")
+
+    def show_authoring_bridge(self, *_):
+        return self.research_panel_runtime.show("authoring-bridge")
+
+    def source_notes_snapshot(self):
+        return self.source_note_panel_runtime.notes_snapshot(force=True)
+
+    def current_heading_identifier(self):
+        heading = self.navigation_controller.current_heading()
+        if heading is None or heading.identifier is None:
+            return None
+        matches = self.navigation_controller.structure.headings_for_identifier(heading.identifier)
+        return heading.identifier if len(matches) == 1 else None
+
+    def authoring_selection_snapshot(self):
+        text = self.buffer_text()
+        buffer = self.text.get_buffer()
+        if buffer.get_has_selection():
+            start, end = buffer.get_selection_bounds()
+            return EditorSelectionSnapshot(text, start.get_offset(), end.get_offset())
+        cursor = buffer.get_iter_at_mark(buffer.get_insert()).get_offset()
+        return EditorSelectionSnapshot(text, cursor, cursor)
+
+    def navigate_authoring_occurrence(self, start, end, _occurrence_id):
+        if not all(isinstance(value, int) and not isinstance(value, bool) for value in (start, end)):
+            return False
+        if start < 0 or end <= start or end > len(self.buffer_text()):
+            return False
+        self.select_range(start, end)
+        self.text.grab_focus()
+        return True
+
+    def show_source_note_id(self, note_id):
+        self.research_panel_runtime.show("source-notes")
+        return self.source_note_panel_runtime.show_note(note_id)
+
+    def create_source_note_from_authoring_snapshot(
+        self, snapshot, reference_key, target
+    ):
+        if not isinstance(snapshot, EditorSelectionSnapshot):
+            return False
+        created = self.source_note_panel_runtime.add_from_selection(
+            snapshot.selected_text,
+            reference_key=reference_key,
+            target=target,
+        )
+        if created:
+            self.show_source_notes()
+        return created
+
+    def on_create_source_note_from_selection(self, *_):
+        return self.authoring_bridge_runtime.on_create_source_note()
+
+    def on_insert_link_to_heading(self, *_):
+        return self.authoring_bridge_runtime.on_insert_heading_link()
+
+    def apply_heading_link_plan(self, plan):
+        if not isinstance(plan, HeadingLinkPlan) or not plan.changed:
+            return False
+        if self.buffer_text() != plan.document_before:
+            show_error(self, "The document changed before link insertion. Refresh and retry.")
+            return False
+
+        def edit(buffer):
+            start = buffer.get_iter_at_offset(plan.replace_start)
+            end = buffer.get_iter_at_offset(plan.replace_end)
+            buffer.delete(start, end)
+            buffer.insert(buffer.get_iter_at_offset(plan.replace_start), plan.replacement)
+
+        changed = self.execute_command(
+            "Insert Link to Heading",
+            edit,
+            select_range=(plan.cursor_after, plan.cursor_after),
+        )
+        if changed:
+            self.text.grab_focus()
+        return bool(changed)
 
     def show_reference_key(self, key):
         self.research_panel_runtime.show("references")

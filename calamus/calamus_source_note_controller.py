@@ -249,6 +249,18 @@ class SourceNoteController:
         note_id = self._view.selected_id()
         return next((note for note in self._notes if note.id == note_id), None)
 
+    def select_id(self, note_id: str) -> bool:
+        if not isinstance(note_id, str) or note_id not in self.ids:
+            return False
+        reset_filters = getattr(self._view, "reset_filters", None)
+        if callable(reset_filters):
+            reset_filters()
+        self._query = ""
+        self._kind_filter = "all"
+        self._reference_filter = "all"
+        self.refresh()
+        return self._view.select_id(note_id)
+
     def add(self, note: SourceNote) -> bool:
         if not self._can_mutate() or not self._links_are_valid(note):
             return False

@@ -11,6 +11,7 @@ from calamus_source_note_dialogs import (
     run_source_note_dialog,
 )
 from calamus_source_note_panel import build_source_note_panel_view
+from calamus_source_notes import SourceNote, new_source_note_id, now_iso
 
 
 class SourceNotePanelRuntime:
@@ -84,19 +85,67 @@ class SourceNotePanelRuntime:
             force=force,
         )
 
+    def notes_snapshot(self, *, force: bool = False):
+        self.sync_document(force=force)
+        return self._controller.notes
+
     def on_add(self, *_):
         self.sync_document()
         if not self._controller.available:
             self._show_error("Save the document before creating Source Notes.")
-            return
+            return False
         note = run_source_note_dialog(
             self._parent,
             self._reference_keys_provider(),
             self._controller.target_options,
             self._controller.ids,
         )
-        if note is not None:
-            self._controller.add(note)
+        return bool(note is not None and self._controller.add(note))
+
+    def add_from_selection(
+        self,
+        text: str,
+        *,
+        reference_key: str = "",
+        target: str = "",
+    ) -> bool:
+        self.sync_document()
+        if not self._controller.available:
+            self._show_error("Save the document before creating Source Notes.")
+            return False
+        if not isinstance(text, str) or not text.strip():
+            self._show_error("Select document text before creating a Source Note.")
+            return False
+        canonical = self._controller.resolve_reference_key(reference_key) if reference_key else None
+        if reference_key and canonical is None:
+            self._show_error(f"Reference key is missing: {reference_key}")
+            return False
+        stamp = now_iso()
+        try:
+            draft = SourceNote(
+                id=new_source_note_id(self._controller.ids),
+                kind="quote" if canonical else "comment",
+                text=text,
+                reference_key=canonical or "",
+                target=target,
+                created=stamp,
+                modified=stamp,
+            )
+        except ValueError as error:
+            self._show_error(str(error))
+            return False
+        note = run_source_note_dialog(
+            self._parent,
+            self._reference_keys_provider(),
+            self._controller.target_options,
+            self._controller.ids,
+            draft=draft,
+        )
+        return bool(note is not None and self._controller.add(note))
+
+    def show_note(self, note_id: str) -> bool:
+        self.sync_document(force=True)
+        return self._controller.select_id(note_id)
 
     def on_edit(self, *_):
         self.sync_document()

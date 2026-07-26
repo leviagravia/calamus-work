@@ -15,18 +15,21 @@ A typical path is:
 1. Save the document as `~/Documents/Book/Chapter-01.md`.
 2. Open `Research → References` and add a source with a stable key such as `ratzinger1968`.
 3. Open `Research → Source Notes` and add a note linked to `ratzinger1968` and, when useful, to a document heading such as `#introduction`.
-4. Place the cursor where the citation belongs and use `Research → Quick Cite…` to insert `[@ratzinger1968]`.
-5. Use `Research → Research Check…` before exporting to find missing citation keys, broken targets, duplicate aliases and tag-identity collisions.
-6. Use `Research → Tag Integrity…` to inspect, rename, merge, remove or normalize Research tags without changing the document text.
-7. Use `Research → Import BibTeX/BibLaTeX…` when a trusted `.bib` library must be reviewed and merged into `references.md`.
-8. Use `Research → Export References as BibTeX/BibLaTeX…` to create a derived `.bib` file for another bibliographic tool.
-9. Use `Research → Export Research Apparatus…` to create a derived Markdown dossier or one of its component reports.
+4. Select a useful sentence and use `Research → Create Source Note from Selection…` to turn it into a prefilled Source Note.
+5. Use `Research → Insert Link to Heading…` to create a Markdown link to one explicit `{#heading-id}`.
+6. Open `Research → Authoring Bridge` to inspect navigable citations, Source Notes, heading links and broken Research links derived from the current files.
+7. Place the cursor where the citation belongs and use `Research → Quick Cite…` to insert `[@ratzinger1968]`.
+8. Use `Research → Research Check…` before exporting to find missing citation keys, broken targets, duplicate aliases and tag-identity collisions.
+9. Use `Research → Tag Integrity…` to inspect, rename, merge, remove or normalize Research tags without changing the document text.
+10. Use `Research → Import BibTeX/BibLaTeX…` when a trusted `.bib` library must be reviewed and merged into `references.md`.
+11. Use `Research → Export References as BibTeX/BibLaTeX…` to create a derived `.bib` file for another bibliographic tool.
+12. Use `Research → Export Research Apparatus…` to create a derived Markdown dossier or one of its component reports.
 
 The document, `references.md` and the document Source Notes sidecar remain separate authorities. Derived reports are not authorities and may be regenerated.
 
 ## Research Panel
 
-`Research → Research Panel` opens the right-side Research workspace. It hosts the currently selected Research client, such as References or Source Notes.
+`Research → Research Panel` opens the right-side Research workspace. It hosts the currently selected Research client: Clips, References, Source Notes or Authoring Bridge.
 
 Practical example: while editing `Chapter-01.md`, open the Research Panel, select References, then double-click or activate a source to inspect it without leaving the document.
 
@@ -57,6 +60,81 @@ Calamus stores the sidecar at:
 A Source Note may contain a quotation, paraphrase or comment, a Reference key, a page locator, tags and a target heading.
 
 Practical example: create a quotation note linked to `ratzinger1968`, page `42`, target `#introduction`, with the tag `faith`.
+
+## Create Source Note from Selection
+
+`Research → Create Source Note from Selection…` bridges the editor and the current document Source Notes sidecar. The command requires a saved document and a non-empty selection.
+
+Calamus captures the selected text and its document position before the modal dialog opens. A focus change cannot replace the captured source with another cursor position. Calamus then opens the normal Source Note dialog with:
+
+- the selected document text already copied into **Text**;
+- the currently selected Reference preselected when available;
+- the current heading preselected as **Document Target** only when it has one explicit, unique Pandoc-compatible identifier such as `{#introduction}`.
+
+The dialog remains authoritative for the final type, Reference, locator, tags, comment and target. Choosing **Cancel** writes nothing. Choosing **Save** persists through the existing atomic Source Notes store and stale-file conflict gate. The active document and `references.md` remain unchanged.
+
+### Practical click-by-click example
+
+1. Save `Chapter-01.md`.
+2. Ensure the document contains `## Introduction {#introduction}`.
+3. In `Research → References`, select `ratzinger1968` if the note should be linked to that source.
+4. Select one sentence in the editor.
+5. Open `Research → Create Source Note from Selection…`.
+6. Confirm the selected sentence appears in **Text**.
+7. Confirm the intended Reference and `#introduction` target, then add a locator or tags if needed.
+8. Press **Save**.
+9. Open `Research → Source Notes` and verify the new note is selected.
+
+Stop and cancel when the prefilled text, Reference or target is not the expected one. An unsaved document, empty selection, malformed sidecar, missing Reference, missing target or stale external sidecar change fails closed.
+
+## Insert Link to Heading
+
+`Research → Insert Link to Heading…` inserts a standard Markdown internal link such as:
+
+`[Introduction](#introduction)`
+
+Only headings with an explicit, unique `{#heading-id}` are offered. Automatic heading slugs are not treated as stable Calamus targets. A selected single-line phrase becomes the default link text; with no selection, the heading title is proposed. The dialog shows the exact Markdown preview before insertion.
+
+The command captures the document and replacement range before the modal dialog opens. Even if dialog focus moves the visible editor cursor, insertion still uses that captured range. It then replaces the selection or inserts at the captured cursor through the canonical document mutation gateway. It is one Undo unit, updates dirty state normally and never changes References or Source Notes.
+
+### Practical click-by-click example
+
+1. Add `## Method {#method}` to the document.
+2. Select the words `see the method` or place the cursor where the link belongs.
+3. Open `Research → Insert Link to Heading…`.
+4. Choose `Method — #method`.
+5. Review the link text and preview.
+6. Press **Insert**.
+7. Verify the editor contains `[see the method](#method)` or `[Method](#method)`.
+8. Use Undo once and verify the exact pre-insertion document text returns; the menu callback itself does not display a separate success value.
+
+The command refuses empty or multiline labels, missing or duplicate heading IDs, stale document snapshots and invalid targets.
+
+## Authoring Bridge
+
+`Research → Authoring Bridge` opens a read-only, on-demand projection of relationships already present in the current document, `references.md` and the document Source Notes sidecar. It creates no database, graph, cache, persisted count, watcher or background index.
+
+The mode selector provides:
+
+- **Backlinks by Reference**: Pandoc citation occurrences and Source Notes linked to one canonical Reference, including alias resolution;
+- **Backlinks by Heading**: Markdown links and Source Notes targeting one explicit, unique heading ID;
+- **Broken Research Links**: missing or ambiguous citation keys, heading links, Source Note References, Source Note targets and heading-ID diagnostics.
+
+Each row stores the concrete source identity. **Open** or double-click selects the exact document range, or opens Source Notes and selects the known stable note ID. Calamus does not rerun a text search or scan the GTK list to rediscover the item.
+
+### Practical click-by-click example
+
+1. Open a saved document containing `[@ratzinger1968]`, `[Introduction](#introduction)` and at least one linked Source Note.
+2. Open `Research → Authoring Bridge`.
+3. Choose **Backlinks by Reference**, then select `ratzinger1968`.
+4. Confirm the list shows the citation and linked Source Notes.
+5. Activate the citation row and verify the exact citation is selected in the editor.
+6. Return to Authoring Bridge, activate a Source Note row and verify Source Notes opens with that note selected.
+7. Choose **Backlinks by Heading**, then `#introduction`; verify document links and targeted Source Notes.
+8. Choose **Broken Research Links** and inspect any reported target or key.
+9. After editing the document or Research files, press **Refresh** before opening an old result.
+
+A projection is intentionally a snapshot. Refresh after document, References or Source Notes changes. If the document changes after it is built, opening an old document occurrence fails closed and asks for Refresh. The Authoring Bridge itself never mutates an authority.
 
 ## Quick Cite
 
