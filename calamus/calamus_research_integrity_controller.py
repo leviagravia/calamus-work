@@ -1,13 +1,14 @@
 """GTK-free transactional coordinator for W78 reference integrity commands."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable, Protocol
 
 from calamus_document_structure import DocumentStructure
 from calamus_reference_integrity import (
     ReferenceMigrationPlan,
     ResearchCheckReport,
+    ResearchIssue,
     plan_reference_key_migration,
     run_research_check,
 )
@@ -17,6 +18,10 @@ from calamus_reference_store import (
     ReferenceSaveResult,
 )
 from calamus_research_file import FileToken
+from calamus_reference_set_store import (
+    ReferenceSetSaveResult,
+    ReferenceSetSnapshot,
+)
 from calamus_source_note_store import (
     MarkdownSourceNoteStore,
     SourceNoteSaveResult,
@@ -34,6 +39,25 @@ class SourceNoteStore(Protocol):
     path: str
     def load(self) -> SourceNoteSnapshot: ...
     def save(self, notes, expected_token: FileToken, *, force: bool = False) -> SourceNoteSaveResult: ...
+
+
+class ReferenceSetStore(Protocol):
+    def load(self) -> ReferenceSetSnapshot: ...
+    def save(self, sets, expected_token: FileToken, *, force: bool = False) -> ReferenceSetSaveResult: ...
+
+
+class _EmptyReferenceSetStore:
+    """Backward-compatible no-authority boundary outside the composed App."""
+
+    def load(self) -> ReferenceSetSnapshot:
+        return ReferenceSetSnapshot((), FileToken(False), ())
+
+    def save(self, sets, expected_token: FileToken, *, force: bool = False) -> ReferenceSetSaveResult:
+        if tuple(sets):
+            return ReferenceSetSaveResult(
+                "error", FileToken(False), "Reference Set storage was not configured."
+            )
+        return ReferenceSetSaveResult("saved", FileToken(False))
 
 
 @dataclass(frozen=True)
@@ -54,6 +78,7 @@ class IntegrityCommandResult:
 @dataclass(frozen=True)
 class _LoadedContext:
     reference_snapshot: ReferenceLibrarySnapshot
+    reference_set_snapshot: ReferenceSetSnapshot
     source_note_store: SourceNoteStore | None
     source_note_snapshot: SourceNoteSnapshot
     document_text: str
@@ -74,6 +99,8 @@ class ResearchIntegrityController:
         replace_document_text: Callable[[str, str], bool],
         refresh_references: Callable[[], None],
         refresh_source_notes: Callable[[], None],
+        reference_set_store: ReferenceSetStore | None = None,
+        refresh_reference_sets: Callable[[], None] | None = None,
     ) -> None:
         callbacks = (
             source_note_store_factory,
@@ -89,7 +116,13 @@ class ResearchIntegrityController:
         store = reference_store or MarkdownReferenceStore()
         if not hasattr(store, "load") or not hasattr(store, "save"):
             raise TypeError("reference_store must implement load and save")
+        set_store = reference_set_store or _EmptyReferenceSetStore()
+        if not hasattr(set_store, "load") or not hasattr(set_store, "save"):
+            raise TypeError("reference_set_store must implement load and save")
+        if refresh_reference_sets is not None and not callable(refresh_reference_sets):
+            raise TypeError("refresh_reference_sets must be callable")
         self._reference_store = store
+        self._reference_set_store = set_store
         self._source_note_store_factory = source_note_store_factory
         self._document_path_provider = document_path_provider
         self._document_text_provider = document_text_provider
@@ -97,7 +130,8 @@ class ResearchIntegrityController:
         self._replace_document_text = replace_document_text
         self._refresh_references = refresh_references
         self._refresh_source_notes = refresh_source_notes
-        self._prepared: tuple[ReferenceMigrationPlan, FileToken, FileToken] | None = None
+        self._refresh_reference_sets = refresh_reference_sets or (lambda: None)
+        self._prepared: tuple[ReferenceMigrationPlan, FileToken, FileToken, FileToken] | None = None
 
     def prepare_migration(
         self,
@@ -113,12 +147,14 @@ class ResearchIntegrityController:
             context.source_note_snapshot.notes,
             old_key,
             new_key,
+            reference_sets=context.reference_set_snapshot.sets,
             preserve_old_alias=preserve_old_alias,
         )
         self._prepared = (
             plan,
             context.reference_snapshot.token,
             context.source_note_snapshot.token,
+            context.reference_set_snapshot.token,
         )
         return plan
 
@@ -132,16 +168,17 @@ class ResearchIntegrityController:
                 "stale",
                 "Impact preview is no longer current. Nothing was written.",
             )
-        approved_reference_token, approved_source_token = prepared[1], prepared[2]
+        approved_reference_token, approved_source_token, approved_set_token = prepared[1], prepared[2], prepared[3]
         try:
             context = self._load_context()
             if (
                 context.reference_snapshot.token != approved_reference_token
                 or context.source_note_snapshot.token != approved_source_token
+                or context.reference_set_snapshot.token != approved_set_token
             ):
                 return IntegrityCommandResult(
                     "stale",
-                    "References or Source Notes changed after impact preview. Nothing was written.",
+                    "References, Reference Sets or Source Notes changed after impact preview. Nothing was written.",
                 )
             fresh_plan = plan_reference_key_migration(
                 context.reference_snapshot.records,
@@ -149,6 +186,7 @@ class ResearchIntegrityController:
                 context.source_note_snapshot.notes,
                 approved_plan.impact.old_key,
                 approved_plan.impact.new_key,
+                reference_sets=context.reference_set_snapshot.sets,
                 preserve_old_alias=approved_plan.impact.preserved_alias,
             )
         except (OSError, TypeError, ValueError) as error:
@@ -157,7 +195,7 @@ class ResearchIntegrityController:
         if fresh_plan != approved_plan:
             return IntegrityCommandResult(
                 "stale",
-                "References, the active document, or Source Notes changed after impact preview. Nothing was written.",
+                "References, Reference Sets, the active document, or Source Notes changed after impact preview. Nothing was written.",
             )
 
         reference_result = self._reference_store.save(
@@ -170,6 +208,23 @@ class ResearchIntegrityController:
                 reference_result.message or "Could not save References.",
             )
 
+        set_result: ReferenceSetSaveResult | None = None
+        if fresh_plan.reference_sets_changed:
+            set_result = self._reference_set_store.save(
+                fresh_plan.reference_sets_after,
+                context.reference_set_snapshot.token,
+            )
+            if not set_result.saved:
+                recovery = self._rollback_references(
+                    fresh_plan,
+                    reference_result.token,
+                )
+                return self._failure_after_recovery(
+                    set_result.message or "Could not save Reference Sets.",
+                    recovery,
+                    stale=set_result.status == "conflict",
+                )
+
         note_result: SourceNoteSaveResult | None = None
         if fresh_plan.source_notes_changed:
             assert context.source_note_store is not None
@@ -178,13 +233,18 @@ class ResearchIntegrityController:
                 context.source_note_snapshot.token,
             )
             if not note_result.saved:
-                recovery = self._rollback_references(
-                    fresh_plan,
-                    reference_result.token,
+                recovery_errors: list[str] = []
+                if set_result is not None:
+                    recovery_errors.extend(
+                        self._rollback_reference_sets(fresh_plan, set_result.token)
+                    )
+                recovery_errors.extend(
+                    self._rollback_references(fresh_plan, reference_result.token)
                 )
                 return self._failure_after_recovery(
                     note_result.message or "Could not save Source Notes.",
-                    recovery,
+                    tuple(recovery_errors),
+                    stale=note_result.status == "conflict",
                 )
 
         # The buffer is an authority too: do not apply an approved plan to a new snapshot.
@@ -193,6 +253,7 @@ class ResearchIntegrityController:
                 fresh_plan,
                 context.source_note_store,
                 note_result.token if note_result is not None else None,
+                set_result.token if set_result is not None else None,
                 reference_result.token,
             )
             return self._failure_after_recovery(
@@ -224,6 +285,7 @@ class ResearchIntegrityController:
                         fresh_plan,
                         context.source_note_store,
                         note_result.token if note_result is not None else None,
+                        set_result.token if set_result is not None else None,
                         reference_result.token,
                     )
                 )
@@ -234,25 +296,54 @@ class ResearchIntegrityController:
 
         self._refresh_references()
         self._refresh_source_notes()
+        self._refresh_reference_sets()
         return IntegrityCommandResult(
             "success",
             f"Renamed {fresh_plan.impact.old_key} to {fresh_plan.impact.new_key}.",
         )
 
     def research_check(self) -> ResearchCheckReport:
-        context = self._load_context()
-        return run_research_check(
+        context = self._load_context(allow_reference_set_diagnostics=True)
+        report = run_research_check(
             context.reference_snapshot.records,
             context.document_text,
             context.source_note_snapshot.notes,
             context.document_structure,
+            context.reference_set_snapshot.sets,
         )
+        diagnostic_issues = tuple(
+            ResearchIssue(
+                "error" if item.blocking else "warning",
+                "reference-set-file-diagnostic",
+                f"line {item.line}",
+                item.message,
+            )
+            for item in context.reference_set_snapshot.diagnostics
+        )
+        if not diagnostic_issues:
+            return report
+        issues = tuple(sorted(
+            set((*report.issues, *diagnostic_issues)),
+            key=lambda issue: (
+                {"error": 0, "warning": 1, "advisory": 2}[issue.severity],
+                issue.kind,
+                issue.subject,
+                issue.message,
+            ),
+        ))
+        return replace(report, issues=issues)
 
-    def _load_context(self) -> _LoadedContext:
+    def _load_context(self, *, allow_reference_set_diagnostics: bool = False) -> _LoadedContext:
         reference_snapshot = self._reference_store.load()
         if reference_snapshot.diagnostics:
             detail = "; ".join(item.message for item in reference_snapshot.diagnostics[:8])
             raise ValueError("References contains blocking diagnostics: " + detail)
+
+        reference_set_snapshot = self._reference_set_store.load()
+        blocking_sets = [item for item in reference_set_snapshot.diagnostics if item.blocking]
+        if blocking_sets and not allow_reference_set_diagnostics:
+            detail = "; ".join(item.message for item in blocking_sets[:8])
+            raise ValueError("Reference Sets contains blocking diagnostics: " + detail)
 
         source_store: SourceNoteStore | None = None
         source_snapshot = SourceNoteSnapshot((), FileToken(False), ())
@@ -272,6 +363,7 @@ class ResearchIntegrityController:
             raise TypeError("document_structure_provider must return DocumentStructure")
         return _LoadedContext(
             reference_snapshot,
+            reference_set_snapshot,
             source_store,
             source_snapshot,
             document_text,
@@ -288,11 +380,25 @@ class ResearchIntegrityController:
             return ()
         return (result.message or "References rollback failed.",)
 
+    def _rollback_reference_sets(
+        self,
+        plan: ReferenceMigrationPlan,
+        expected_token: FileToken,
+    ) -> tuple[str, ...]:
+        result = self._reference_set_store.save(
+            plan.reference_sets_before,
+            expected_token,
+        )
+        if result.saved:
+            return ()
+        return (result.message or "Reference Sets rollback failed.",)
+
     def _rollback_persistent(
         self,
         plan: ReferenceMigrationPlan,
         source_store: SourceNoteStore | None,
         source_expected_token: FileToken | None,
+        set_expected_token: FileToken | None,
         reference_expected_token: FileToken,
     ) -> tuple[str, ...]:
         errors: list[str] = []
@@ -301,9 +407,12 @@ class ResearchIntegrityController:
             result = source_store.save(plan.source_notes_before, source_expected_token)
             if not result.saved:
                 errors.append(result.message or "Source Notes rollback failed.")
+        if set_expected_token is not None:
+            errors.extend(self._rollback_reference_sets(plan, set_expected_token))
         errors.extend(self._rollback_references(plan, reference_expected_token))
         self._refresh_references()
         self._refresh_source_notes()
+        self._refresh_reference_sets()
         return tuple(errors)
 
     @staticmethod

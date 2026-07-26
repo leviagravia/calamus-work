@@ -43,6 +43,7 @@ class AuthoringBridgeControllerTests(unittest.TestCase):
         self.errors = []
         self.document_nav = []
         self.note_nav = []
+        self.reference_nav = []
         self.current_text = self.text
         self.controller = AuthoringBridgeController(
             self.view,
@@ -54,6 +55,7 @@ class AuthoringBridgeControllerTests(unittest.TestCase):
             current_heading_provider=lambda: "intro",
             navigate_document=lambda start, end, identity: self.document_nav.append((start, end, identity)) or True,
             show_source_note=lambda note_id: self.note_nav.append(note_id) or True,
+            show_reference=lambda key: self.reference_nav.append(key) or True,
             on_error=self.errors.append,
         )
 
@@ -74,6 +76,24 @@ class AuthoringBridgeControllerTests(unittest.TestCase):
         self.assertTrue(self.controller.open_selected())
         self.assertEqual(self.note_nav, ["sn-1"])
         self.assertEqual(self.document_nav, [])
+
+
+    def test_related_mode_dispatches_direct_reference_identity(self):
+        self.records = (
+            ReferenceRecord(
+                key="ref",
+                title="Reference",
+                extra_fields=(("Related Keys", "other"),),
+            ),
+            ReferenceRecord(key="other", title="Other"),
+        )
+        self.controller.activate()
+        self.assertTrue(self.controller.set_mode("related"))
+        self.assertEqual(self.controller.subject_id, "ref")
+        self.assertEqual([item.kind for item in self.controller.visible_occurrences], ["related-reference"])
+        self.view.selected = self.controller.visible_occurrences[0].id
+        self.assertTrue(self.controller.open_selected())
+        self.assertEqual(self.reference_nav, ["other"])
 
     def test_document_navigation_uses_stored_offsets_and_stale_snapshot_fails(self):
         self.controller.activate()
@@ -99,6 +119,7 @@ class AuthoringBridgeControllerTests(unittest.TestCase):
             current_heading_provider=lambda: None,
             navigate_document=lambda *_: True,
             show_source_note=lambda *_: True,
+            show_reference=lambda *_: True,
             on_error=self.errors.append,
         )
         self.assertIsNotNone(controller.refresh())

@@ -16,6 +16,7 @@ from calamus_document_structure import (
     is_valid_heading_identifier,
 )
 from calamus_references import ReferenceRecord, normalize_key
+from calamus_related_references import effective_related_keys
 from calamus_source_notes import SourceNote
 
 
@@ -35,9 +36,10 @@ _ALLOWED_OCCURRENCE_KINDS = frozenset(
         "broken-source-note-reference",
         "broken-source-note-target",
         "heading-diagnostic",
+        "related-reference",
     }
 )
-_ALLOWED_NAVIGATION_KINDS = frozenset({"document", "source-note"})
+_ALLOWED_NAVIGATION_KINDS = frozenset({"document", "source-note", "reference"})
 
 
 def _one_line(value: str) -> str:
@@ -173,7 +175,7 @@ class BridgeSubject:
     label: str
 
     def __post_init__(self) -> None:
-        if self.kind not in {"reference", "heading", "issues"}:
+        if self.kind not in {"reference", "heading", "issues", "related"}:
             raise ValueError("bridge subject kind is invalid")
         if not isinstance(self.identifier, str) or not self.identifier:
             raise ValueError("bridge subject identifier is required")
@@ -196,13 +198,14 @@ class BridgeOccurrence:
     start_offset: int | None = None
     end_offset: int | None = None
     source_note_id: str = ""
+    reference_key: str = ""
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id:
             raise ValueError("bridge occurrence id is required")
         if self.kind not in _ALLOWED_OCCURRENCE_KINDS:
             raise ValueError("bridge occurrence kind is invalid")
-        if self.subject_kind not in {"reference", "heading", "issues"}:
+        if self.subject_kind not in {"reference", "heading", "issues", "related"}:
             raise ValueError("bridge occurrence subject kind is invalid")
         if not isinstance(self.subject_id, str) or not self.subject_id:
             raise ValueError("bridge occurrence subject id is required")
@@ -221,8 +224,11 @@ class BridgeOccurrence:
                 raise ValueError("document occurrence offsets are invalid")
             if self.line < 1:
                 raise ValueError("document occurrence line must be one-based")
-        elif not self.source_note_id:
-            raise ValueError("source-note occurrence requires source_note_id")
+        elif self.navigation_kind == "source-note":
+            if not self.source_note_id:
+                raise ValueError("source-note occurrence requires source_note_id")
+        elif not self.reference_key:
+            raise ValueError("reference occurrence requires reference_key")
 
 
 @dataclass(frozen=True)
@@ -230,6 +236,7 @@ class AuthoringBridgeProjection:
     document_text: str
     reference_subjects: tuple[BridgeSubject, ...]
     heading_subjects: tuple[BridgeSubject, ...]
+    related_subjects: tuple[BridgeSubject, ...]
     occurrences: tuple[BridgeOccurrence, ...]
 
     def __post_init__(self) -> None:
@@ -237,6 +244,7 @@ class AuthoringBridgeProjection:
             raise TypeError("document_text must be str")
         object.__setattr__(self, "reference_subjects", tuple(self.reference_subjects))
         object.__setattr__(self, "heading_subjects", tuple(self.heading_subjects))
+        object.__setattr__(self, "related_subjects", tuple(self.related_subjects))
         object.__setattr__(self, "occurrences", tuple(self.occurrences))
         ids = [item.id for item in self.occurrences]
         if len(ids) != len(set(ids)):
@@ -247,12 +255,14 @@ class AuthoringBridgeProjection:
             return self.reference_subjects
         if mode == "heading":
             return self.heading_subjects
+        if mode == "related":
+            return self.related_subjects
         if mode == "issues":
             return (BridgeSubject("issues", "broken-links", "Broken Research links"),)
         raise ValueError("bridge mode is invalid")
 
     def items(self, mode: str, subject_id: str) -> tuple[BridgeOccurrence, ...]:
-        if mode not in {"reference", "heading", "issues"}:
+        if mode not in {"reference", "heading", "related", "issues"}:
             raise ValueError("bridge mode is invalid")
         kind = "issues" if mode == "issues" else mode
         return tuple(
@@ -426,6 +436,24 @@ def _source_note_occurrence(
     )
 
 
+def _reference_occurrence(
+    *,
+    occurrence_id: str,
+    subject_id: str,
+    record: ReferenceRecord,
+) -> BridgeOccurrence:
+    return BridgeOccurrence(
+        id=occurrence_id,
+        kind="related-reference",
+        subject_kind="related",
+        subject_id=subject_id,
+        label=f"{record.key} — {record.author_year} — {record.title}",
+        detail="Open the related Reference in the canonical library.",
+        navigation_kind="reference",
+        reference_key=record.key,
+    )
+
+
 def build_authoring_bridge_projection(
     records: Iterable[ReferenceRecord],
     document_text: str,
@@ -449,6 +477,11 @@ def build_authoring_bridge_projection(
     owners = _identity_owners(records_snapshot)
     occurrences: list[BridgeOccurrence] = []
     reference_subjects = tuple(_reference_subject(record) for record in records_snapshot)
+    related_subjects = tuple(
+        BridgeSubject("related", record.key, f"{record.key} — {record.author_year} — {record.title}")
+        for record in records_snapshot
+    )
+    records_by_key = {record.key: record for record in records_snapshot}
 
     unique_headings = []
     for heading in structure.headings:
@@ -461,6 +494,16 @@ def build_authoring_bridge_projection(
         _heading_subject(heading.identifier or "", heading.display_title, heading.line)
         for heading in unique_headings
     )
+
+    for record in records_snapshot:
+        for canonical in effective_related_keys(records_snapshot, record.key):
+            occurrences.append(
+                _reference_occurrence(
+                    occurrence_id=f"related:{record.key}:{canonical}",
+                    subject_id=record.key,
+                    record=records_by_key[canonical],
+                )
+            )
 
     for cluster in parse_citation_clusters(document_text):
         for item in cluster.items:
@@ -614,6 +657,7 @@ def build_authoring_bridge_projection(
         "heading-diagnostic": 2,
         "broken-source-note-reference": 3,
         "broken-source-note-target": 4,
+        "related-reference": 0,
     }
     occurrences.sort(
         key=lambda item: (
@@ -629,6 +673,7 @@ def build_authoring_bridge_projection(
         document_text=document_text,
         reference_subjects=reference_subjects,
         heading_subjects=heading_subjects,
+        related_subjects=related_subjects,
         occurrences=tuple(occurrences),
     )
 

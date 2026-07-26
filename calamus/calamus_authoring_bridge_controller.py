@@ -49,6 +49,7 @@ class AuthoringBridgeController:
         current_heading_provider: Callable[[], str | None],
         navigate_document: Callable[[int, int, str], bool],
         show_source_note: Callable[[str], bool],
+        show_reference: Callable[[str], bool],
         on_error: Callable[[str], None],
     ) -> None:
         required_view = (
@@ -70,6 +71,7 @@ class AuthoringBridgeController:
             current_heading_provider,
             navigate_document,
             show_source_note,
+            show_reference,
             on_error,
         )
         if any(not callable(callback) for callback in callbacks):
@@ -83,6 +85,7 @@ class AuthoringBridgeController:
         self._current_heading_provider = current_heading_provider
         self._navigate_document = navigate_document
         self._show_source_note = show_source_note
+        self._show_reference = show_reference
         self._on_error = on_error
         self._projection: AuthoringBridgeProjection | None = None
         self._mode = "reference"
@@ -130,7 +133,7 @@ class AuthoringBridgeController:
         return projection
 
     def set_mode(self, mode: str) -> bool:
-        if mode not in {"reference", "heading", "issues"}:
+        if mode not in {"reference", "heading", "related", "issues"}:
             self._on_error("Authoring Bridge mode is invalid.")
             return False
         self._mode = mode
@@ -169,6 +172,13 @@ class AuthoringBridgeController:
                 )
                 return False
             return True
+        if occurrence.navigation_kind == "reference":
+            if not self._show_reference(occurrence.reference_key):
+                self._on_error(
+                    f"Reference is no longer available: {occurrence.reference_key}"
+                )
+                return False
+            return True
 
         assert occurrence.start_offset is not None and occurrence.end_offset is not None
         if self._projection is None:
@@ -197,7 +207,7 @@ class AuthoringBridgeController:
         subjects = self._projection.subjects(self._mode)
         ids = {subject.identifier for subject in subjects}
         preferred: str | None = None
-        if prefer_context and self._mode == "reference":
+        if prefer_context and self._mode in {"reference", "related"}:
             preferred = self._selected_reference_provider()
         elif prefer_context and self._mode == "heading":
             preferred = self._current_heading_provider()
@@ -213,6 +223,7 @@ class AuthoringBridgeController:
             mode_label = {
                 "reference": "References",
                 "heading": "Headings",
+                "related": "Related References",
                 "issues": "Broken Links",
             }[self._mode]
             self._view.render((), None, f"No {mode_label.lower()} are available.")

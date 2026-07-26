@@ -37,6 +37,7 @@ class AuthoringBridgeRuntime:
         selection_provider: Callable[[], EditorSelectionSnapshot],
         navigate_document: Callable[[int, int, str], bool],
         show_source_note: Callable[[str], bool],
+        show_reference: Callable[[str], bool],
         create_source_note_from_snapshot: Callable[
             [EditorSelectionSnapshot, str, str], bool
         ],
@@ -53,6 +54,7 @@ class AuthoringBridgeRuntime:
             selection_provider,
             navigate_document,
             show_source_note,
+            show_reference,
             create_source_note_from_snapshot,
             apply_heading_link_plan,
             on_error,
@@ -81,6 +83,7 @@ class AuthoringBridgeRuntime:
             current_heading_provider=current_heading_provider,
             navigate_document=navigate_document,
             show_source_note=show_source_note,
+            show_reference=show_reference,
             on_error=on_error,
         )
         self._view.bind_controls(

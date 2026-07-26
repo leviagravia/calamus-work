@@ -102,6 +102,45 @@ class AuthoringBridgeModelTests(unittest.TestCase):
         )
         self.assertEqual(len({item.id for item in projection.occurrences}), len(projection.occurrences))
 
+
+    def test_related_projection_exposes_incoming_legacy_half_but_integrity_can_still_warn(self):
+        records = (
+            ReferenceRecord(
+                key="a", title="A", authors=("A",), year="2020",
+                extra_fields=(("Related Keys", "b"),),
+            ),
+            ReferenceRecord(key="b", title="B", authors=("B",), year="2021"),
+        )
+        projection = build_authoring_bridge_projection(
+            records, "", (), build_document_structure("")
+        )
+        self.assertEqual(
+            tuple(item.reference_key for item in projection.items("related", "b")),
+            ("a",),
+        )
+
+    def test_projection_derives_related_reference_navigation(self):
+        records = (
+            ReferenceRecord(
+                key="a",
+                title="A",
+                extra_fields=(("Related Keys", "old-b"),),
+            ),
+            ReferenceRecord(key="b", title="B", aliases=("old-b",)),
+        )
+        projection = build_authoring_bridge_projection(
+            records,
+            self.text,
+            (),
+            self.structure,
+        )
+        self.assertEqual([item.identifier for item in projection.related_subjects], ["a", "b"])
+        items = projection.items("related", "a")
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].kind, "related-reference")
+        self.assertEqual(items[0].navigation_kind, "reference")
+        self.assertEqual(items[0].reference_key, "b")
+
     def test_projection_is_deterministic_and_unicode_safe(self):
         text = "# Théologie {#theologie}\nVedi [Théologie](#theologie) [@ref].\n"
         records = (ReferenceRecord(key="ref", title="Église", authors=("Daniélou, Jean",)),)

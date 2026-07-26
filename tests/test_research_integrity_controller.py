@@ -2,6 +2,8 @@ import unittest
 
 from calamus_document_structure import build_document_structure
 from calamus_reference_store import ReferenceLibrarySnapshot, ReferenceSaveResult
+from calamus_reference_set_store import ReferenceSetSaveResult, ReferenceSetSnapshot
+from calamus_reference_sets import ReferenceSet
 from calamus_research_file import FileToken
 from calamus_research_integrity_controller import ResearchIntegrityController
 from calamus_references import ReferenceRecord
@@ -62,6 +64,32 @@ class FakeSourceNoteStore:
         return SourceNoteSaveResult("saved", self.token)
 
 
+class FakeReferenceSetStore:
+    def __init__(self, sets):
+        self.sets = tuple(sets)
+        self.token = FileToken(True, 1, 10, "sets-1")
+        self.saves = []
+        self.fail_next = None
+
+    def load(self):
+        return ReferenceSetSnapshot(self.sets, self.token, ())
+
+    def save(self, sets, expected_token, *, force=False):
+        self.saves.append((tuple(sets), expected_token, force))
+        if expected_token != self.token and not force:
+            return ReferenceSetSaveResult("conflict", self.token, "Reference Sets changed externally.")
+        if self.fail_next:
+            status, message, callback = self.fail_next
+            self.fail_next = None
+            if callback:
+                callback()
+            return ReferenceSetSaveResult(status, self.token, message)
+        self.sets = tuple(sets)
+        number = len(self.saves) + 1
+        self.token = FileToken(True, number, len(self.sets), f"sets-{number}")
+        return ReferenceSetSaveResult("saved", self.token)
+
+
 class ResearchIntegrityControllerTests(unittest.TestCase):
     def setUp(self):
         self.references = FakeReferenceStore((
@@ -69,6 +97,9 @@ class ResearchIntegrityControllerTests(unittest.TestCase):
         ))
         self.notes = FakeSourceNoteStore((
             SourceNote(id="sn-1", kind="quote", text="Quote", reference_key="oldkey"),
+        ))
+        self.sets = FakeReferenceSetStore((
+            ReferenceSet("Core", members=("oldkey",)),
         ))
         self.state = {"text": "Use [@oldkey, p. 4].\n"}
         self.refreshes = []
@@ -91,6 +122,8 @@ class ResearchIntegrityControllerTests(unittest.TestCase):
             replace_document_text=replace,
             refresh_references=lambda: self.refreshes.append("references"),
             refresh_source_notes=lambda: self.refreshes.append("notes"),
+            reference_set_store=self.sets,
+            refresh_reference_sets=lambda: self.refreshes.append("sets"),
         )
 
     def test_success_updates_three_authorities_and_preserves_alias(self):
@@ -101,8 +134,9 @@ class ResearchIntegrityControllerTests(unittest.TestCase):
         self.assertEqual(self.references.records[0].aliases, ("oldkey",))
         self.assertEqual(self.notes.notes[0].reference_key, "newkey")
         self.assertIn("[@newkey, p. 4]", self.state["text"])
+        self.assertEqual(self.sets.sets[0].members, ("newkey",))
         self.assertEqual(len(self.replace_calls), 1)
-        self.assertEqual(self.refreshes, ["references", "notes"])
+        self.assertEqual(self.refreshes, ["references", "notes", "sets"])
 
     def test_stale_preview_writes_nothing(self):
         plan = self.controller.prepare_migration("oldkey", "newkey")
@@ -111,6 +145,7 @@ class ResearchIntegrityControllerTests(unittest.TestCase):
         self.assertEqual(result.status, "stale")
         self.assertEqual(self.references.saves, [])
         self.assertEqual(self.notes.saves, [])
+        self.assertEqual(self.sets.saves, [])
         self.assertEqual(self.references.records[0].key, "oldkey")
 
     def test_source_note_failure_rolls_back_references(self):
@@ -120,7 +155,9 @@ class ResearchIntegrityControllerTests(unittest.TestCase):
         self.assertEqual(result.status, "error")
         self.assertEqual(self.references.records[0].key, "oldkey")
         self.assertEqual(self.state["text"], plan.document_before)
+        self.assertEqual(self.sets.sets[0].members, ("oldkey",))
         self.assertEqual(len(self.references.saves), 2)
+        self.assertEqual(len(self.sets.saves), 2)
 
     def test_external_change_blocks_rollback_without_overwrite(self):
         def external_change():
@@ -144,13 +181,30 @@ class ResearchIntegrityControllerTests(unittest.TestCase):
         self.assertEqual(result.status, "error")
         self.assertEqual(self.references.records[0].key, "oldkey")
         self.assertEqual(self.notes.notes[0].reference_key, "oldkey")
+        self.assertEqual(self.sets.sets[0].members, ("oldkey",))
         self.assertEqual(self.state["text"], plan.document_before)
+
+    def test_research_check_reports_reference_set_file_diagnostics_without_writing(self):
+        from calamus_reference_sets import ReferenceSetDiagnostic
+
+        self.sets.load = lambda: ReferenceSetSnapshot(
+            self.sets.sets, self.sets.token,
+            (ReferenceSetDiagnostic(4, "Duplicate member."),),
+        )
+        report = self.controller.research_check()
+        issue = next(item for item in report.issues if item.kind == "reference-set-file-diagnostic")
+        self.assertEqual(issue.severity, "error")
+        self.assertEqual(issue.subject, "line 4")
+        self.assertEqual(self.references.saves, [])
+        self.assertEqual(self.notes.saves, [])
+        self.assertEqual(self.sets.saves, [])
 
     def test_research_check_is_read_only(self):
         report = self.controller.research_check()
         self.assertGreaterEqual(report.reference_count, 1)
         self.assertEqual(self.references.saves, [])
         self.assertEqual(self.notes.saves, [])
+        self.assertEqual(self.sets.saves, [])
         self.assertEqual(self.replace_calls, [])
 
 

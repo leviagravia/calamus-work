@@ -159,6 +159,7 @@ def build_menu(app) -> None:
     add_separator(researchm)
     add_item(researchm, "Clip Collection", app.show_clip_collection)
     add_item(researchm, "References", app.show_references)
+    add_item(researchm, "Reference Sets", app.show_reference_sets)
     add_item(researchm, "Source Notes", app.show_source_notes)
     add_item(researchm, "Authoring Bridge", app.show_authoring_bridge)
     add_separator(researchm)

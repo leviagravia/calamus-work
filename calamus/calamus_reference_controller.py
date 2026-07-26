@@ -153,6 +153,24 @@ class ReferenceController:
     def reload(self) -> None:
         self.load()
 
+    def replace_records(
+        self,
+        candidate: tuple[ReferenceRecord, ...],
+        *,
+        select_key: str | None = None,
+    ) -> bool:
+        """Persist one externally planned complete library snapshot.
+
+        The caller must provide a GTK-free immutable plan.  This gateway keeps
+        conflict handling and persist-first ownership inside References.
+        """
+        self.ensure_loaded()
+        if self._diagnostics:
+            return False
+        if any(not isinstance(record, ReferenceRecord) for record in candidate):
+            raise TypeError("candidate must contain ReferenceRecord values")
+        return self._commit(tuple(candidate), select_key=select_key)
+
     def _commit(self, candidate: tuple[ReferenceRecord, ...], *, select_key: str | None) -> bool:
         result = self._store.save(candidate, self._token)
         if result.status == "conflict":

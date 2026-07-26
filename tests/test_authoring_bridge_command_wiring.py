@@ -99,7 +99,7 @@ class AuthoringBridgeCommandWiringTests(unittest.TestCase):
         self.assertIn("undo_result = win.on_undo()", desktop_test)
         self.assertIn("self.assertEqual(win.buffer_text(), original_document)", desktop_test)
 
-    def test_no_forbidden_persistence_or_w89_w90_scope(self):
+    def test_no_forbidden_persistence_or_dynamic_w89_w90_scope(self):
         combined = "\n".join(
             source(ROOT / "calamus" / name)
             for name in (
@@ -117,7 +117,6 @@ class AuthoringBridgeCommandWiringTests(unittest.TestCase):
             "subprocess",
             "named set",
             "citeproc",
-            "related references",
         ):
             self.assertNotIn(forbidden, combined)
 

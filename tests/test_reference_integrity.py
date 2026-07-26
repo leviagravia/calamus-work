@@ -8,6 +8,7 @@ from calamus_reference_integrity import (
     run_research_check,
 )
 from calamus_references import ReferenceRecord
+from calamus_reference_sets import ReferenceSet
 from calamus_source_notes import SourceLocator, SourceNote
 
 
@@ -51,10 +52,14 @@ class ReferenceIntegrityTests(unittest.TestCase):
         notes = (
             SourceNote(id="sn-1", kind="quote", text="Quote", reference_key="oldkey"),
         )
-        plan = plan_reference_key_migration(records, text, notes, "oldkey", "newkey")
+        sets = (ReferenceSet("Core", members=("oldkey", "other")),)
+        plan = plan_reference_key_migration(
+            records, text, notes, "oldkey", "newkey", reference_sets=sets
+        )
         self.assertEqual(plan.impact.citation_occurrences, 2)
         self.assertEqual(plan.impact.source_note_occurrences, 1)
         self.assertEqual(plan.impact.related_key_occurrences, 1)
+        self.assertEqual(plan.impact.reference_set_occurrences, 1)
         self.assertIn("[@newkey, p. 4]", plan.document_after)
         self.assertIn("`[@oldkey]`", plan.document_after)
         self.assertIn("\n@oldkey\n", plan.document_after)
@@ -62,6 +67,7 @@ class ReferenceIntegrityTests(unittest.TestCase):
         self.assertEqual(renamed.key, "newkey")
         self.assertEqual(renamed.aliases, ("oldkey",))
         self.assertEqual(plan.source_notes_after[0].reference_key, "newkey")
+        self.assertEqual(plan.reference_sets_after[0].members, ("newkey", "other"))
 
     def test_migration_fails_closed_on_other_record_identity_collision(self):
         records = (
@@ -92,8 +98,9 @@ class ReferenceIntegrityTests(unittest.TestCase):
             ),
         )
         structure = build_document_structure(text)
-        first = run_research_check(records, text, notes, structure)
-        second = run_research_check(records, text, notes, structure)
+        sets = (ReferenceSet("Core", members=("oldkey", "absent")),)
+        first = run_research_check(records, text, notes, structure, sets)
+        second = run_research_check(records, text, notes, structure, sets)
         self.assertEqual(first, second)
         kinds = {issue.kind for issue in first.issues}
         self.assertTrue({
@@ -107,7 +114,11 @@ class ReferenceIntegrityTests(unittest.TestCase):
             "source-note-reference-missing",
             "source-note-target-missing",
             "source-note-without-locator",
+            "reference-set-member-uses-alias",
+            "reference-set-member-missing",
+            "related-key-asymmetric",
         }.issubset(kinds))
+        self.assertEqual(first.reference_set_count, 1)
         self.assertGreater(first.error_count, 0)
         self.assertGreater(first.warning_count, 0)
         self.assertGreater(first.advisory_count, 0)

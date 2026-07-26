@@ -83,6 +83,99 @@ class UserGuidePureTests(unittest.TestCase):
         ):
             self.assertNotIn(bogus, titles)
 
+    def test_related_references_and_reference_sets_are_taught_with_examples(self):
+        text = load_user_guide(ROOT)
+        for required in (
+            "Related References",
+            "Reference Sets",
+            "Related Keys: newman1870, delubac1949",
+            "A relation is **symmetric**",
+            "Research → Authoring Bridge",
+            "reference-sets.md",
+            "# Calamus Reference Sets v1",
+            "## Core sources",
+            "Use a Related Reference when two works have an explicit relationship",
+            "deleting a set never deletes any Reference",
+            "Rename Reference Key",
+            "asymmetric Related References",
+            "invalid set members",
+            "Worked example: relate, collect and rename one source safely",
+            "one active-document citation, one current Source Note, one Related-key occurrence and one Reference Set membership",
+            "newman1870-revised",
+        ):
+            self.assertIn(required, text)
+
+        titles = tuple(section.title for section in parse_user_guide_sections(text))
+        self.assertIn("Related References", titles)
+        self.assertIn("Reference Sets", titles)
+        self.assertNotIn("Core sources", titles)
+        self.assertNotIn("Historical background", titles)
+
+    def test_beginner_references_tutorial_is_detailed_and_case_explicit(self):
+        text = load_user_guide(ROOT)
+        for required in (
+            "References tutorial: from an empty library to a checked article",
+            "Stage R1 — Understand the three things that look similar",
+            "Stage R2 — Open References and add a book",
+            "Stage R6 — Insert citations with Quick Cite",
+            "Stage R7 — Create an explicit Related Reference",
+            "Stage R8 — Create a Reference Set for one task",
+            "Reference Set names are **case-sensitive and preserved exactly**",
+            "Stage R9 — Rename a key across four authorities",
+            "Stage R12 — Complete worked example",
+            "Common Reference mistakes and recovery",
+            "references.md = canonical library",
+            "[@ratzinger1968, p. 42; @newman1870, pp. 55-57]",
+        ):
+            self.assertIn(required, text)
+        self.assertGreaterEqual(text.count("### Stage R"), 12)
+        self.assertGreater(len(text), 65000)
+
+    def test_canonical_research_panel_guide_is_complete_and_excludes_scratchpad(self):
+        text = load_user_guide(ROOT)
+        for required in (
+            "Guida canonica completa del pannello Research (Scratchpad escluso)",
+            "Prima idea fondamentale: Research non è un unico archivio",
+            "Percorso rapido: dal documento vuoto al controllo finale",
+            "Clip Collection: frammenti riutilizzabili, non fonti",
+            "References: la biblioteca globale",
+            "Related References: relazioni esplicite tra due opere",
+            "Reference Sets: liste statiche per un compito",
+            "Source Notes: il quaderno di ricerca del documento",
+            "Create Source Note from Selection",
+            "Insert Link to Heading",
+            "Quick Cite: inserire citazioni senza ricordare le key",
+            "Open Citation in References",
+            "Rename Reference Key: una migrazione controllata",
+            "Authoring Bridge: leggere le relazioni derivate",
+            "Research Check: controllo complessivo",
+            "Tag Integrity: rinominare e unificare tag senza sostituzioni cieche",
+            "Import BibTeX/BibLaTeX",
+            "Export References as BibTeX/BibLaTeX",
+            "Export Research Apparatus",
+            "Esempio completo: costruire un articolo teologico",
+            "Checklist finale prima di consegnare un lavoro",
+            "La guida dello **Scratchpad** sarà aggiunta in seguito",
+        ):
+            self.assertIn(required, text)
+        self.assertGreater(len(text), 105000)
+
+    def test_canonical_research_guide_is_one_navigable_help_topic(self):
+        sections = parse_user_guide_sections(load_user_guide(ROOT))
+        titles = tuple(section.title for section in sections)
+        self.assertEqual(
+            titles.count("Guida canonica completa del pannello Research (Scratchpad escluso)"),
+            1,
+        )
+        section = next(
+            item for item in sections
+            if item.title == "Guida canonica completa del pannello Research (Scratchpad escluso)"
+        )
+        self.assertIn("Schema mentale", section.body)
+        self.assertIn("Research Check", section.body)
+        self.assertIn("Regola conclusiva", section.body)
+        self.assertGreater(len(section.body), 30000)
+
     def test_parser_is_deterministic_and_exposes_topics(self):
         sections = parse_user_guide_sections(load_user_guide(ROOT))
         self.assertGreaterEqual(len(sections), 10)

@@ -44,6 +44,7 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("Research", "Research Panel", "Ctrl+Alt+C"),
     ShortcutSpec("Research", "Clip Collection", "menu"),
     ShortcutSpec("Research", "References", "menu"),
+    ShortcutSpec("Research", "Reference Sets", "menu"),
     ShortcutSpec("Research", "Source Notes", "menu"),
     ShortcutSpec("Research", "Authoring Bridge", "menu"),
     ShortcutSpec("Research", "Create Source Note from Selection", "menu"),

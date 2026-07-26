@@ -13,6 +13,16 @@ from typing import Iterable
 from calamus_citations import CitationCluster, CitationItem, parse_citation_clusters
 from calamus_document_structure import DocumentStructure
 from calamus_references import ReferenceRecord, is_valid_reference_key, normalize_key
+from calamus_related_references import (
+    related_keys as _related_keys,
+    related_reference_issues,
+    replace_related_identity,
+)
+from calamus_reference_sets import (
+    ReferenceSet,
+    reference_set_issues,
+    replace_reference_set_member,
+)
 from calamus_source_notes import SourceNote
 from calamus_tag_integrity import build_tag_inventory
 
@@ -35,11 +45,17 @@ class ReferenceMigrationImpact:
     citation_occurrences: int
     source_note_occurrences: int
     related_key_occurrences: int = 0
+    reference_set_occurrences: int = 0
     preserved_alias: bool = True
 
     @property
     def total_rewrites(self) -> int:
-        return self.citation_occurrences + self.source_note_occurrences + self.related_key_occurrences
+        return (
+            self.citation_occurrences
+            + self.source_note_occurrences
+            + self.related_key_occurrences
+            + self.reference_set_occurrences
+        )
 
 
 @dataclass(frozen=True)
@@ -50,6 +66,8 @@ class ReferenceMigrationPlan:
     document_after: str
     source_notes_before: tuple[SourceNote, ...]
     source_notes_after: tuple[SourceNote, ...]
+    reference_sets_before: tuple[ReferenceSet, ...]
+    reference_sets_after: tuple[ReferenceSet, ...]
     impact: ReferenceMigrationImpact
 
     @property
@@ -59,6 +77,10 @@ class ReferenceMigrationPlan:
     @property
     def source_notes_changed(self) -> bool:
         return self.source_notes_before != self.source_notes_after
+
+    @property
+    def reference_sets_changed(self) -> bool:
+        return self.reference_sets_before != self.reference_sets_after
 
 
 @dataclass(frozen=True, order=True)
@@ -81,6 +103,7 @@ class ResearchCheckReport:
     reference_count: int
     citation_count: int
     source_note_count: int
+    reference_set_count: int = 0
 
     @property
     def error_count(self) -> int:
@@ -143,32 +166,8 @@ def _replace_citation_items(text: str, old_key: str, new_key: str) -> tuple[str,
     return updated, len(items)
 
 
-def _related_keys(record: ReferenceRecord) -> tuple[str, ...]:
-    values: list[str] = []
-    for label, value in record.extra_fields:
-        if label.casefold() not in {"related", "related key", "related keys"}:
-            continue
-        for key in re.split(r"[,;\s]+", value):
-            key = normalize_key(key)
-            if key and key not in values:
-                values.append(key)
-    return tuple(values)
-
-
 def _replace_related_key(record: ReferenceRecord, old_key: str, new_key: str) -> tuple[ReferenceRecord, int]:
-    count = 0
-    extras: list[tuple[str, str]] = []
-    for label, value in record.extra_fields:
-        if label.casefold() not in {"related", "related key", "related keys"}:
-            extras.append((label, value))
-            continue
-        tokens = re.split(r"([,;\s]+)", value)
-        for index, token in enumerate(tokens):
-            if normalize_key(token) == old_key:
-                tokens[index] = new_key
-                count += 1
-        extras.append((label, "".join(tokens)))
-    return replace(record, extra_fields=tuple(extras)), count
+    return replace_related_identity(record, old_key, new_key)
 
 
 def plan_reference_key_migration(
@@ -178,10 +177,14 @@ def plan_reference_key_migration(
     old_key: str,
     new_key: str,
     *,
+    reference_sets: Iterable[ReferenceSet] = (),
     preserve_old_alias: bool = True,
 ) -> ReferenceMigrationPlan:
     records_before = tuple(records)
     notes_before = tuple(source_notes)
+    sets_before = tuple(reference_sets)
+    if any(not isinstance(item, ReferenceSet) for item in sets_before):
+        raise TypeError("reference_sets must contain ReferenceSet values")
     if not isinstance(document_text, str):
         raise TypeError("document_text must be a string")
     old = normalize_key(old_key)
@@ -224,6 +227,8 @@ def plan_reference_key_migration(
         else:
             notes_after.append(note)
 
+    sets_after, set_count = replace_reference_set_member(sets_before, old, new)
+
     return ReferenceMigrationPlan(
         original_records=records_before,
         candidate_records=tuple(candidate_records),
@@ -231,12 +236,15 @@ def plan_reference_key_migration(
         document_after=document_after,
         source_notes_before=notes_before,
         source_notes_after=tuple(notes_after),
+        reference_sets_before=sets_before,
+        reference_sets_after=sets_after,
         impact=ReferenceMigrationImpact(
             old_key=old,
             new_key=new,
             citation_occurrences=citation_count,
             source_note_occurrences=note_count,
             related_key_occurrences=related_count,
+            reference_set_occurrences=set_count,
             preserved_alias=preserve_old_alias,
         ),
     )
@@ -266,9 +274,13 @@ def run_research_check(
     document_text: str,
     source_notes: Iterable[SourceNote],
     document_structure: DocumentStructure,
+    reference_sets: Iterable[ReferenceSet] = (),
 ) -> ResearchCheckReport:
     records_tuple = tuple(records)
     notes_tuple = tuple(source_notes)
+    sets_tuple = tuple(reference_sets)
+    if any(not isinstance(item, ReferenceSet) for item in sets_tuple):
+        raise TypeError("reference_sets must contain ReferenceSet values")
     if not isinstance(document_text, str):
         raise TypeError("document_text must be a string")
     if not isinstance(document_structure, DocumentStructure):
@@ -338,26 +350,26 @@ def run_research_check(
             normalized = _normalize_identifier(raw, kind)
             if normalized:
                 identifier_owners.setdefault((kind, normalized), []).append(record.key)
-        for related in _related_keys(record):
-            resolution = resolve_reference(records_tuple, related)
-            if resolution.status in {"missing", "ambiguous"}:
-                issues.append(
-                    ResearchIssue(
-                        "warning",
-                        "related-key-missing",
-                        record.key,
-                        f"Related reference key is unavailable: {related}.",
-                    )
-                )
-            elif resolution.status == "alias":
-                issues.append(
-                    ResearchIssue(
-                        "warning",
-                        "related-key-uses-alias",
-                        record.key,
-                        f"Related key should migrate from {related} to {resolution.canonical_key}.",
-                    )
-                )
+
+    for related_issue in related_reference_issues(records_tuple):
+        issues.append(
+            ResearchIssue(
+                related_issue.severity,
+                related_issue.kind,
+                related_issue.subject_key,
+                related_issue.message,
+            )
+        )
+
+    for set_issue in reference_set_issues(sets_tuple, records_tuple):
+        issues.append(
+            ResearchIssue(
+                set_issue.severity,
+                set_issue.kind,
+                set_issue.set_name,
+                set_issue.message,
+            )
+        )
 
     for (kind, value), owners in sorted(identifier_owners.items()):
         unique = tuple(dict.fromkeys(owners))
@@ -477,4 +489,5 @@ def run_research_check(
         reference_count=len(records_tuple),
         citation_count=sum(len(cluster.items) for cluster in clusters),
         source_note_count=len(notes_tuple),
+        reference_set_count=len(sets_tuple),
     )

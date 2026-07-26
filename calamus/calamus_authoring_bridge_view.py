@@ -6,6 +6,25 @@ from typing import Any, Callable
 from calamus_authoring_bridge import BridgeOccurrence, BridgeSubject
 
 
+def _gtk_pango():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Pango", "1.0")
+    from gi.repository import Gtk, Pango
+    return Gtk, Pango
+
+
+def _gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
+
+
+def _glib():
+    from gi.repository import GLib
+    return GLib
+
 class AuthoringBridgeViewAdapter:
     def __init__(
         self,
@@ -68,7 +87,7 @@ class AuthoringBridgeViewAdapter:
         selected_id: str | None,
         status: str,
     ) -> None:
-        from gi.repository import Gtk, Pango
+        Gtk, Pango = _gtk_pango()
 
         for child in list(self._listbox.get_children()):
             self._listbox.remove(child)
@@ -93,11 +112,12 @@ class AuthoringBridgeViewAdapter:
             secondary.set_max_width_chars(30)
             secondary.set_lines(2)
 
-            location = (
-                f"Line {occurrence.line} · {occurrence.kind.replace('-', ' ')}"
-                if occurrence.line is not None
-                else f"Source Notes · {occurrence.kind.replace('-', ' ')}"
-            )
+            if occurrence.line is not None:
+                location = f"Line {occurrence.line} · {occurrence.kind.replace('-', ' ')}"
+            elif occurrence.navigation_kind == "reference":
+                location = f"References · {occurrence.kind.replace('-', ' ')}"
+            else:
+                location = f"Source Notes · {occurrence.kind.replace('-', ' ')}"
             tertiary = Gtk.Label(label=location)
             tertiary.set_xalign(0)
             tertiary.get_style_context().add_class("dim-label")
@@ -141,7 +161,7 @@ def build_authoring_bridge_view(
     on_create_source_note,
     on_insert_heading_link,
 ):
-    from gi.repository import Gtk
+    Gtk = _gtk()
 
     callbacks = (on_open, on_refresh, on_create_source_note, on_insert_heading_link)
     if any(not callable(callback) for callback in callbacks):
@@ -156,6 +176,7 @@ def build_authoring_bridge_view(
     mode_selector = Gtk.ComboBoxText()
     mode_selector.append("reference", "Backlinks by Reference")
     mode_selector.append("heading", "Backlinks by Heading")
+    mode_selector.append("related", "Related References")
     mode_selector.append("issues", "Broken Research Links")
     mode_selector.set_active_id("reference")
     mode_selector.set_hexpand(True)
@@ -212,5 +233,5 @@ def build_authoring_bridge_view(
 
 
 def _escape(value: str) -> str:
-    from gi.repository import GLib
+    GLib = _glib()
     return GLib.markup_escape_text(value or "")

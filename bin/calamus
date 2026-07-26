@@ -9,6 +9,9 @@ from datetime import datetime
 import gi
 
 gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("Pango", "1.0")
+gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo
 
 sys.path.insert(0, os.environ.get("CALAMUS_LIB_DIR", "/usr/lib/calamus"))
@@ -78,7 +81,7 @@ from calamus_dialogs import (
     prompt_new_workspace_folder, prompt_new_workspace_text_file,
     prompt_rename_workspace_item, run_manage_templates_dialog,
     run_spelling_dialog,
-    show_about, show_error, show_info, show_keyboard_shortcuts, show_large_info,
+    show_error, show_info, show_keyboard_shortcuts, show_large_info,
 )
 from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts, add_item as ui_add_item, add_separator as ui_add_separator, top_menu as ui_top_menu
 from calamus_command_context import CommandContext
@@ -87,8 +90,21 @@ from calamus_command_catalog import build_low_risk_registry
 
 APP_TITLE = "Calamus Copy"
 APP_ICON = "calamus"
-RUNTIME_ABOUT_NAME = "Calamus-Working-Copy"
-from calamus_version import APP_VERSION as VERSION
+from calamus_version import (
+    APP_VERSION as VERSION,
+    DEVELOPMENT_BUILD_LABEL,
+    DEVELOPMENT_WORK_ITEM,
+    PUBLISHED_BASELINE,
+)
+from calamus_runtime_identity import (
+    SystemInfoSnapshot,
+    build_runtime_identity,
+    render_system_info,
+)
+from calamus_identity_dialogs import (
+    present_about_dialog,
+    present_system_info_dialog,
+)
 from calamus_logging import log_nonfatal
 from calamus_help import load_user_guide
 from calamus_help_dialogs import show_user_guide
@@ -98,6 +114,8 @@ from calamus_clip_panel import build_clip_collection_view
 from calamus_right_panel import RightPanelHost
 from calamus_reference_runtime import ReferencePanelRuntime
 from calamus_reference_store import MarkdownReferenceStore
+from calamus_reference_set_store import MarkdownReferenceSetStore
+from calamus_reference_set_runtime import ReferenceSetRuntime
 from calamus_citation_controller import CitationController
 from calamus_citation_dialogs import choose_citation_key, run_quick_cite_dialog
 from calamus_source_note_runtime import SourceNotePanelRuntime
@@ -354,6 +372,8 @@ class App(Gtk.Window):
         self.add_shortcuts()
         self.setup_file_drop_target()
         self.connect("delete-event", self.on_close)
+        self.connect("destroy", self.on_destroy)
+        self._application_close_in_progress = False
 
         if self.current_file and os.path.exists(self.current_file):
             self.open_path(self.current_file, silent=True)
@@ -734,20 +754,39 @@ class App(Gtk.Window):
                     break
         d.destroy()
 
-    def on_system_info(self, *_):
-        import platform
-        dicts = ", ".join(self.installed_hunspell_languages()[:20]) or "none found"
-        msg = (
-            f"Calamus: {VERSION}\n"
-            f"Python: {platform.python_version()}\n"
-            f"GTK: {Gtk.MAJOR_VERSION}.{Gtk.MINOR_VERSION}.{Gtk.MICRO_VERSION}\n"
-            f"OS: {platform.platform()}\n"
-            f"Desktop: {os.environ.get('XDG_CURRENT_DESKTOP', 'unknown')}\n"
-            f"Session: {os.environ.get('XDG_SESSION_TYPE', 'unknown')}\n"
-            f"Config path: {self.state.config_dir}\n"
-            f"Hunspell dictionaries: {dicts}"
+    def runtime_identity(self):
+        return build_runtime_identity(
+            DEVELOPMENT_BUILD_LABEL,
+            DEVELOPMENT_WORK_ITEM,
+            PUBLISHED_BASELINE,
         )
-        self.large_info("System Info", msg)
+
+    def system_info_snapshot(self):
+        import platform
+
+        dictionaries = (
+            ", ".join(self.installed_hunspell_languages()[:20])
+            or "none found"
+        )
+        return SystemInfoSnapshot(
+            identity=self.runtime_identity(),
+            python_version=platform.python_version(),
+            pygobject_version=getattr(gi, "__version__", "unknown"),
+            gtk_version=(
+                f"{Gtk.MAJOR_VERSION}.{Gtk.MINOR_VERSION}.{Gtk.MICRO_VERSION}"
+            ),
+            operating_system=platform.platform(),
+            desktop=os.environ.get("XDG_CURRENT_DESKTOP", "unknown"),
+            session=os.environ.get("XDG_SESSION_TYPE", "unknown"),
+            config_path=str(self.state.config_dir),
+            hunspell_dictionaries=dictionaries,
+        )
+
+    def on_system_info(self, *_):
+        present_system_info_dialog(
+            self,
+            render_system_info(self.system_info_snapshot()),
+        )
 
     def update_title(self):
         name = self.current_file or "Untitled"
@@ -800,21 +839,38 @@ class App(Gtk.Window):
             return self.save_file()
         return True
 
-    def request_application_close(self, *, quit_main_loop):
-        # The unsaved-document decision is authoritative.  Persist window and
-        # editor settings only after the close request has been accepted.
+    def request_application_close(self):
+        # Xed/Mousepad lifecycle contract: every interactive close path owns the
+        # decision, destroys the window itself, and lets the destroy gateway
+        # terminate Gtk.main(). The default delete-event handler never races a
+        # second close path.
+        if getattr(self, "_application_close_in_progress", False):
+            return True
         if not self.may_continue():
             return False
         self.save_settings()
-        if quit_main_loop:
-            Gtk.main_quit()
+        self._application_close_in_progress = True
+        try:
+            self.destroy()
+        except Exception:
+            self._application_close_in_progress = False
+            raise
         return True
 
+    def on_destroy(self, *_):
+        # Calamus currently has one top-level application window. While the
+        # launcher still owns a raw Gtk.main() loop, destroying that final
+        # window must terminate the loop exactly once.
+        if Gtk.main_level() > 0:
+            Gtk.main_quit()
+        return False
+
     def on_close(self, *_):
-        return not self.request_application_close(quit_main_loop=False)
+        self.request_application_close()
+        return True
 
     def on_quit(self, *_):
-        return self.request_application_close(quit_main_loop=True)
+        return self.request_application_close()
 
     def on_new(self, *_):
         if not self.may_continue():
@@ -2052,10 +2108,17 @@ class App(Gtk.Window):
 
     def build_research_panel(self):
         self.reference_store = MarkdownReferenceStore()
+        self.reference_set_store = MarkdownReferenceSetStore()
         self.reference_panel_runtime = ReferencePanelRuntime(
             self,
             store=self.reference_store,
             quick_cite=self.quick_cite_key,
+        )
+        self.reference_set_runtime = ReferenceSetRuntime(
+            self,
+            records_provider=lambda: self.reference_panel_runtime.records,
+            show_reference=self.show_reference_key,
+            store=self.reference_set_store,
         )
         self.citation_controller = CitationController(
             reference_records_provider=lambda: self.reference_panel_runtime.records,
@@ -2084,6 +2147,7 @@ class App(Gtk.Window):
             selection_provider=self.authoring_selection_snapshot,
             navigate_document=self.navigate_authoring_occurrence,
             show_source_note=self.show_source_note_id,
+            show_reference=self.show_reference_key,
             create_source_note_from_snapshot=self.create_source_note_from_authoring_snapshot,
             apply_heading_link_plan=self.apply_heading_link_plan,
             on_error=lambda message: show_error(self, message),
@@ -2101,6 +2165,12 @@ class App(Gtk.Window):
             "References",
             self.reference_panel_runtime.widget,
             self.reference_panel_runtime.activate,
+        )
+        self.research_panel_view.register_client(
+            "reference-sets",
+            "Reference Sets",
+            self.reference_set_runtime.widget,
+            self.reference_set_runtime.activate,
         )
         self.research_panel_view.register_client(
             "source-notes",
@@ -2129,6 +2199,8 @@ class App(Gtk.Window):
             replace_document_text=self.replace_document_for_reference_migration,
             refresh_references=self.reference_panel_runtime.reload,
             refresh_source_notes=lambda: self.source_note_panel_runtime.sync_document(force=True),
+            reference_set_store=self.reference_set_store,
+            refresh_reference_sets=self.reference_set_runtime.reload,
         )
         self.research_integrity_runtime = ResearchIntegrityRuntime(
             self,
@@ -2182,6 +2254,9 @@ class App(Gtk.Window):
 
     def show_source_notes(self, *_):
         return self.research_panel_runtime.show("source-notes")
+
+    def show_reference_sets(self, *_):
+        return self.research_panel_runtime.show("reference-sets")
 
     def show_authoring_bridge(self, *_):
         return self.research_panel_runtime.show("authoring-bridge")
@@ -2935,7 +3010,7 @@ class App(Gtk.Window):
         show_keyboard_shortcuts(self, self.shortcut_rows())
 
     def on_about(self, *_):
-        show_about(self, VERSION, RUNTIME_ABOUT_NAME)
+        present_about_dialog(self, self.runtime_identity())
 
     def info(self, msg):
         show_info(self, msg)

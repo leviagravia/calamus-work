@@ -5,6 +5,22 @@ from calamus_reference_integrity import ReferenceMigrationPlan, ResearchCheckRep
 from calamus_references import ReferenceRecord, is_valid_reference_key
 from calamus_research_integrity_controller import IntegrityCommandResult
 
+from calamus_modal_dialog import destroy_modal, run_modal
+
+
+def _gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
+
+
+def _gtk_pango():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Pango", "1.0")
+    from gi.repository import Gtk, Pango
+    return Gtk, Pango
 
 def run_reference_key_rename_dialog(
     parent,
@@ -12,7 +28,7 @@ def run_reference_key_rename_dialog(
     *,
     initial_key: str | None = None,
 ) -> tuple[str, str, bool] | None:
-    from gi.repository import Gtk
+    Gtk = _gtk()
 
     if not records:
         return None
@@ -32,6 +48,7 @@ def run_reference_key_rename_dialog(
     current_label = Gtk.Label(label="Reference")
     current_label.set_xalign(0)
     current = Gtk.ComboBoxText()
+    current.set_name("rename-reference-current-key")
     active = 0
     for index, record in enumerate(records):
         current.append(record.key, f"{record.key} — {record.author_year} — {record.title}")
@@ -42,16 +59,18 @@ def run_reference_key_rename_dialog(
     new_label = Gtk.Label(label="New key")
     new_label.set_xalign(0)
     new_entry = Gtk.Entry()
+    new_entry.set_name("rename-reference-new-key")
     new_entry.set_activates_default(True)
 
     preserve = Gtk.CheckButton(label="Preserve the old key as an alias")
+    preserve.set_name("rename-reference-preserve-alias")
     preserve.set_active(True)
     preserve.set_tooltip_text("Keeps old citations resolvable until they are migrated.")
 
     note = Gtk.Label(
         label=(
-            "Calamus will scan the active document, the current Source Notes sidecar "
-            "and related-key fields before writing anything."
+            "Calamus will scan the active document, the current Source Notes sidecar, "
+            "Related Keys and Reference Set memberships before writing anything."
         )
     )
     note.set_xalign(0)
@@ -68,7 +87,7 @@ def run_reference_key_rename_dialog(
     dialog.show_all()
     result = None
     while True:
-        response = dialog.run()
+        response = run_modal(dialog)
         if response != Gtk.ResponseType.OK:
             break
         old_key = current.get_active_id() or ""
@@ -81,15 +100,16 @@ def run_reference_key_rename_dialog(
             continue
         result = (old_key, new_key, preserve.get_active())
         break
-    dialog.destroy()
+    destroy_modal(dialog)
     return result
 
 
 def confirm_reference_migration(parent, plan: ReferenceMigrationPlan) -> bool:
-    from gi.repository import Gtk
+    Gtk = _gtk()
 
     impact = plan.impact
     dialog = Gtk.MessageDialog(
+        title="Rename Reference Key Impact",
         transient_for=parent,
         modal=True,
         message_type=Gtk.MessageType.WARNING,
@@ -100,6 +120,7 @@ def confirm_reference_migration(parent, plan: ReferenceMigrationPlan) -> bool:
         f"Active-document citation occurrences: {impact.citation_occurrences}",
         f"Current Source Notes occurrences: {impact.source_note_occurrences}",
         f"Related-key occurrences: {impact.related_key_occurrences}",
+        f"Reference Set memberships: {impact.reference_set_occurrences}",
         "Old key preserved as alias: " + ("yes" if impact.preserved_alias else "no"),
         "",
         "The operation will be cancelled if any source changes after this preview.",
@@ -107,13 +128,13 @@ def confirm_reference_migration(parent, plan: ReferenceMigrationPlan) -> bool:
     dialog.format_secondary_text("\n".join(lines))
     dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
     dialog.add_button("Rename Key", Gtk.ResponseType.OK)
-    response = dialog.run()
-    dialog.destroy()
+    response = run_modal(dialog)
+    destroy_modal(dialog)
     return response == Gtk.ResponseType.OK
 
 
 def show_research_check_report(parent, report: ResearchCheckReport) -> None:
-    from gi.repository import Gtk, Pango
+    Gtk, Pango = _gtk_pango()
 
     dialog = Gtk.Dialog(title="Research Check", transient_for=parent, modal=True)
     dialog.add_button("Close", Gtk.ResponseType.CLOSE)
@@ -127,7 +148,7 @@ def show_research_check_report(parent, report: ResearchCheckReport) -> None:
     summary.set_margin_bottom(6)
     summary.set_text(
         f"{report.reference_count} references · {report.citation_count} citations · "
-        f"{report.source_note_count} source notes · "
+        f"{report.source_note_count} source notes · {report.reference_set_count} reference sets · "
         f"{report.error_count} errors · {report.warning_count} warnings · "
         f"{report.advisory_count} advisories"
     )
@@ -154,8 +175,8 @@ def show_research_check_report(parent, report: ResearchCheckReport) -> None:
     area.pack_start(summary, False, False, 0)
     area.pack_start(scroll, True, True, 0)
     dialog.show_all()
-    dialog.run()
-    dialog.destroy()
+    run_modal(dialog)
+    destroy_modal(dialog)
 
 
 def show_integrity_result(parent, result: IntegrityCommandResult) -> None:
@@ -177,9 +198,10 @@ def show_integrity_error(parent, title: str, message: str) -> None:
 
 
 def _message(parent, title: str, detail: str, *, error: bool) -> None:
-    from gi.repository import Gtk
+    Gtk = _gtk()
 
     dialog = Gtk.MessageDialog(
+        title=title,
         transient_for=parent,
         modal=True,
         message_type=Gtk.MessageType.ERROR if error else Gtk.MessageType.INFO,
@@ -187,5 +209,5 @@ def _message(parent, title: str, detail: str, *, error: bool) -> None:
         text=title,
     )
     dialog.format_secondary_text(detail)
-    dialog.run()
-    dialog.destroy()
+    run_modal(dialog)
+    destroy_modal(dialog)

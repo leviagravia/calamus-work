@@ -9,7 +9,24 @@ from calamus_reference_dialogs import (
 )
 from calamus_reference_panel import build_reference_panel_view
 from calamus_reference_store import MarkdownReferenceStore
+from calamus_related_reference_dialogs import run_related_references_dialog
 
+from calamus_modal_dialog import destroy_modal, run_modal
+
+
+def _gtk_gdk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, Gtk
+    return Gdk, Gtk
+
+
+def _gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
 
 class ReferencePanelRuntime:
     def __init__(self, parent, *, store=None, quick_cite=None) -> None:
@@ -23,6 +40,7 @@ class ReferencePanelRuntime:
             self.on_delete,
             self.on_copy_key,
             self.on_quick_cite,
+            self.on_related_references,
         )
         self._controller = ReferenceController(
             store or MarkdownReferenceStore(),
@@ -115,13 +133,30 @@ class ReferencePanelRuntime:
         selected = self._controller.selected_record()
         if selected is None:
             return
-        from gi.repository import Gdk, Gtk
+        Gdk, Gtk = _gtk_gdk()
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         clipboard.set_text(selected.key, -1)
         clipboard.store()
 
+    def on_related_references(self, *_):
+        self._controller.ensure_loaded()
+        selected = self._controller.selected_record()
+        if selected is None:
+            return False
+        plan = run_related_references_dialog(
+            self._parent,
+            self._controller.records,
+            selected.key,
+        )
+        if plan is None:
+            return False
+        return self._controller.replace_records(
+            plan.records_after,
+            select_key=selected.key,
+        )
+
     def _show_error(self, message: str) -> None:
-        from gi.repository import Gtk
+        Gtk = _gtk()
         dialog = Gtk.MessageDialog(
             transient_for=self._parent,
             modal=True,
@@ -130,5 +165,5 @@ class ReferencePanelRuntime:
             text="References",
         )
         dialog.format_secondary_text(message)
-        dialog.run()
-        dialog.destroy()
+        run_modal(dialog)
+        destroy_modal(dialog)

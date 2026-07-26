@@ -6,6 +6,25 @@ from typing import Any, Callable
 from calamus_references import ReferenceRecord
 
 
+def _gtk_pango():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Pango", "1.0")
+    from gi.repository import Gtk, Pango
+    return Gtk, Pango
+
+
+def _gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
+
+
+def _glib():
+    from gi.repository import GLib
+    return GLib
+
 class ReferencePanelViewAdapter:
     def __init__(self, widget: Any, search: Any, listbox: Any, status: Any) -> None:
         self.widget = widget
@@ -22,7 +41,7 @@ class ReferencePanelViewAdapter:
         self.search.connect("search-changed", lambda entry: callback(entry.get_text()))
 
     def render(self, records: tuple[ReferenceRecord, ...], selected_key: str | None, status: str) -> None:
-        from gi.repository import Gtk, Pango
+        Gtk, Pango = _gtk_pango()
 
         for child in list(self._listbox.get_children()):
             self._listbox.remove(child)
@@ -74,8 +93,8 @@ class ReferencePanelViewAdapter:
         self.search.grab_focus()
 
 
-def build_reference_panel_view(on_add, on_edit, on_delete, on_copy_key, on_quick_cite):
-    from gi.repository import Gtk
+def build_reference_panel_view(on_add, on_edit, on_delete, on_copy_key, on_quick_cite, on_related):
+    Gtk = _gtk()
 
     panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
     panel.set_margin_start(4)
@@ -116,11 +135,16 @@ def build_reference_panel_view(on_add, on_edit, on_delete, on_copy_key, on_quick
         citation_actions.pack_start(button, True, True, 0)
     panel.pack_start(citation_actions, False, False, 0)
 
+    related_button = Gtk.Button(label="Related References…")
+    related_button.set_size_request(-1, 26)
+    related_button.connect("clicked", on_related)
+    panel.pack_start(related_button, False, False, 0)
+
     adapter = ReferencePanelViewAdapter(panel, search, listbox, status)
     listbox.connect("row-activated", lambda *_: on_edit())
     return adapter
 
 
 def _escape(value: str) -> str:
-    from gi.repository import GLib
+    GLib = _glib()
     return GLib.markup_escape_text(value or "")
