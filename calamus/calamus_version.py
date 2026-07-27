@@ -3,5 +3,5 @@ APP_VERSION = "1.7.0-rc3-stable4.3"
 
 # Truthful runtime identity for the active, unpublished development line.
 DEVELOPMENT_BUILD_LABEL = "Development build"
-DEVELOPMENT_WORK_ITEM = "W89"
-PUBLISHED_BASELINE = "569dd742abd607bb55a1e6bf9efbad1fdba1684c"
+DEVELOPMENT_WORK_ITEM = "W90"
+PUBLISHED_BASELINE = "673c17aa3239bf189f11c93af36e4ea137df2f6d"

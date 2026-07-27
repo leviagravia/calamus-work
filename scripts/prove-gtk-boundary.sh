@@ -26,6 +26,9 @@ pure_modules = (
     "calamus/calamus_research_integrity_controller.py",
     "calamus/calamus_modal_dialog.py",
     "calamus/calamus_runtime_identity.py",
+    "calamus/calamus_pandoc.py",
+    "calamus/calamus_pandoc_process.py",
+    "calamus/calamus_pandoc_controller.py",
 )
 for relative in pure_modules:
     path = root / relative
@@ -43,6 +46,7 @@ for relative in pure_modules:
     if re.search(r"\b(?:Gtk|Gdk|GLib|Pango|PangoCairo)\.", text):
         raise SystemExit(f"GTK symbol escaped into pure module: {relative}")
 print("GTK_BOUNDARY_W89_PURE_MODULES=PASS")
+print("GTK_BOUNDARY_W90_PURE_MODULES=PASS")
 
 launcher = (root / "bin/calamus").read_text(encoding="utf-8")
 import_line = "from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo"
@@ -73,6 +77,8 @@ changed_gtk_files = (
     "calamus/calamus_related_reference_dialogs.py",
     "calamus/calamus_research_integrity_dialogs.py",
     "calamus/calamus_identity_dialogs.py",
+    "calamus/calamus_pandoc_dialogs.py",
+    "calamus/calamus_pandoc_runtime.py",
 )
 version_map = {
     "Gtk": "3.0",
@@ -106,8 +112,9 @@ for relative in changed_gtk_files:
             )
 print("GTK_BOUNDARY_CHANGED_NAMESPACE_VERSIONS=PASS")
 print("GTK_BOUNDARY_W89_NO_NEW_DEPRECATED_API=PASS")
+print("GTK_BOUNDARY_W90_NO_NEW_DEPRECATED_API=PASS")
 
-modal_files = (
+legacy_modal_files = (
     "calamus/calamus_reference_set_dialogs.py",
     "calamus/calamus_related_reference_dialogs.py",
     "calamus/calamus_research_integrity_dialogs.py",
@@ -115,14 +122,31 @@ modal_files = (
     "calamus/calamus_reference_runtime.py",
     "calamus/calamus_identity_dialogs.py",
 )
-for relative in modal_files:
+for relative in legacy_modal_files:
     text = (root / relative).read_text(encoding="utf-8")
-    if ".run()" in text:
+    if "dialog.run()" in text:
         raise SystemExit(f"direct nested modal loop escaped adapter: {relative}")
     if "run_modal(" not in text:
-        raise SystemExit(f"modal adapter is not used: {relative}")
+        raise SystemExit(f"legacy modal adapter is not used: {relative}")
+for relative in (
+    "calamus/calamus_pandoc_dialogs.py",
+    "calamus/calamus_pandoc_runtime.py",
+):
+    text = (root / relative).read_text(encoding="utf-8")
+    if "dialog.run()" in text:
+        raise SystemExit(f"direct nested modal loop escaped session owner: {relative}")
+    if "ModalSession" not in text:
+        raise SystemExit(f"W90 modal session owner is not used: {relative}")
 adapter = (root / "calamus/calamus_modal_dialog.py").read_text(encoding="utf-8")
-for token in ("def run_modal", "def destroy_modal", "dialog.run()", "dialog.destroy()"):
+for token in (
+    "class ModalSession",
+    "def register_source",
+    "def run",
+    "def close",
+    "_hide_if_possible",
+    "def run_modal",
+    "def destroy_modal",
+):
     if token not in adapter:
         raise SystemExit(f"modal boundary contract missing: {token}")
 print("GTK_BOUNDARY_MODAL_ADAPTER=PASS")
@@ -132,10 +156,19 @@ research_e2e = (
     root / "tests/test_w89_related_sets_app_desktop_e2e.py"
 ).read_text(encoding="utf-8")
 identity_e2e = (
-    root / "tests/test_w89_identity_app_desktop_e2e.py"
+    root / "tests/test_w90_identity_app_desktop_e2e.py"
 ).read_text(encoding="utf-8")
 identity_dialogs = (
     root / "calamus/calamus_identity_dialogs.py"
+).read_text(encoding="utf-8")
+pandoc_e2e = (
+    root / "tests/test_w90_pandoc_app_desktop_e2e.py"
+).read_text(encoding="utf-8")
+pandoc_runtime = (
+    root / "calamus/calamus_pandoc_runtime.py"
+).read_text(encoding="utf-8")
+pandoc_dialogs = (
+    root / "calamus/calamus_pandoc_dialogs.py"
 ).read_text(encoding="utf-8")
 for token in (
     "class ModalDriver",
@@ -185,8 +218,64 @@ for token in (
         raise SystemExit(f"owned identity dialog contract missing: {token}")
 if "Gtk.MessageDialog(" in identity_dialogs:
     raise SystemExit("identity lane reintroduced Gtk.MessageDialog")
+for token in (
+    "CALAMUS_W90_RUN_REAL_GTK",
+    "operation_executor=execute_operation",
+    "win.pandoc_export_runtime = runtime",
+    "runtime.last_outcome.succeeded",
+    "W90_REAL_APP_TYPED_DIALOG_HANDOFF=PASS",
+    "W90_REAL_APP_REFERENCE_SET_PROVIDER=PASS",
+    "W90_REAL_PANDOC_BIBLIOGRAPHY_EXPORT=PASS",
+    "W90_REAL_PANDOC_TERMINAL_OUTCOME=PASS",
+    "W90_REAL_PANDOC_NORMAL_CLOSE=PASS",
+    "W90_TRUE_APP_ACTIVE_PANDOC_CLOSE=PASS",
+    "W90_TRUE_APP_NO_SURVIVING_PANDOC=PASS",
+    "finally:",
+    "close_visible_dialogs()",
+):
+    if token not in pandoc_e2e:
+        raise SystemExit(f"W90 true-App Pandoc contract missing: {token}")
+for token in (
+    "calamus-pandoc-product",
+    "calamus-pandoc-preview-summary",
+):
+    if token not in pandoc_dialogs:
+        raise SystemExit(f"W90 Pandoc component semantic name missing: {token}")
+for forbidden in (
+    "ModalDriver",
+    "visible_dialog(",
+    "visible_dialogs()[0]",
+    "dialogs[0]",
+):
+    if forbidden in pandoc_e2e:
+        raise SystemExit(f"W90 Pandoc E2E reintroduced modal-window polling: {forbidden}")
+for token in (
+    "self._controller.cancel_active()",
+    "thread.join",
+    "ModalSession",
+    "session.register_source",
+    "session.close()",
+):
+    if token not in pandoc_runtime:
+        raise SystemExit(f"W90 Pandoc lifecycle/modal boundary missing: {token}")
+lane_script = (root / "scripts/prove-w90-gtk-lanes.sh").read_text(encoding="utf-8")
+for token in (
+    "G_DEBUG=fatal-criticals",
+    "run_lane",
+    "test_modal_dialog_gtk_session",
+    "test_research_export_app_desktop_e2e",
+    "test_pandoc_dialogs",
+    "test_w90_pandoc_app_desktop_e2e",
+    "W90_GTK_LANES=PASS",
+):
+    if token not in lane_script:
+        raise SystemExit(f"W90 fresh-process GTK lane contract missing: {token}")
+if "unittest discover" in lane_script:
+    raise SystemExit("W90 GTK lane script reintroduced monolithic discovery")
 print("GTK_BOUNDARY_IDENTITY_DIALOG_OWNERSHIP=PASS")
-print("GTK_BOUNDARY_MODAL_DRIVER_STATIC=PASS")
+print("GTK_BOUNDARY_W90_PANDOC_DIALOG_LIFECYCLE=PASS")
+print("GTK_BOUNDARY_W90_FRESH_PROCESS_LANES=PASS")
+print("GTK_BOUNDARY_W90_TYPED_HANDOFF_STATIC=PASS")
 
 for token in (
     'self.connect("delete-event", self.on_close)',

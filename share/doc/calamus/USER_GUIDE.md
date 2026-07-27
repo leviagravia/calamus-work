@@ -2796,6 +2796,685 @@ Scambio con altri tool    → import/export derivati
 
 La ricchezza del sistema richiede una curva di apprendimento, ma il vantaggio è concreto: il lavoro accademico rimane trasparente, verificabile, navigabile e ricostruibile attraverso normali file di testo.
 
+
+## Export with Pandoc/citeproc
+
+### A cosa serve
+
+`Research → Export with Pandoc/citeproc…` usa un'installazione locale di Pandoc
+per produrre un file formattato. Il comando può creare una bibliografia oppure
+convertire il documento corrente applicando citeproc alle citazioni Pandoc.
+
+Questa funzione non cambia il modo in cui Calamus conserva il lavoro:
+
+- `references.md` resta la biblioteca canonica;
+- `reference-sets.md` resta l'elenco trasparente dei set statici;
+- il documento corrente resta il testo autorevole;
+- il file CSL scelto è soltanto uno stile locale in lettura;
+- il risultato Pandoc è un **derived export**, quindi può essere rigenerato.
+
+Correggi sempre metadati e citazioni nelle autorità originali. Non usare un DOCX,
+un ODT o un HTML esportato come nuova biblioteca bibliografica.
+
+### Prima di iniziare
+
+1. Salva il documento se vuoi esportare **Current Document with Citations**.
+2. Controlla References con `Research → Research Check`.
+3. Verifica che le citazioni usino la sintassi Pandoc, per esempio
+   `[@ratzinger1968, p. 42]`.
+4. Installa Pandoc nel sistema. Calamus non incorpora né scarica Pandoc.
+5. Se vuoi uno stile particolare, prepara un file CSL locale con estensione
+   `.csl`. Calamus non scarica stili dalla rete.
+
+Se Pandoc non è installato, Calamus interrompe il workflow prima della preview e
+mostra il messaggio **Pandoc is not installed or is not available on PATH**.
+Nessun file viene scritto.
+
+### Tutorial completo: esportare con Pandoc passo per passo
+
+Questa sezione accompagna anche chi non ha mai usato Pandoc. Il principio da
+ricordare è semplice: **Calamus prepara gli input, Pandoc produce una copia
+formattata, le autorità originali non vengono cambiate**.
+
+#### Passo P1 — Controlla il documento che hai davvero aperto
+
+Il prodotto **Current Document with Citations** usa il documento attualmente
+aperto in Calamus. Prima di avviare l'export:
+
+1. guarda il percorso nella barra del titolo;
+2. salva il documento con `File → Save`;
+3. verifica che le citazioni presenti appartengano proprio a quel file;
+4. non confondere due file con lo stesso nome conservati in cartelle diverse.
+
+Esempio: se vuoi esportare
+`~/Studio/Articolo/Grace-and-reason.md`, assicurati che nella barra del titolo
+compaia proprio quel percorso, non `~/Downloads/Grace-and-reason.md`.
+
+Il prodotto **Formatted Bibliography** può funzionare anche senza citazioni nel
+documento, ma il documento aperto determina comunque quali References risultano
+"cited" quando scegli lo scope delle fonti citate.
+
+#### Passo P2 — Verifica che Pandoc sia disponibile
+
+Pandoc deve essere installato nel sistema e raggiungibile tramite `PATH`.
+Calamus lo controlla all'inizio di ogni nuovo workflow. Se non lo trova, mostra
+un errore controllato e non crea alcun file.
+
+Dopo aver installato Pandoc puoi riaprire immediatamente
+`Research → Export with Pandoc/citeproc…`. Non devi ricreare References o
+Reference Sets. Se il sistema non rende subito visibile il nuovo eseguibile,
+chiudi e riapri Calamus.
+
+#### Passo P3 — Apri il comando
+
+Scegli:
+
+`Research → Export with Pandoc/citeproc…`
+
+Il primo dialogo raccoglie quattro decisioni:
+
+1. **Product** — che cosa vuoi produrre;
+2. **Reference scope** — quali fonti devono essere incluse;
+3. **Output format** — il tipo di file finale;
+4. **Citation style** — stile predefinito oppure file CSL locale.
+
+Nessuna scelta viene ancora scritta su disco. Puoi premere **Cancel** in
+qualsiasi momento.
+
+#### Passo P4 — Scegli Product
+
+Hai due possibilità.
+
+##### Opzione Product 1: Formatted Bibliography
+
+Produce soltanto la bibliografia. Non include il corpo del documento.
+
+Usala quando vuoi:
+
+- allegare una bibliografia a un file preparato con un altro programma;
+- controllare il risultato di uno stile CSL;
+- creare una bibliografia per un corso, un progetto o un Reference Set;
+- consegnare un elenco di fonti senza esportare il manoscritto.
+
+Esempio:
+
+```text
+Product: Formatted Bibliography
+Reference scope: One Reference Set
+Reference Set: Core sources
+Output format: Plain text (.txt)
+```
+
+Risultato possibile:
+
+```text
+Ratzinger, Joseph. Introduction to Christianity. 1968.
+Guardini, Romano. The Lord. 1950.
+```
+
+##### Opzione Product 2: Current Document with Citations
+
+Produce una copia formattata del documento attualmente aperto. Citeproc elabora
+le citazioni e aggiunge la bibliografia secondo lo scope scelto.
+
+Usala quando vuoi:
+
+- consegnare un DOCX o un ODT;
+- creare un EPUB;
+- produrre HTML o LaTeX;
+- controllare il documento completo con citazioni formattate.
+
+Il Markdown originale non viene modificato. Anche l'eventuale sostituzione di un
+alias con la key primaria avviene soltanto nella copia temporanea.
+
+Esempio di documento sorgente:
+
+```markdown
+# Grazia e ragione
+
+La fede coinvolge l'intera persona
+[@ratzinger-old, pp. 12-14; @guardini1950].
+```
+
+Se `ratzinger-old` è un alias di `ratzinger1968`, il file derivato usa la fonte
+corretta senza riscrivere il documento aperto.
+
+#### Passo P5 — Scegli Reference scope
+
+Hai tre possibilità. La scelta determina quali record di `references.md`
+vengono proiettati nella bibliografia temporanea.
+
+##### Opzione scope 1: References cited in the current document
+
+Include soltanto le fonti citate nel documento aperto, nell'ordine della loro
+prima occorrenza.
+
+Esempio:
+
+```markdown
+Prima citazione [@guardini1950].
+Seconda citazione [@ratzinger1968].
+```
+
+La selezione iniziale delle key sarà:
+
+```text
+guardini1950, ratzinger1968
+```
+
+È la scelta più adatta per un articolo o un capitolo che deve contenere soltanto
+le fonti realmente utilizzate. Se non esiste alcuna citazione Pandoc valida,
+Calamus blocca l'operazione.
+
+##### Opzione scope 2: All References
+
+Include tutte le schede valide di `references.md`, anche quelle non citate nel
+documento.
+
+Usala per:
+
+- bibliografia generale di un progetto;
+- catalogo completo della biblioteca Calamus;
+- documento che deve includere anche letture consigliate non citate.
+
+Nel prodotto **Current Document with Citations**, Calamus aggiunge `nocite: @*`
+soltanto alla copia temporanea. Il file Markdown originale rimane invariato.
+
+##### Opzione scope 3: One Reference Set
+
+Include i membri di un Reference Set statico nell'ordine memorizzato.
+
+Esempio di `reference-sets.md`:
+
+```markdown
+# Calamus Reference Sets v1
+
+ ## Core sources
+Description: Fonti principali del capitolo.
+Members: ratzinger1968, guardini1950
+```
+
+Nel dialogo devi scegliere esattamente `Core sources`. I nomi sono
+case-sensitive: `Core sources` e `Core Sources` sono nomi diversi.
+
+Questo scope è utile per:
+
+- bibliografia di un singolo capitolo;
+- reading list di un corso;
+- fonti primarie separate dalle secondarie;
+- selezione ordinata per una conferenza o una pubblicazione.
+
+Per **Current Document with Citations**, il set deve contenere tutte le fonti
+citate. Se il testo cita `newman1870` ma il set non la include, Calamus blocca
+l'export e mostra la key mancante.
+
+#### Passo P6 — Scegli Output format
+
+Le opzioni dipendono dal Product.
+
+##### Formati per Formatted Bibliography
+
+- **Plain text (.txt)** — elenco semplice e leggibile ovunque. Esempio:
+  `bibliografia-capitolo.txt`.
+- **HTML (.html)** — pagina Web completa, utile per pubblicazione o anteprima in
+  browser. Esempio: `bibliografia-seminario.html`.
+- **OpenDocument Text (.odt)** — documento modificabile con LibreOffice Writer.
+  Esempio: `bibliografia-tesi.odt`.
+- **Microsoft Word (.docx)** — documento modificabile in Word o programmi
+  compatibili. Esempio: `bibliografia-rivista.docx`.
+- **Rich Text Format (.rtf)** — formato di scambio per editor che non gestiscono
+  bene ODT o DOCX. Esempio: `bibliografia.rtf`.
+- **LaTeX source (.tex)** — sorgente LaTeX, utile in un progetto TeX già
+  esistente. Esempio: `bibliografia.tex`.
+
+##### Formati per Current Document with Citations
+
+- **HTML (.html)** — documento Web autonomo con citazioni e bibliografia.
+- **OpenDocument Text (.odt)** — scelta consigliata per LibreOffice Writer.
+- **Microsoft Word (.docx)** — scelta consigliata quando l'editore richiede
+  Word.
+- **EPUB (.epub)** — libro elettronico; controlla il risultato con un lettore
+  EPUB esterno.
+- **Rich Text Format (.rtf)** — compatibilità con editor tradizionali.
+- **LaTeX source (.tex)** — sorgente da rifinire in un progetto LaTeX esterno.
+
+PDF non è disponibile in W90. Per produrre PDF usa successivamente il file ODT,
+DOCX o LaTeX con lo strumento esterno appropriato.
+
+Regola pratica:
+
+```text
+Devo continuare a correggere il testo in LibreOffice  → ODT
+L'editore vuole Microsoft Word                       → DOCX
+Devo pubblicare sul Web                              → HTML
+Sto preparando un ebook                              → EPUB
+Mi serve massima compatibilità tradizionale          → RTF
+Lavoro già in un progetto TeX                        → LaTeX
+Mi serve soltanto un elenco leggibile                → TXT
+```
+
+#### Passo P7 — Scegli Citation style
+
+Hai due possibilità.
+
+##### Opzione style 1: Use Pandoc Default
+
+Pandoc usa il proprio stile predefinito. È la scelta più semplice per una prima
+prova e non richiede file aggiuntivi.
+
+Usala quando:
+
+- vuoi verificare che citazioni e bibliografia funzionino;
+- non hai ancora ricevuto lo stile richiesto dalla rivista;
+- il formato esatto non è ancora importante.
+
+##### Opzione style 2: Local CSL file
+
+Scegli un file `.csl` già presente sul computer. Calamus lo legge senza copiarlo
+né modificarlo.
+
+Usala quando:
+
+- la rivista richiede Chicago, APA o un proprio stile;
+- il relatore ti ha fornito un file CSL;
+- vuoi confrontare due stili diversi sullo stesso documento.
+
+Esempio:
+
+```text
+Citation style: Local CSL file
+File: ~/Studio/Stili/chicago-author-date.csl
+```
+
+Il file deve essere regolare, leggibile, non simbolico e inferiore al limite
+indicato. Se cambi il CSL dopo la preview, il piano diventa stale e devi ripetere
+l'operazione.
+
+#### Passo P8 — Scegli la destinazione
+
+Dopo le opzioni, Calamus propone un nome coerente con Product e format.
+
+Esempi:
+
+```text
+capitolo-bibliography.txt
+capitolo-bibliography.odt
+capitolo-with-citations.docx
+capitolo-with-citations.epub
+```
+
+Controlla attentamente la cartella. Il verificatore umano più semplice è leggere
+l'intero percorso mostrato dal file chooser prima di confermare.
+
+La destinazione non può coincidere con:
+
+- `references.md`;
+- `reference-sets.md`;
+- il documento corrente;
+- il relativo file Source Notes;
+- il CSL scelto.
+
+Se il file esiste già, Calamus chiede conferma. Se quel file viene modificato da
+un altro programma dopo la preview, l'export viene bloccato come stale.
+
+#### Passo P9 — Leggi la semantic preview
+
+La preview non imita graficamente ODT, DOCX o EPUB. Mostra invece i dati che
+determinano l'export.
+
+Controlla sempre:
+
+1. **Product**;
+2. **Scope**;
+3. nome esatto del Reference Set, se presente;
+4. numero delle References;
+5. ordine delle key;
+6. output format;
+7. destinazione completa;
+8. stile CSL o Pandoc default;
+9. warning BibLaTeX;
+10. warning Pandoc;
+11. testo bibliografico prodotto da citeproc.
+
+Esempio corretto:
+
+```text
+Product: Formatted Bibliography
+Scope: One Reference Set
+Reference Set: Core sources
+References: 2
+Keys: ratzinger1968, guardini1950
+Output format: Plain text (.txt)
+```
+
+Se una key è inattesa, premi **Cancel** e correggi References, citazioni o
+Reference Set. Non confermare sperando di sistemare il file derivato in seguito.
+
+#### Passo P10 — Conferma, annulla e riapri
+
+Premi **Export** soltanto dopo avere controllato la preview. Calamus avvia Pandoc,
+mostra lo stato del processo e pubblica il file soltanto dopo tutti i controlli.
+
+Premi **Cancel** per interrompere senza creare il file finale. Puoi riaprire
+subito il comando: il dialogo deve ripartire da uno stato coerente.
+
+Se chiudi Calamus durante una conversione, il programma termina il processo
+Pandoc attivo, rimuove lo staging e completa la chiusura soltanto quando il
+worker è terminato.
+
+#### Passo P11 — Esempi completi
+
+##### Esempio A — Bibliografia TXT di un Reference Set
+
+```text
+Product: Formatted Bibliography
+Reference scope: One Reference Set
+Reference Set: Core sources
+Output format: Plain text (.txt)
+Citation style: Use Pandoc Default
+Destination: ~/Esportazioni/core-sources-bibliography.txt
+```
+
+Controlla che la preview contenga soltanto i membri del set.
+
+##### Esempio B — Bibliografia HTML con stile locale
+
+```text
+Product: Formatted Bibliography
+Reference scope: All References
+Output format: HTML (.html)
+Citation style: Local CSL file
+CSL: ~/Studio/Stili/apa.csl
+Destination: ~/Esportazioni/bibliografia-completa.html
+```
+
+Apri poi l'HTML in un browser e controlla ordine, corsivi e punteggiatura.
+
+##### Esempio C — Documento ODT con le sole fonti citate
+
+```text
+Product: Current Document with Citations
+Reference scope: References cited in the current document
+Output format: OpenDocument Text (.odt)
+Citation style: Use Pandoc Default
+Destination: ~/Esportazioni/capitolo-with-citations.odt
+```
+
+È il percorso più semplice per continuare in LibreOffice.
+
+##### Esempio D — Documento DOCX richiesto da una rivista
+
+```text
+Product: Current Document with Citations
+Reference scope: References cited in the current document
+Output format: Microsoft Word (.docx)
+Citation style: Local CSL file
+CSL: ~/Studio/Stili/rivista-teologica.csl
+Destination: ~/Consegna/articolo-with-citations.docx
+```
+
+Dopo l'export apri il DOCX e controlla citazioni, bibliografia, titoli e corsivi.
+
+##### Esempio E — EPUB con tutte le References
+
+```text
+Product: Current Document with Citations
+Reference scope: All References
+Output format: EPUB (.epub)
+Citation style: Use Pandoc Default
+Destination: ~/Esportazioni/libro-with-citations.epub
+```
+
+Usa questa combinazione soltanto quando vuoi che la bibliografia contenga anche
+fonti non citate. Verifica il risultato con un lettore EPUB esterno.
+
+##### Esempio F — Sorgente LaTeX per un progetto esterno
+
+```text
+Product: Current Document with Citations
+Reference scope: One Reference Set
+Reference Set: Fonti capitolo 3
+Output format: LaTeX source (.tex)
+Citation style: Local CSL file
+Destination: ~/Progetto-TeX/capitolo-3-with-citations.tex
+```
+
+Il Reference Set deve includere tutte le key citate nel capitolo.
+
+#### Passo P12 — Controllo dopo l'export
+
+Dopo il messaggio di completamento:
+
+1. verifica che il file esista nella cartella scelta;
+2. controlla che non sia vuoto;
+3. aprilo con un programma adatto al formato;
+4. verifica almeno una citazione e due voci bibliografiche;
+5. accertati che il documento Markdown e i file Research siano invariati;
+6. conserva l'output come file derivato, non come nuova autorità.
+
+Se il file non si trova, non dichiarare l'export riuscito: riapri il comando e
+controlla l'intero percorso di destinazione.
+
+### Scegli il prodotto
+
+Il primo campo offre due prodotti.
+
+#### Formatted Bibliography
+
+Produce soltanto la bibliografia formattata. I formati disponibili sono:
+
+- Plain text `.txt`;
+- HTML `.html`;
+- OpenDocument Text `.odt`;
+- Microsoft Word `.docx`;
+- Rich Text Format `.rtf`;
+- LaTeX source `.tex`.
+
+Questo prodotto è utile per allegare una bibliografia a un documento preparato
+altrove o per controllare rapidamente l'effetto di uno stile CSL.
+
+#### Current Document with Citations
+
+Converte una copia temporanea del documento corrente e applica citeproc. I
+formati disponibili sono HTML, ODT, DOCX, EPUB, RTF e LaTeX. Il documento aperto
+non viene riscritto. Se una citazione usa un alias, Calamus inserisce la key
+primaria soltanto nella copia temporanea inviata a Pandoc.
+
+PDF non è incluso in W90: richiede un ulteriore motore LaTeX/PDF e una diversa
+matrice di errori e dipendenze.
+
+### Scegli le References
+
+Sono disponibili tre scope.
+
+#### References cited in the current document
+
+Include soltanto le fonti citate, nell'ordine della prima occorrenza. Se il
+documento non contiene citazioni Pandoc, l'operazione viene bloccata.
+
+#### All References
+
+Include tutte le schede valide di `references.md`, nell'ordine canonico della
+biblioteca. Nel prodotto documento, Calamus aggiunge alla copia temporanea il
+metadato `nocite: @*`, così citeproc può inserire anche le fonti non citate.
+
+#### One Reference Set
+
+Include i membri di un set statico nell'ordine memorizzato. Reference Set names are case-sensitive: `Core sources` e `Core Sources` non sono lo stesso nome.
+Calamus richiede la grafia esatta. Lo stile CSL può comunque scegliere un ordine
+bibliografico finale diverso, per esempio alfabetico.
+
+Per il prodotto documento, il set deve contenere tutte le fonti realmente citate.
+Se manca anche una sola key, Calamus mostra quali citazioni sarebbero escluse e
+non avvia Pandoc.
+
+### Scegli lo stile CSL
+
+Lascia **Use Pandoc Default** per usare lo stile predefinito di Pandoc, oppure
+scegli un file `.csl` locale. Il file deve essere regolare, non un collegamento
+simbolico, e non può superare 4 MiB. Lo stile viene letto ma non copiato nella
+biblioteca Calamus.
+
+Uno stile CSL può modificare punteggiatura, ordine, abbreviazioni e
+capitalizzazione visuale. Questa trasformazione riguarda soltanto l'output: il
+titolo conservato in References non cambia.
+
+### Scegli la destinazione
+
+Il nome proposto distingue i due prodotti:
+
+```text
+paper-bibliography.txt
+paper-with-citations.docx
+```
+
+L'estensione deve corrispondere al formato scelto. La destinazione non può
+sostituire References, Reference Sets, il documento corrente, le sue Source Notes
+o il CSL selezionato. Un collegamento simbolico non viene accettato.
+
+Se il file esiste, il dialogo chiede conferma, ma la sostituzione finale avviene
+soltanto se quel file è rimasto identico dopo la preview.
+
+### Leggi la semantic preview
+
+Prima dell'export finale Calamus mostra una semantic preview in testo semplice.
+Non è un'anteprima grafica di DOCX, ODT o EPUB. Serve a controllare:
+
+- percorso e versione di Pandoc;
+- prodotto, scope e Reference Set;
+- numero e ordine delle key;
+- formato e destinazione;
+- stile CSL;
+- warning della proiezione BibLaTeX;
+- warning restituiti da Pandoc;
+- contenuto bibliografico elaborato da citeproc.
+
+Premi **Export** soltanto se fonti e contenuto sono corretti. **Cancel** non crea
+il file finale.
+
+### Cosa significa stale
+
+Calamus congela un piano esatto prima della preview. Se nel frattempo cambia una
+Reference, il set, il buffer, il file salvato, il CSL, Pandoc, la destinazione o
+la cartella di destinazione, il piano diventa stale. L'export viene annullato e
+il file preesistente viene conservato.
+
+Riapri il comando, controlla la nuova preview e conferma un nuovo piano. Non
+cercare di aggirare questo controllo: protegge da sovrascritture e risultati
+costruiti con input non più coerenti.
+
+### Sicurezza del processo e della scrittura
+
+Calamus avvia Pandoc senza shell e con argomenti chiusi. Non permette custom
+arguments, template, filtri Lua, CSS, profili persistenti o estensioni arbitrarie.
+I file temporanei sono privati. Pandoc scrive prima in uno staging file nella
+cartella di destinazione; Calamus pubblica il risultato soltanto dopo exit code
+zero, output non vuoto, fsync e secondo controllo stale.
+
+Remote images or media non sono accettati nel prodotto documento, perché Pandoc
+potrebbe tentare un accesso di rete. Un normale collegamento Web è consentito e
+rimane un collegamento nell'output. Usa file locali per immagini e media.
+
+Durante una conversione puoi premere **Cancel**. Chiudere Calamus con X,
+`File → Quit` o `Ctrl+Q` richiede la terminazione del processo Pandoc e del worker
+prima di completare la chiusura.
+
+### Esempio: bibliografia di un Reference Set
+
+1. Apri `Research → Export with Pandoc/citeproc…`.
+2. Scegli **Formatted Bibliography**.
+3. Scegli **One Reference Set**.
+4. Seleziona esattamente `Core sources`.
+5. Scegli **OpenDocument Text**.
+6. Usa lo stile predefinito oppure un CSL locale.
+7. Salva come `core-sources-bibliography.odt`.
+8. Controlla key, conteggio e semantic preview.
+9. Conferma **Export**.
+10. Apri l'ODT con il programma esterno abituale.
+
+### Esempio: documento DOCX con citazioni
+
+Documento:
+
+```markdown
+# Introduzione
+
+La fede cristiana possiede una struttura ecclesiale
+[@ratzinger1968, pp. 42-44].
+```
+
+Workflow:
+
+1. salva il documento;
+2. scegli **Current Document with Citations**;
+3. scegli **References cited in the current document**;
+4. scegli **Microsoft Word**;
+5. controlla che `ratzinger1968` compaia nella preview;
+6. salva come `capitolo-with-citations.docx`;
+7. conferma l'export;
+8. verifica esternamente citazione e bibliografia.
+
+Il Markdown originale, `references.md`, Reference Sets e Source Notes devono
+rimanere byte-identici.
+
+### Errori e recupero
+
+#### Pandoc non è disponibile
+
+Installa Pandoc con il metodo previsto dalla distribuzione, chiudi e riapri il
+workflow. Calamus non modifica il sistema e non scarica binari.
+
+#### Versione non supportata
+
+Aggiorna Pandoc almeno alla versione minima indicata dal messaggio. Non sostituire
+l'eseguibile durante una preview già aperta.
+
+#### Citation refers to a missing Reference
+
+Apri References e crea o correggi la scheda. Se la key è stata rinominata, usa
+Rename Reference Key o aggiungi l'alias appropriato; poi esegui Research Check.
+
+#### Il Reference Set omette una citazione
+
+Aggiungi la Reference al set oppure scegli **References cited in the current
+document** o **All References**. Non eliminare la citazione per forzare l'export.
+
+#### BibLaTeX mapping warnings
+
+Alcuni campi locali non hanno una corrispondenza perfetta. Controlla l'anteprima.
+La correzione va fatta nella scheda Reference, non nel `.bib` temporaneo.
+
+#### Pandoc restituisce un errore
+
+Leggi stderr nel messaggio. Il file finale non viene accettato. Correggi il
+documento, il CSL o i metadati e ripeti il workflow.
+
+#### Output stale
+
+Qualcosa è cambiato dopo la preview. Il file esterno eventualmente creato da un
+altro programma è stato preservato. Riparti dal comando e genera un nuovo piano.
+
+#### Conversione troppo lunga
+
+Attendi il limite o premi Cancel. Calamus termina il processo esatto e rimuove lo
+staging. Per lavori eccezionalmente complessi usa Pandoc direttamente fuori da
+Calamus: W90 non è un frontend generale a ogni opzione Pandoc.
+
+### Checklist W90
+
+Prima di confermare:
+
+- documento salvato e citazioni valide;
+- Research Check senza errori bloccanti;
+- prodotto e scope corretti;
+- Reference Set selezionato con case esatto;
+- stile CSL locale corretto;
+- nessun media remoto;
+- destinazione distinta dalle autorità;
+- semantic preview controllata;
+- warning compresi;
+- formato finale appropriato.
+
 ## Keyboard Shortcuts and About
 
 `Help → Keyboard Shortcuts` shows the current command registry. `Help → About` shows application identity, purpose and licensing information.

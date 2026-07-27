@@ -21,6 +21,8 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
             "Mousepad",
             "gedit 3.5.1",
             "G_DEBUG=fatal-criticals",
+            "fresh subprocess",
+            "pure/static regression",
             "Linux Mint XFCE",
             "1366×768",
             "request_application_close()",
@@ -29,7 +31,7 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
         ):
             self.assertIn(token, text)
 
-    def test_pure_w89_modules_do_not_import_or_reference_gtk(self):
+    def test_pure_w89_and_w90_modules_do_not_import_or_reference_gtk(self):
         paths = (
             "calamus/calamus_related_references.py",
             "calamus/calamus_reference_sets.py",
@@ -39,6 +41,9 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
             "calamus/calamus_research_integrity_controller.py",
             "calamus/calamus_modal_dialog.py",
             "calamus/calamus_runtime_identity.py",
+            "calamus/calamus_pandoc.py",
+            "calamus/calamus_pandoc_process.py",
+            "calamus/calamus_pandoc_controller.py",
         )
         for relative in paths:
             text = (ROOT / relative).read_text(encoding="utf-8")
@@ -61,24 +66,42 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
             self.assertIn(token, text)
             self.assertLess(text.index(token), import_at)
 
-    def test_modal_calls_are_confined_to_single_gtk_free_adapter(self):
+    def test_modal_calls_are_confined_to_one_gtk_free_session_owner(self):
         adapter = (ROOT / "calamus/calamus_modal_dialog.py").read_text(
             encoding="utf-8"
         )
-        self.assertIn("def run_modal", adapter)
-        self.assertIn("def destroy_modal", adapter)
-        self.assertIn("dialog.run()", adapter)
-        self.assertIn("dialog.destroy()", adapter)
-        for relative in (
+        for token in (
+            "class ModalSession",
+            "def register_source",
+            "def run",
+            "def close",
+            "_hide_if_possible",
+            "def run_modal",
+            "def destroy_modal",
+        ):
+            self.assertIn(token, adapter)
+        self.assertIn('runner = _callable_attribute(self.dialog, "run")', adapter)
+        self.assertIn('destroyer = _callable_attribute(self.dialog, "destroy")', adapter)
+
+        legacy_modal_files = (
             "calamus/calamus_reference_set_dialogs.py",
             "calamus/calamus_related_reference_dialogs.py",
             "calamus/calamus_research_integrity_dialogs.py",
             "calamus/calamus_reference_set_runtime.py",
             "calamus/calamus_reference_runtime.py",
+        )
+        for relative in legacy_modal_files:
+            text = (ROOT / relative).read_text(encoding="utf-8")
+            self.assertNotIn("dialog.run()", text, relative)
+            self.assertIn("run_modal(", text, relative)
+
+        for relative in (
+            "calamus/calamus_pandoc_dialogs.py",
+            "calamus/calamus_pandoc_runtime.py",
         ):
             text = (ROOT / relative).read_text(encoding="utf-8")
-            self.assertNotIn(".run()", text, relative)
-            self.assertIn("run_modal(", text, relative)
+            self.assertNotIn("dialog.run()", text, relative)
+            self.assertIn("ModalSession", text, relative)
 
     def test_modal_driver_is_bounded_semantic_and_cleanup_safe(self):
         helper = (ROOT / "tests/calamus_gtk_test_driver.py").read_text(
@@ -88,7 +111,10 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
             ROOT / "tests/test_w89_related_sets_app_desktop_e2e.py"
         ).read_text(encoding="utf-8")
         identity_e2e = (
-            ROOT / "tests/test_w89_identity_app_desktop_e2e.py"
+            ROOT / "tests/test_w90_identity_app_desktop_e2e.py"
+        ).read_text(encoding="utf-8")
+        w85_e2e = (
+            ROOT / "tests/test_research_export_app_desktop_e2e.py"
         ).read_text(encoding="utf-8")
         for token in (
             "class ModalDriver",
@@ -110,6 +136,10 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
         self.assertNotIn("dialogs = visible_dialogs()", identity_e2e)
         self.assertNotIn("visible_dialogs()[0]", identity_e2e)
         self.assertNotIn("dialogs[0]", identity_e2e)
+        self.assertIn("_run_single_cancel_proof", w85_e2e)
+        self.assertIn("ModalSession", w85_e2e)
+        self.assertNotIn("for kind in research_export_kinds():", w85_e2e)
+        self.assertNotIn("chooser.set_active_id(kind)", w85_e2e)
 
     def test_identity_dialogs_are_owned_typed_and_non_deprecated(self):
         dialogs = (ROOT / "calamus/calamus_identity_dialogs.py").read_text(
@@ -139,6 +169,65 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
         self.assertIn("AboutDialogWidgets", component)
         self.assertIn("SystemInfoDialogWidgets", component)
 
+    def test_w90_pandoc_boundary_is_pure_owned_and_lifecycle_safe(self):
+        policy = (ROOT / "docs/canonical/CALAMUS_GTK_BOUNDARY_POLICY.md").read_text(encoding="utf-8")
+        dialogs = (ROOT / "calamus/calamus_pandoc_dialogs.py").read_text(encoding="utf-8")
+        runtime = (ROOT / "calamus/calamus_pandoc_runtime.py").read_text(encoding="utf-8")
+        e2e = (ROOT / "tests/test_w90_pandoc_app_desktop_e2e.py").read_text(encoding="utf-8")
+        for token in (
+            "calamus_pandoc.py",
+            "calamus_pandoc_process.py",
+            "calamus_pandoc_controller.py",
+            "external Pandoc child",
+        ):
+            self.assertIn(token, policy)
+        self.assertNotIn("dialog.run()", dialogs)
+        self.assertIn("with ModalSession", dialogs)
+        self.assertNotIn("dialog.run()", runtime)
+        self.assertIn("session.register_source", runtime)
+        self.assertIn("session.close()", runtime)
+        self.assertIn("self._controller.cancel_active()", runtime)
+        self.assertIn("thread.join", runtime)
+        for token in (
+            "calamus-pandoc-product",
+            "calamus-pandoc-preview-summary",
+        ):
+            self.assertIn(token, dialogs)
+        for token in (
+            "operation_executor=execute_operation",
+            "win.pandoc_export_runtime = runtime",
+            "runtime.last_outcome.succeeded",
+            "W90_REAL_APP_TYPED_DIALOG_HANDOFF=PASS",
+            "W90_REAL_APP_REFERENCE_SET_PROVIDER=PASS",
+            "W90_REAL_PANDOC_BIBLIOGRAPHY_EXPORT=PASS",
+            "W90_REAL_PANDOC_NORMAL_CLOSE=PASS",
+            "W90_TRUE_APP_ACTIVE_PANDOC_CLOSE=PASS",
+            "W90_TRUE_APP_NO_SURVIVING_PANDOC=PASS",
+        ):
+            self.assertIn(token, e2e)
+        self.assertIn("class PandocWorkflowOutcome", runtime)
+        self.assertIn("operation_executor=None", runtime)
+        self.assertNotIn("ModalDriver", e2e)
+        self.assertNotIn("visible_dialog(", e2e)
+
+    def test_named_gtk_lane_runner_is_fresh_process_and_fatal_critical(self):
+        path = ROOT / "scripts/prove-w90-gtk-lanes.sh"
+        self.assertTrue(path.is_file())
+        self.assertTrue(path.stat().st_mode & 0o111)
+        text = path.read_text(encoding="utf-8")
+        for token in (
+            "G_DEBUG=fatal-criticals",
+            "run_lane",
+            "test_modal_dialog_gtk_session",
+            "test_research_export_app_desktop_e2e",
+            "test_pandoc_dialogs",
+            "test_w90_identity_app_desktop_e2e",
+            "test_w90_pandoc_app_desktop_e2e",
+            "W90_GTK_LANES=PASS",
+        ):
+            self.assertIn(token, text)
+        self.assertNotIn("unittest discover", text)
+
     def test_canonical_close_gateway_is_wired_and_tested(self):
         launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
         for token in (
@@ -158,6 +247,10 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         for token in (
             "GTK_BOUNDARY_W89_PURE_MODULES=PASS",
+            "GTK_BOUNDARY_W90_PURE_MODULES=PASS",
+            "GTK_BOUNDARY_W90_NO_NEW_DEPRECATED_API=PASS",
+            "GTK_BOUNDARY_W90_PANDOC_DIALOG_LIFECYCLE=PASS",
+            "GTK_BOUNDARY_W90_FRESH_PROCESS_LANES=PASS",
             "GTK_BOUNDARY_LAUNCHER_NAMESPACE_VERSIONS=PASS",
             "GTK_BOUNDARY_CHANGED_NAMESPACE_VERSIONS=PASS",
             "GTK_BOUNDARY_MODAL_ADAPTER=PASS",

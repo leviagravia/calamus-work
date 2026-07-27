@@ -961,6 +961,21 @@ def _escape_bib_value(value: str) -> str:
     return text.replace(placeholder, r"\textbackslash{}")
 
 
+_BIBLATEX_LITERAL_LIST_FIELDS = frozenset({"publisher", "location"})
+
+
+def _literal_list_atom_to_bib(value: str) -> str:
+    """Encode one Calamus scalar as one BibLaTeX literal-list atom.
+
+    BibLaTeX treats fields such as ``publisher`` and ``location`` as literal
+    lists and uses the token ``and`` as the item separator.  Calamus models
+    both fields as one canonical scalar, so an additional brace group is
+    required to keep values such as ``Herder and Herder`` as one item when
+    Pandoc/citeproc reads the transient bibliography.
+    """
+    return "{" + _escape_bib_value(value) + "}"
+
+
 def _person_to_bib(name: str) -> str:
     """Encode one canonical Calamus display name as a BibTeX name atom.
 
@@ -1067,7 +1082,12 @@ def export_references(records: Iterable[ReferenceRecord], format: str) -> BibExp
         lines = [f"@{entry_type}{{{record.key},"]
         for index, (name, value) in enumerate(fields):
             comma = "," if index < len(fields) - 1 else ""
-            rendered = value if name in {"author", "editor"} else _escape_bib_value(value)
+            if name in {"author", "editor"}:
+                rendered = value
+            elif format == BIBLATEX and name in _BIBLATEX_LITERAL_LIST_FIELDS:
+                rendered = _literal_list_atom_to_bib(value)
+            else:
+                rendered = _escape_bib_value(value)
             lines.append(f"  {name} = {{{rendered}}}{comma}")
         lines.append("}")
         blocks.append("\n".join(lines))

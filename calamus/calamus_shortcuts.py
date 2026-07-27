@@ -55,6 +55,7 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("Research", "Import BibTeX/BibLaTeX", "menu"),
     ShortcutSpec("Research", "Export References as BibTeX/BibLaTeX", "menu"),
     ShortcutSpec("Research", "Export Research Apparatus", "menu"),
+    ShortcutSpec("Research", "Export with Pandoc/citeproc", "menu"),
     ShortcutSpec("Navigate", "Navigator Panel", "Ctrl+Alt+N"),
     ShortcutSpec("Navigate", "Writing Workspace", "menu"),
     ShortcutSpec("Navigate", "Go to Line", "Ctrl+L"),

@@ -148,6 +148,30 @@ class BibtexPureTests(unittest.TestCase):
         self.assertEqual(mapped.tags, original.tags)
         self.assertEqual(mapped.doi, original.doi)
 
+    def test_biblatex_literal_list_fields_preserve_one_scalar_item(self):
+        original = ReferenceRecord(
+            key="ratzinger1968",
+            title="Introduction to Christianity",
+            type="book",
+            authors=("Ratzinger, Joseph",),
+            year="1968",
+            publisher="Herder and Herder",
+            location="Trinidad and Tobago",
+        )
+        biblatex = export_references((original,), BIBLATEX)
+        self.assertIn("publisher = {{Herder and Herder}}", biblatex.text)
+        self.assertIn("location = {{Trinidad and Tobago}}", biblatex.text)
+        mapped = map_bib_entry(
+            parse_bibliography(biblatex.text, BIBLATEX).entries[0],
+            BIBLATEX,
+        ).record
+        self.assertEqual(mapped.publisher, original.publisher)
+        self.assertEqual(mapped.location, original.location)
+
+        bibtex = export_references((original,), BIBTEX)
+        self.assertIn("publisher = {Herder and Herder}", bibtex.text)
+        self.assertNotIn("publisher = {{Herder and Herder}}", bibtex.text)
+
     def test_export_is_deterministic_and_explicit_by_mode(self):
         record = ReferenceRecord(
             key="r1", title="A & B", type="journal-article",

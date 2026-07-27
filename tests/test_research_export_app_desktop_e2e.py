@@ -18,6 +18,8 @@ except Exception:
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from calamus_modal_dialog import ModalSession
+
 
 def _display_ready():
     if not HAVE_GTK:
@@ -50,7 +52,36 @@ def _load_app_module():
 
 class ResearchExportAppDesktopE2E(unittest.TestCase):
 
-    def test_real_product_dialog_runs_with_five_products_and_dossier_default(self):
+    def _run_single_cancel_proof(self, dialog, assertion):
+        failures = []
+        source_state = {"active": False}
+        session = ModalSession(dialog)
+
+        def inspect_and_cancel():
+            try:
+                assertion()
+            except BaseException as error:
+                failures.append(error)
+            source_state["active"] = False
+            dialog.response(Gtk.ResponseType.CANCEL)
+            return False
+
+        def remove_source(source_id):
+            if source_state["active"]:
+                GLib.source_remove(source_id)
+                source_state["active"] = False
+
+        source_id = GLib.idle_add(inspect_and_cancel)
+        source_state["active"] = True
+        session.register_source(source_id, remove_source)
+        with session:
+            response = session.run()
+        if failures:
+            raise failures[0]
+        self.assertEqual(response, Gtk.ResponseType.CANCEL)
+        self.assertTrue(session.closed)
+
+    def test_real_product_dialog_builder_has_five_products_and_dossier_default(self):
         if not _display_ready():
             self.skipTest("GTK display unavailable")
 
@@ -62,41 +93,46 @@ class ResearchExportAppDesktopE2E(unittest.TestCase):
         from calamus_research_export_dialogs import build_research_export_product_dialog
 
         dialog, chooser = build_research_export_product_dialog(None)
-        failures = []
+        try:
+            self.assertEqual(chooser.get_model().iter_n_children(None), 5)
+            self.assertEqual(tuple(research_export_kinds()), (
+                "notes-document-order",
+                "notes-by-reference",
+                "cited-bibliography",
+                "annotated-bibliography",
+                "full-research-dossier",
+            ))
+            self.assertEqual(chooser.get_active_id(), FULL_RESEARCH_DOSSIER)
+            self.assertEqual(
+                chooser.get_active_text(),
+                research_export_title(FULL_RESEARCH_DOSSIER),
+            )
+            button = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+            self.assertEqual(button.get_label(), "Choose Destination…")
+            print("W85_PRODUCT_DIALOG_BUILDER=PASS")
+            print("W85_PRODUCT_DIALOG_FIVE_CHOICES=PASS")
+            print("W85_PRODUCT_DIALOG_DOSSIER_DEFAULT=PASS")
+        finally:
+            dialog.hide()
+            dialog.destroy()
 
-        def inspect_and_cancel():
-            try:
-                self.assertTrue(dialog.get_visible())
-                self.assertTrue(chooser.get_visible())
-                self.assertEqual(chooser.get_model().iter_n_children(None), 5)
-                self.assertEqual(chooser.get_active_id(), FULL_RESEARCH_DOSSIER)
-                self.assertEqual(
-                    chooser.get_active_text(),
-                    research_export_title(FULL_RESEARCH_DOSSIER),
-                )
-                for kind in research_export_kinds():
-                    chooser.set_active_id(kind)
-                    self.assertEqual(chooser.get_active_id(), kind)
-                    self.assertEqual(chooser.get_active_text(), research_export_title(kind))
-                button = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-                self.assertEqual(button.get_label(), "Choose Destination…")
-            except Exception as error:  # surface callback failures after run exits
-                failures.append(error)
-            dialog.response(Gtk.ResponseType.CANCEL)
-            return False
+    def test_real_product_dialog_single_modal_cancel_is_owned(self):
+        if not _display_ready():
+            self.skipTest("GTK display unavailable")
 
-        GLib.idle_add(inspect_and_cancel)
-        response = dialog.run()
-        dialog.destroy()
-        _pump()
-        if failures:
-            raise failures[0]
-        self.assertEqual(response, Gtk.ResponseType.CANCEL)
-        print("W85_REAL_PRODUCT_DIALOG_RUN=PASS")
-        print("W85_REAL_PRODUCT_DIALOG_FIVE_CHOICES=PASS")
-        print("W85_REAL_PRODUCT_DIALOG_DOSSIER_DEFAULT=PASS")
+        from calamus_research_export import FULL_RESEARCH_DOSSIER
+        from calamus_research_export_dialogs import build_research_export_product_dialog
 
-    def test_real_destination_dialog_runs_with_product_specific_markdown_name(self):
+        dialog, chooser = build_research_export_product_dialog(None)
+
+        def assertion():
+            self.assertTrue(dialog.get_visible())
+            self.assertEqual(chooser.get_active_id(), FULL_RESEARCH_DOSSIER)
+
+        self._run_single_cancel_proof(dialog, assertion)
+        print("W85_PRODUCT_DIALOG_MODAL_SESSION=PASS")
+
+    def test_real_destination_dialog_builder_uses_product_specific_markdown_name(self):
         document = os.environ.get("CALAMUS_W85_E2E_DOCUMENT")
         if not document:
             self.skipTest("W85 E2E document unavailable")
@@ -112,35 +148,22 @@ class ResearchExportAppDesktopE2E(unittest.TestCase):
             document,
             FULL_RESEARCH_DOSSIER,
         )
-        failures = []
-
-        def inspect_and_cancel():
-            try:
-                self.assertTrue(dialog.get_visible())
-                self.assertEqual(dialog.get_action(), Gtk.FileChooserAction.SAVE)
-                self.assertTrue(dialog.get_local_only())
-                self.assertTrue(dialog.get_do_overwrite_confirmation())
-                self.assertFalse(dialog.get_select_multiple())
-                self.assertFalse(dialog.get_create_folders())
-                self.assertEqual(
-                    dialog.get_current_name(),
-                    "W85_Research_Sample-research-dossier.md",
-                )
-                self.assertEqual(dialog.get_filter().get_name(), "Markdown (*.md)")
-            except Exception as error:
-                failures.append(error)
-            dialog.response(Gtk.ResponseType.CANCEL)
-            return False
-
-        GLib.idle_add(inspect_and_cancel)
-        response = dialog.run()
-        dialog.destroy()
-        _pump()
-        if failures:
-            raise failures[0]
-        self.assertEqual(response, Gtk.ResponseType.CANCEL)
-        print("W85_REAL_DESTINATION_DIALOG_RUN=PASS")
-        print("W85_REAL_DESTINATION_MARKDOWN_NAME=PASS")
+        try:
+            self.assertEqual(dialog.get_action(), Gtk.FileChooserAction.SAVE)
+            self.assertTrue(dialog.get_local_only())
+            self.assertTrue(dialog.get_do_overwrite_confirmation())
+            self.assertFalse(dialog.get_select_multiple())
+            self.assertFalse(dialog.get_create_folders())
+            self.assertEqual(
+                dialog.get_current_name(),
+                "W85_Research_Sample-research-dossier.md",
+            )
+            self.assertEqual(dialog.get_filter().get_name(), "Markdown (*.md)")
+            print("W85_DESTINATION_DIALOG_BUILDER=PASS")
+            print("W85_DESTINATION_MARKDOWN_NAME=PASS")
+        finally:
+            dialog.hide()
+            dialog.destroy()
 
     def test_real_app_exports_dossier_without_mutating_authorities(self):
         document = os.environ.get("CALAMUS_W85_E2E_DOCUMENT")

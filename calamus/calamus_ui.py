@@ -188,6 +188,7 @@ def build_menu(app) -> None:
         app.on_export_references_bibtex_biblatex,
     )
     add_item(researchm, "Export Research Apparatus…", app.on_export_research_apparatus)
+    add_item(researchm, "Export with Pandoc/citeproc…", app.on_export_with_pandoc)
 
     navigatem = top_menu(app, "Navigate")
     app.navigator_item = Gtk.CheckMenuItem(label="Navigator Panel\tCtrl+Alt+N")

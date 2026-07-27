@@ -106,15 +106,34 @@ modules = [
     "calamus_authoring_bridge_runtime",
     "calamus_research_panel",
     "calamus_research_panel_view",
+    "calamus_pandoc",
+    "calamus_pandoc_process",
+    "calamus_pandoc_controller",
+    "calamus_pandoc_dialogs",
+    "calamus_pandoc_runtime",
     "calamus_logging",
 ]
 
+import importlib.util
+
 for name in modules:
-    mod = __import__(name)
-    path = Path(getattr(mod, "__file__", "")).resolve()
-    print(f"{name}: {path}")
+    spec = importlib.util.find_spec(name)
+    if spec is None or not spec.origin:
+        raise SystemExit(f"FATAL: source spec unavailable: {name}")
+    path = Path(spec.origin).resolve()
     if not str(path).startswith(str(expected_lib) + os.sep):
-        raise SystemExit(f"FATAL: {name} imported from wrong path: {path}")
+        raise SystemExit(f"FATAL: {name} resolved from wrong path: {path}")
+    try:
+        mod = __import__(name)
+    except ModuleNotFoundError as error:
+        if error.name != "gi":
+            raise
+        print(f"{name}: {path} [IMPORT SKIP: PyGObject unavailable]")
+    else:
+        imported = Path(getattr(mod, "__file__", "")).resolve()
+        if imported != path:
+            raise SystemExit(f"FATAL: {name} imported from wrong path: {imported}")
+        print(f"{name}: {imported}")
 
 print("SOURCE_PROVENANCE=PASS")
 PY

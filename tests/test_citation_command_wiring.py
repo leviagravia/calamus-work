@@ -88,20 +88,36 @@ class CitationCommandWiringTests(unittest.TestCase):
         self.assertIn('self.research_panel_runtime.show("references")', show)
         self.assertIn("self.reference_panel_runtime.show_key(key)", show)
 
-    def test_w77_does_not_add_citeproc_database_or_pdf_ownership(self):
-        combined = "\n".join(
+    def test_w77_remains_citeproc_free_while_w90_owns_external_handoff(self):
+        w77_combined = "\n".join(
             source(path)
             for path in (
-                LAUNCHER,
-                UI,
                 ROOT / "calamus" / "calamus_citations.py",
                 ROOT / "calamus" / "calamus_citation_controller.py",
                 ROOT / "calamus" / "calamus_citation_dialogs.py",
             )
         )
+        self.assertNotIn("citeproc", w77_combined.lower())
+
+        current_surface = "\n".join(source(path) for path in (LAUNCHER, UI))
+        self.assertIn("Pandoc", current_surface)
+        self.assertIn("calamus_pandoc", current_surface)
+
+        pandoc_modules = "\n".join(
+            source(ROOT / "calamus" / f"{module}.py")
+            for module in (
+                "calamus_pandoc",
+                "calamus_pandoc_process",
+                "calamus_pandoc_controller",
+                "calamus_pandoc_dialogs",
+                "calamus_pandoc_runtime",
+            )
+        )
+        self.assertIn("citeproc", pandoc_modules.lower())
+        self.assertIn("shell=False", pandoc_modules)
+
+        combined = w77_combined + "\n" + current_surface + "\n" + pandoc_modules
         for forbidden in (
-            "citeproc",
-            "CSL engine",
             "sqlite",
             "PDF manager",
             "DOI lookup",

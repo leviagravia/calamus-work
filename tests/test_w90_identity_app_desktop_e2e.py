@@ -1,4 +1,4 @@
-"""Historical true-App/GTK regression for stable identity-dialog behaviour."""
+"""Independent true-App/GTK smoke lane for W90 runtime identity dialogs."""
 from __future__ import annotations
 
 import importlib.machinery
@@ -10,6 +10,12 @@ import tempfile
 import unittest
 import uuid
 from unittest.mock import patch
+
+from calamus_version import (
+    DEVELOPMENT_BUILD_LABEL,
+    DEVELOPMENT_WORK_ITEM,
+    PUBLISHED_BASELINE,
+)
 
 from calamus_gtk_test_driver import (
     HAVE_GTK,
@@ -24,7 +30,7 @@ from calamus_gtk_test_driver import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RUN_REAL_GTK = os.environ.get("CALAMUS_W89_RUN_IDENTITY_GTK") == "1"
+RUN_REAL_GTK = os.environ.get("CALAMUS_W90_RUN_IDENTITY_GTK") == "1"
 
 
 def _load_app_module():
@@ -32,7 +38,7 @@ def _load_app_module():
     os.environ["CALAMUS_SOURCE_ROOT"] = str(ROOT)
     if str(ROOT / "calamus") not in sys.path:
         sys.path.insert(0, str(ROOT / "calamus"))
-    name = f"calamus_w89_identity_{uuid.uuid4().hex}"
+    name = f"calamus_w90_identity_{uuid.uuid4().hex}"
     loader = importlib.machinery.SourceFileLoader(name, str(ROOT / "bin/calamus"))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
@@ -66,9 +72,9 @@ def _text(view) -> str:
 
 @unittest.skipUnless(
     RUN_REAL_GTK and HAVE_GTK and display_ready(),
-    "set CALAMUS_W89_RUN_IDENTITY_GTK=1 on a real GTK desktop",
+    "set CALAMUS_W90_RUN_IDENTITY_GTK=1 on a real GTK desktop",
 )
-class W89IdentityRealAppE2E(unittest.TestCase):
+class W90IdentityRealAppE2E(unittest.TestCase):
     def test_real_about_and_system_info_owned_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -117,24 +123,11 @@ class W89IdentityRealAppE2E(unittest.TestCase):
                             Gtk.TextView,
                         )
                         body = _text(view)
-                        self.assertIn("Calamus: Development build", body)
-                        work_item_lines = [
-                            line for line in body.splitlines()
-                            if line.startswith("Work item: ")
-                        ]
-                        baseline_lines = [
-                            line for line in body.splitlines()
-                            if line.startswith("Published baseline: ")
-                        ]
-                        self.assertEqual(len(work_item_lines), 1)
-                        self.assertRegex(
-                            work_item_lines[0],
-                            r"^Work item: W[0-9A-Z-]+$",
-                        )
-                        self.assertEqual(len(baseline_lines), 1)
-                        self.assertRegex(
-                            baseline_lines[0],
-                            r"^Published baseline: [0-9a-f]{40}$",
+                        self.assertIn(f"Calamus: {DEVELOPMENT_BUILD_LABEL}", body)
+                        self.assertIn(f"Work item: {DEVELOPMENT_WORK_ITEM}", body)
+                        self.assertIn(
+                            f"Published baseline: {PUBLISHED_BASELINE}",
+                            body,
                         )
                         self.assertNotIn("Calamus: 1.7.0", body)
                         dialog.response(Gtk.ResponseType.CLOSE)
@@ -146,9 +139,9 @@ class W89IdentityRealAppE2E(unittest.TestCase):
                     pump()
                     info_driver.assert_complete()
                     self.assertIsNone(visible_dialog("System Info"))
-                    print("W89_REAL_ABOUT_IDENTITY=PASS")
-                    print("W89_STABLE_SYSTEM_INFO_IDENTITY=PASS")
-                    print("W89_STABLE_IDENTITY_DIALOG_OWNERSHIP=PASS")
+                    print("W90_REAL_ABOUT_IDENTITY=PASS")
+                    print("W90_REAL_SYSTEM_INFO_IDENTITY=PASS")
+                    print("W90_REAL_IDENTITY_DIALOG_OWNERSHIP=PASS")
                 finally:
                     close_visible_dialogs()
                     win.destroy()

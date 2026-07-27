@@ -1,0 +1,261 @@
+CALAMUS W90 R7 — COMPLETE ERROR, CALAMUS, AND MATURE-SOURCE AUDIT
+=================================================================
+Date: 2026-07-27
+Published baseline: 673c17aa3239bf189f11c93af36e4ea137df2f6d
+Scope: W90 only
+Method: direct source audit of supplied archives; no web substitute
+Status: contract refrozen; R1-R6 retired; R7 reconstructed from W89
+
+1. FAILURE LEDGER AND CLASSIFICATION
+------------------------------------
+
+The W90 work item accumulated seven failed or retired candidate cycles before R7:
+
+1. initial candidate: historical W85 GTK regression exposed monolithic display-test fragility;
+2. first reconstruction: historical W89 identity test incorrectly asserted current metadata;
+3. R2: post-close verifier imposed a hard-coded output path;
+4. R3: old multi-dialog true-App driver returned False after its own timeout/cancel;
+5. R4: repeated the same driver architecture and the same False;
+6. R5: fixed true-App handoff, but desktop validator again confused a suggested path with product correctness; manual artifacts then exposed the real BibLaTeX literal-list defect;
+7. R6: product serialization was corrected, but a true-App assertion compared the raw plain-text substring `Herder and Herder`. Pandoc 3.1.3 rendered the semantically correct value as `Herder and\nHerder` because the plain writer wraps output. The test failed before desktop validation.
+
+R6 ThinkPad evidence:
+- all compile/headless/provenance/scope/GTK-boundary and historical lanes passed;
+- real App/controller/store/Pandoc lane produced the correct publisher words;
+- failure was exactly:
+    expected raw contiguous substring: Herder and Herder
+    actual plain writer output:         Herder and\nHerder
+- no semicolon appeared;
+- rollback to W89 passed.
+
+Classification:
+- R5 `Herder; Herder`: PRODUCT DATA-FIDELITY FAIL;
+- R6 `Herder and\nHerder`: TEST SEMANTIC-COMPARISON FAIL;
+- R6 did not prove a product regression and must not be patched by changing Pandoc output or disabling wrapping.
+
+2. DIRECT CALAMUS SOURCE AUDIT
+------------------------------
+
+Files and symbols inspected:
+
+- `calamus/calamus_references.py`
+  - `ReferenceRecord.publisher` and `.location` are canonical scalar strings.
+
+- `calamus/calamus_bibtex.py`
+  - `_BIBLATEX_LITERAL_LIST_FIELDS` owns publisher/location field semantics;
+  - `_literal_list_atom_to_bib()` protects one Calamus scalar as one BibLaTeX list atom;
+  - `export_references()` emits `publisher = {{Herder and Herder}}` in BibLaTeX mode and leaves BibTeX mode scalar.
+  - This R6 production correction is retained unchanged in R7.
+
+- `calamus/calamus_pandoc_controller.py`
+  - `prepare_export()`, `build_preview()` and `apply_export()` keep the typed plan, real Pandoc result, staging and publication boundary;
+  - the controller does not promise byte-for-byte layout of Pandoc's rendered plain text.
+
+- `calamus/calamus_pandoc_process.py`
+  - typed argv, `shell=False`, bounded output, process-group ownership and exact cancellation remain correct.
+
+- `calamus/calamus_pandoc_runtime.py`
+  - `PandocWorkflowOutcome` is the stable operation result;
+  - user-selected destination is preserved and must not be replaced by a runner-invented path.
+
+- `tests/test_pandoc_controller.py`
+  - ODT extraction already collapsed XML whitespace before semantic comparison;
+  - the plain bibliography test still used line-layout-sensitive raw substring checks for titles and did not exercise publisher wrapping.
+
+- `tests/test_w90_pandoc_app_desktop_e2e.py`
+  - the real App/Pandoc lane used raw `assertIn("Herder and Herder", rendered)` and raw title assertions against a plain writer artifact;
+  - this was the exact R6 failure.
+
+- R6 desktop artifact verifier
+  - already collapsed ODT whitespace, but normalization was duplicated and not declared as a first-class verification boundary;
+  - Unicode normalization was not explicit.
+
+Root cause:
+- Calamus product data was correct in R6;
+- the verifier treated Pandoc's nonsemantic line wrapping as semantic corruption;
+- the gate lacked one explicit normalization policy separating layout variability from punctuation/list semantics.
+
+3. DIRECT PANDOC SOURCE AUDIT
+-----------------------------
+
+Archive: `pandoc-main.zip`
+
+Files/functions inspected:
+
+- `src/Text/Pandoc/Citeproc/BibTeX.hs`
+  - `getLiteralList'()` parses BibLaTeX literal-list fields;
+  - `splitByAnd` splits only the inline token sequence space + `and` + space;
+  - publisher list items are rejoined with semicolon-space for CSL data.
+  - Therefore `publisher = {Herder and Herder}` becomes two items, while the extra protected group keeps one item.
+
+- `src/Text/Pandoc/Writers/Markdown.hs`
+  - `writePlain()` delegates to the Markdown writer in `PlainText` mode;
+  - `pandocToMarkdown()` uses `writerColumns` when `writerWrapText == WrapAuto`.
+
+- `src/Text/Pandoc/Options.hs`
+  - `WrapAuto` explicitly means automatic wrapping to width;
+  - `WrapNone` means no nonsemantic newlines.
+
+- `src/Text/Pandoc/App/Opt.hs`
+  - default CLI options are `WrapAuto` and 72 columns.
+
+Consequences:
+- a newline inserted between `and` and `Herder` is a permitted writer-layout transformation;
+- punctuation remains semantic: `Herder; Herder` is still different from `Herder and Herder` after whitespace normalization;
+- changing W90 argv to `--wrap=none` would hide a brittle test instead of fixing the verifier and would unnecessarily change the product output policy.
+
+Decision:
+- ADOPT semantic verification after NFC + whitespace-run collapse;
+- RETAIN punctuation exactly;
+- REJECT raw contiguous-substring gates on rendered plain text;
+- REJECT changing Pandoc wrapping solely to satisfy tests.
+
+4. DIRECT JABREF SOURCE AUDIT
+-----------------------------
+
+Archive: `jabref-main(4).zip`
+
+Files/functions inspected:
+
+- `jablib/.../logic/bibtex/FieldWriter.java`
+  - `write()` centralizes field serialization and brace sanitation;
+  - field serialization is not mixed with downstream semantic comparison.
+
+- `jablib/.../logic/bibtex/FieldWriterTest.java`
+  - `noNormalizationOfNewlinesInAbstractField()` explicitly records that newline normalization belongs to another boundary (`BibWriter`), not the field writer.
+
+- `jablib/.../logic/util/strings/StringUtil.java`
+  - `unifyLineBreaks()` provides an explicit normalization operation.
+
+- `jablib/.../logic/database/DuplicateCheck.java`
+  - semantic equality normalizes line breaks and case before comparison rather than requiring raw byte identity.
+
+Decision:
+- ADOPT separate serialization and comparison-normalization boundaries;
+- ADOPT explicit helper functions rather than ad hoc assertions;
+- REJECT pushing validator concerns into the product serializer.
+
+5. DIRECT KBIBTEX SOURCE AUDIT
+------------------------------
+
+Archive: `kbibtex-master(4).zip`
+
+Files/functions inspected:
+
+- `src/data/value.h`
+  - value items distinguish semantic kinds such as person, keyword and plain/verbatim text.
+
+- `src/io/fileexporterbibtex.cpp`
+  - `internalValueToBibTeX()` serializes according to value kind;
+  - person lists use explicit `and` semantics;
+  - `normalizeText()` is applied at the output boundary;
+  - title casing protection is handled separately from the model.
+
+Decision:
+- ADOPT typed serialization and boundary-specific normalization;
+- ADAPT minimally: Calamus keeps its small scalar model and a test-only rendered-artifact normalizer;
+- REJECT a generalized bibliographic value hierarchy for W90.
+
+6. DIRECT GNOME CITATIONS SOURCE AUDIT
+--------------------------------------
+
+Archive: `citations-master(1).zip`
+
+Files/functions inspected:
+
+- `cratebibtex/src/entry.rs`
+  - bibliographic model and formatting remain separated.
+
+- `cratebibtex/src/format.rs`
+  - `push_non_space()` collapses spaces, tabs and newlines into one space at a formatting boundary;
+  - formatting tests compare normalized semantic output rather than accidental whitespace runs.
+
+Decision:
+- ADOPT whitespace-run collapse as a bounded semantic projection;
+- REJECT punctuation removal or broad fuzzy matching.
+
+7. PREVIOUS MATURE PROCESS-ARCHITECTURE AUDIT RETAINED
+------------------------------------------------------
+
+The earlier direct source audits of Ghostwriter, Zettlr, Apostrophe, Pandoc Preview,
+MarkText, CherryTree, PanWriter, SoloMD, UberWriter, FocusWriter, Crowbook,
+Markdown Reader and nb remain applicable for:
+
+- typed options/destination/result boundaries;
+- stable terminal state separate from progress rendering;
+- real subprocess and artifact proof;
+- semantic chooser seams for automation;
+- fresh-process GTK lanes and exact lifecycle ownership;
+- staged publication and cleanup;
+- rejection of shell strings, arbitrary args, profiles, PDF, plugins, browser/server,
+  network and internal rich-text writer stacks.
+
+R7 does not reopen those accepted decisions.
+
+8. R7 ADOPT / ADAPT / REJECT / DEFER
+------------------------------------
+
+ADOPT
+- retain R6 literal-list serialization fix;
+- one test-only semantic artifact normalizer:
+  1. require `str`;
+  2. Unicode NFC normalization;
+  3. collapse every whitespace run to one ASCII space;
+  4. optional casefold only for case-insensitive bibliographic identity checks;
+  5. preserve punctuation and word order;
+- use the same policy in real-Pandoc controller tests, true-App real-Pandoc tests and desktop artifact verification;
+- explicit regression cases for LF/CRLF wrapping, case differences and semicolon corruption;
+- real Pandoc plain bibliography and ODT evidence;
+- exact canonical-input hashes, staging cleanup and lifecycle gates.
+
+ADAPT
+- test helper lives under `tests/`, not in production modules;
+- desktop verifier embeds the same narrow algorithm because it must remain a standalone shell/Python runner;
+- scope gate rejects any return to raw `assertIn("Herder and Herder", rendered)`.
+
+REJECT
+- `--wrap=none` as a test workaround;
+- replacing `and`, semicolons or punctuation before comparison;
+- fuzzy matching, token sorting or edit-distance acceptance;
+- casefold for publisher punctuation fidelity;
+- changing the correct R6 product serializer;
+- hard-coded output destinations;
+- another manual test before automated true-App passes.
+
+DEFER
+- generalized CSL-aware semantic equivalence;
+- multi-valued publisher/location in the Calamus canonical model;
+- any W91 work.
+
+9. R7 IMPLEMENTATION AND GATES
+------------------------------
+
+Production delta beyond R6:
+- none.
+
+Test/validation delta:
+- new `tests/calamus_pandoc_artifact_assertions.py`;
+- `tests/test_pandoc.py`: normalization contract tests;
+- `tests/test_pandoc_controller.py`: real Pandoc plain and ODT checks use semantic normalization;
+- `tests/test_w90_pandoc_app_desktop_e2e.py`: true-App checks use semantic normalization;
+- `tests/test_w90_pandoc_command_wiring.py` and `scripts/prove-w90-scope.sh`: static enforcement and raw-assertion rejection;
+- `scripts/prove-w90-headless-regression.sh`: exact count 1322;
+- desktop runner: NFC + whitespace collapse, punctuation-preserving checks, user-selected paths.
+
+R7 acceptance requires:
+- 74 focused tests PASS;
+- 1322 headless tests PASS;
+- real Pandoc plain output accepts `Herder and\nHerder` as the canonical scalar;
+- the same gate rejects `Herder; Herder`;
+- true-App GTK lane PASS on the ThinkPad before desktop validation begins;
+- all prior W90 scope, lifecycle, authority, stale, no-network, bloat and identity gates remain PASS.
+
+10. AUDIT VERDICT
+-----------------
+
+R6 is retired because its verifier was layout-sensitive. The R6 production
+literal-list correction is retained. R7 reconstructs the whole W90 candidate from
+W89 with a single declared rendered-artifact comparison policy grounded in direct
+Pandoc, JabRef, KBibTeX and GNOME Citations source audits. W90 remains NOT
+CERTIFIED until the R7 ThinkPad runner and final native-dialog desktop validation
+both pass.

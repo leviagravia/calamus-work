@@ -33,8 +33,8 @@ class IdentityDialogComponentTests(unittest.TestCase):
     def test_about_builder_returns_exact_owned_widgets(self):
         identity = build_runtime_identity(
             "Development build",
-            "W89",
-            "569dd742abd607bb55a1e6bf9efbad1fdba1684c",
+            "W90",
+            "673c17aa3239bf189f11c93af36e4ea137df2f6d",
         )
         widgets = build_about_dialog(self.parent, identity)
         try:
@@ -46,15 +46,15 @@ class IdentityDialogComponentTests(unittest.TestCase):
             body = self._text(widgets.text_view)
             self.assertEqual(body.splitlines()[0], "Calamus")
             self.assertNotIn("Calamus-Working-Copy", body)
-            print("W89_IDENTITY_COMPONENT_ABOUT=PASS")
+            print("W90_IDENTITY_COMPONENT_ABOUT=PASS")
         finally:
             destroy_modal(widgets.dialog)
 
     def test_system_info_builder_returns_exact_owned_widgets(self):
         body = (
             "Calamus: Development build\n"
-            "Work item: W89\n"
-            "Published baseline: 569dd742abd607bb55a1e6bf9efbad1fdba1684c"
+            "Work item: W90\n"
+            "Published baseline: 673c17aa3239bf189f11c93af36e4ea137df2f6d"
         )
         widgets = build_system_info_dialog(self.parent, body)
         try:
@@ -70,7 +70,7 @@ class IdentityDialogComponentTests(unittest.TestCase):
                 "calamus-system-info-text",
             )
             self.assertEqual(self._text(widgets.text_view), body)
-            print("W89_IDENTITY_COMPONENT_SYSTEM_INFO=PASS")
+            print("W90_IDENTITY_COMPONENT_SYSTEM_INFO=PASS")
         finally:
             destroy_modal(widgets.dialog)
 

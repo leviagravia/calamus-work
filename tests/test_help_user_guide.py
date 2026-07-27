@@ -131,6 +131,42 @@ class UserGuidePureTests(unittest.TestCase):
         self.assertGreaterEqual(text.count("### Stage R"), 12)
         self.assertGreater(len(text), 65000)
 
+    def test_w90_pandoc_export_tutorial_is_complete_and_option_exhaustive(self):
+        text = load_user_guide(ROOT)
+        for required in (
+            "Tutorial completo: esportare con Pandoc passo per passo",
+            "Passo P1 — Controlla il documento che hai davvero aperto",
+            "Passo P2 — Verifica che Pandoc sia disponibile",
+            "Passo P4 — Scegli Product",
+            "Formatted Bibliography",
+            "Current Document with Citations",
+            "References cited in the current document",
+            "All References",
+            "One Reference Set",
+            "Plain text (.txt)",
+            "HTML (.html)",
+            "OpenDocument Text (.odt)",
+            "Microsoft Word (.docx)",
+            "Rich Text Format (.rtf)",
+            "LaTeX source (.tex)",
+            "EPUB (.epub)",
+            "Use Pandoc Default",
+            "Local CSL file",
+            "Passo P9 — Leggi la semantic preview",
+            "Passo P10 — Conferma, annulla e riapri",
+            "Esempio A — Bibliografia TXT di un Reference Set",
+            "Esempio B — Bibliografia HTML con stile locale",
+            "Esempio C — Documento ODT con le sole fonti citate",
+            "Esempio D — Documento DOCX richiesto da una rivista",
+            "Esempio E — EPUB con tutte le References",
+            "Esempio F — Sorgente LaTeX per un progetto esterno",
+            "Passo P12 — Controllo dopo l'export",
+            "Se il file non si trova, non dichiarare l'export riuscito",
+        ):
+            self.assertIn(required, text)
+        self.assertGreaterEqual(text.count("#### Passo P"), 12)
+        self.assertGreater(len(text), 120000)
+
     def test_canonical_research_panel_guide_is_complete_and_excludes_scratchpad(self):
         text = load_user_guide(ROOT)
         for required in (

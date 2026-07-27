@@ -129,6 +129,8 @@ from calamus_research_export_controller import ResearchExportController
 from calamus_research_export_runtime import ResearchExportRuntime
 from calamus_bibtex_controller import BibtexController
 from calamus_bibtex_runtime import BibtexRuntime
+from calamus_pandoc_controller import PandocExportController
+from calamus_pandoc_runtime import PandocExportRuntime
 from calamus_research_panel import ResearchPanelRuntime
 from calamus_research_panel_view import ResearchPanelViewAdapter
 from calamus_navigation import line_to_buffer_index
@@ -847,6 +849,9 @@ class App(Gtk.Window):
         if getattr(self, "_application_close_in_progress", False):
             return True
         if not self.may_continue():
+            return False
+        if hasattr(self, "pandoc_export_runtime") and not self.pandoc_export_runtime.shutdown():
+            self.error("Pandoc export did not stop cleanly; Calamus remains open.")
             return False
         self.save_settings()
         self._application_close_in_progress = True
@@ -2236,6 +2241,20 @@ class App(Gtk.Window):
             refresh_references=self.reference_panel_runtime.reload,
         )
         self.bibtex_runtime = BibtexRuntime(self, self.bibtex_controller)
+        self.pandoc_export_controller = PandocExportController(
+            self.reference_store,
+            self.reference_set_store,
+            document_path_provider=lambda: self.document.file_path,
+            document_text_provider=self.buffer_text,
+        )
+        self.pandoc_export_runtime = PandocExportRuntime(
+            self,
+            self.pandoc_export_controller,
+            document_path_provider=lambda: self.document.file_path,
+            reference_set_names_provider=lambda: tuple(
+                item.name for item in self.reference_set_runtime.sets_snapshot(force=True)
+            ),
+        )
 
     def refresh_clip_list(self):
         self.clip_collection.refresh()
@@ -2408,6 +2427,9 @@ class App(Gtk.Window):
 
     def on_export_research_apparatus(self, *_):
         return self.research_export_runtime.export()
+
+    def on_export_with_pandoc(self, *_):
+        return self.pandoc_export_runtime.export()
 
     def show_heading_target(self, target):
         return self.navigation_controller.navigate_identifier(target) is not None

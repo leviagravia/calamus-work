@@ -42,7 +42,12 @@ For every new work item:
 - semantic widget names or explicit widget bundles are mandatory for true GTK tests;
 - generic widget-tree position assumptions are forbidden;
 - synchronous nested loops are permitted only through the single
-  `calamus_modal_dialog.py` adapter.
+  `calamus_modal_dialog.py` adapter;
+- every real-GTK component workflow and every true-App workflow runs in a
+  fresh subprocess with an isolated HOME/XDG environment and
+  `G_DEBUG=fatal-criticals`;
+- the complete pure/static regression runs without a display and must never be
+  used as an accidental container for modal GTK workflows.
 
 For W89, these modules must remain GTK-free:
 
@@ -55,7 +60,28 @@ For W89, these modules must remain GTK-free:
 - `calamus_modal_dialog.py`
 
 The modal adapter itself is GTK-free because it receives an already constructed
-dialog and owns only the controlled `run()` / `destroy()` calls.
+dialog. `ModalSession` owns the response boundary, hide-before-destroy ordering,
+registered GLib source identifiers, deterministic cleanup and one testable closed
+postcondition. Compatibility `run_modal()` / `destroy_modal()` facades remain for
+historical W89 dialog code.
+
+For W90, the same policy additionally requires these modules to remain GTK-free:
+
+- `calamus_pandoc.py`
+- `calamus_pandoc_process.py`
+- `calamus_pandoc_controller.py`
+
+`calamus_pandoc_dialogs.py` owns widgets and modal presentation.
+`calamus_pandoc_runtime.py` is the thin GTK/thread adapter; it imports GTK lazily,
+uses the canonical modal adapter and owns no export validation or persistence.
+It exposes only typed semantic boundaries for options, destination, preview
+acknowledgement, result presentation and operation execution. Production defaults
+remain the real GTK adapters; integrated tests may replace those boundaries while
+retaining the real App, controller, stores and external Pandoc child.
+`PandocWorkflowOutcome` is the durable terminal state. Progress visibility is a
+presentation detail and cannot be used as an operation-completion contract.
+The external Pandoc child is part of the lifecycle boundary: accepted close must
+cancel the exact child, join the worker and leave no surviving process.
 
 ## 4. Test tiers
 
@@ -68,14 +94,17 @@ dialog and owns only the controlled `run()` / `destroy()` calls.
 
 ### Layer 2 — dialog component gate
 
-- real dialog construction where a display is available;
+- real dialog construction in a fresh subprocess where a display is available;
+- one builder or one modal workflow per named lane;
 - semantic controls, explicit response and typed result;
 - no recursive text scraping and no dependency on GTK child order;
-- nested loop only through the canonical modal adapter.
+- nested loop only through the canonical modal session owner;
+- every registered GLib source is removed or proven naturally completed before
+  the dialog is destroyed.
 
 ### Layer 3 — true-App/GTK E2E
 
-- separate process or separately invoked test module;
+- fresh subprocess for every separately named workflow;
 - real display and real App wiring;
 - bounded semantic modal driver plus external `timeout` watchdog;
 - assertion failures preserved for the test thread;
@@ -113,13 +142,23 @@ ownership to `Gtk.Application`, following Xed and GNOME Citations.
 
 ## 6. Modal-dialog contract
 
-- production W89 dialogs use `run_modal()` / `destroy_modal()`;
-- true-App tests identify controls by semantic names;
+- historical W89 dialogs may use `run_modal()` / `destroy_modal()`;
+- W90 dialogs and progress sessions use `ModalSession`;
+- a modal session owns response, hide, registered source ids, loop return and
+  destroy ordering; callers copy semantic results before context exit;
+- component tests identify real controls by semantic names;
 - complete `Gtk.Label` strings may be inspected, never character-by-character recursion;
-- one modal workflow per test method;
+- integrated true-App tests use typed semantic boundaries and terminal outcomes,
+  not a polling driver over a chain of native dialogs;
+- the complete native-dialog chain is manual desktop validation;
+- one modal workflow per test method and one fresh subprocess per real-GTK lane;
+- repeated `Gtk.ComboBoxText` mutation inside an idle callback while
+  `Gtk.Dialog.run()` is active is forbidden;
 - unexpected dialogs, callback tracebacks and timeouts fail immediately;
+- a test timeout must not close a product dialog before its diagnostic state is
+  asserted, because that would convert test-driver failure into product cancel;
 - cleanup executes even after an assertion failure;
-- modal E2E is never included in the focused command.
+- modal E2E is never included in the focused or pure/static regression command.
 
 ## 7. Warning policy
 
@@ -134,14 +173,15 @@ Blocking:
 - modal, main-loop or process timeout;
 - a process surviving after a normal accepted close.
 
-Known pre-existing debt, recorded separately and not expanded by W89:
+Known pre-existing debt, recorded separately and not expanded by W89 or W90:
 
 - GTK CSS `:prelight` selectors;
 - `Gtk.Widget.override_font` in the line-number boundary;
 - historical opacity API deprecations.
 
 W89 requires Gtk, Gdk, Pango and PangoCairo explicitly and promotes the old
-shutdown-lifecycle debt to a blocking normal-close postcondition.
+shutdown-lifecycle debt to a blocking normal-close postcondition. W90 preserves
+that gate and extends it to the tracked external Pandoc process and worker.
 
 ## 8. Desktop and rendering matrix
 
