@@ -1535,11 +1535,11 @@ Finish by opening Authoring Bridge, checking the Related pair, reopening `Core s
 
 A reliable References workflow is simple: register each source once, use stable keys, cite through Quick Cite, group sources transparently, and run Research Check before export or submission.
 
-## Guida canonica completa del pannello Research (Scratchpad escluso)
+## Guida canonica completa del pannello Research
 
 Questa è la guida operativa completa dell’apparato Research di Calamus. È pensata per chi scrive saggi, articoli, tesi, omelie documentate, libri o ricerche teologiche e desidera lavorare con fonti, citazioni e note senza affidare il proprio materiale a un database opaco.
 
-La guida dello **Scratchpad** sarà aggiunta in seguito. Tutto ciò che segue riguarda le funzioni Research già disponibili: Clip Collection, References, Related References, Reference Sets, Source Notes, Create Source Note from Selection, Insert Link to Heading, Authoring Bridge, Quick Cite, Open Citation in References, Rename Reference Key, Research Check, Tag Integrity, import/export BibTeX o BibLaTeX ed Export Research Apparatus.
+Lo **Scratchpad Basic** è ora parte del pannello Research. Tutto ciò che segue riguarda le funzioni Research disponibili: Clip Collection, References, Related References, Reference Sets, Source Notes, Create Source Note from Selection, Insert Link to Heading, Authoring Bridge, Quick Cite, Open Citation in References, Rename Reference Key, Research Check, Tag Integrity, import/export BibTeX o BibLaTeX ed Export Research Apparatus.
 
 Le etichette dei menu e dei pulsanti sono riportate in inglese perché corrispondono all’interfaccia reale. Le spiegazioni sono in italiano.
 
@@ -3478,3 +3478,83 @@ Prima di confermare:
 ## Keyboard Shortcuts and About
 
 `Help → Keyboard Shortcuts` shows the current command registry. `Help → About` shows application identity, purpose and licensing information.
+
+## Scratchpad Basic
+
+`Research → Scratchpad` apre il taccuino strutturato del documento corrente. Lo Scratchpad conserva materiale che non è ancora testo definitivo: appunti, idee, bozze e piccole attività di scrittura. Non sostituisce il documento, References o Source Notes e non costruisce un knowledge graph.
+
+### Autorità e file
+
+Lo Scratchpad appartiene a un solo documento salvato. Per esempio:
+
+```text
+article.md
+article.md.scratchpad.md
+```
+
+Il sidecar è Markdown UTF-8 leggibile fuori da Calamus. Non esistono database, indici persistenti, JSON nascosti o un archivio globale. Se il documento non è ancora salvato, Calamus chiede di salvarlo prima di creare una voce persistente.
+
+### Tipi e stati
+
+I tipi disponibili sono soltanto:
+
+- **Note**: appunto libero;
+- **Idea**: direzione da sviluppare;
+- **Draft**: frammento già formulato;
+- **Task**: azione concreta relativa al documento o alla ricerca.
+
+Non esistono tipi autonomi Concept o Question. Un concetto o una domanda possono essere espressi nel titolo, nel corpo e nei tag di una Note o Idea.
+
+Gli stati sono **Inbox**, **Active**, **Resolved** e **Archived**. Non ci sono priorità, scadenze, notifiche o funzioni da task manager.
+
+### Creare e catturare
+
+Premere **New** nel client Scratchpad per creare una voce. `Research → Capture Selection in Scratchpad…` copia la selezione del documento nel Body, senza cancellare o modificare il testo originale. `Research → New Scratchpad Entry for Current Section…` crea una voce già collegata alla sezione corrente.
+
+La sezione corrente deve possedere un identificatore Pandoc esplicito e univoco:
+
+```markdown
+## Tradizione e memoria {#tradizione-e-memoria}
+```
+
+Calamus conserva il target `#tradizione-e-memoria`. Non usa numeri di riga, offset persistenti o somiglianze semantiche.
+
+### Tag e collegamenti
+
+I tag sono manuali, piatti e locali allo Scratchpad. La forma digitata dall'utente viene conservata; la ricerca e il filtro confrontano l'identità senza creare una tassonomia. Calamus non genera, suggerisce o deduce tag.
+
+Una voce può essere collegata a più heading espliciti del documento corrente. Nel dialogo di modifica selezionare le sezioni desiderate. **Open Section** apre uno dei target collegati. Se un target manca o è ambiguo, Calamus lo segnala e non indovina una sostituzione.
+
+`Research → Show Scratchpad for Current Section` apre il pannello e mostra soltanto le voci collegate alla sezione in cui si trova il cursore. Il pulsante **All** rimuove il filtro.
+
+### Ricerca, filtri e archivio
+
+La ricerca comprende ID, titolo, Body, tag e target di sezione. I filtri disponibili sono Type, Status, Tag e Current Section. Lo stato predefinito **Current work** esclude le voci archiviate senza cancellarle.
+
+**Archive** sposta una voce fuori dal lavoro ordinario; premuto su una voce già archiviata la ripristina come Active. **Delete** richiede conferma e rimuove definitivamente la voce dal sidecar, senza modificare il documento.
+
+### Inserire o copiare nel documento
+
+**Insert** inserisce il Body alla posizione corrente del cursore attraverso il normale gateway di modifica di Calamus. L'operazione entra nella cronologia Undo, attiva il dirty state e non elimina né risolve automaticamente la voce.
+
+**Copy** copia il Body negli appunti senza modificare il documento.
+
+### Modifiche esterne e sicurezza
+
+Prima di ogni scrittura Calamus confronta il token del sidecar. Se il file è cambiato fuori dall'applicazione, offre **Reload**, **Overwrite** o **Cancel**. Le scritture usano staging, flush, `fsync` e sostituzione atomica. Un file malformato resta leggibile ma viene trattato come read-only finché non è corretto; Calamus non esegue riparazioni silenziose.
+
+### Limiti della fase Basic
+
+Scratchpad Basic non collega ancora References, Source Notes o altre voci Scratchpad. Non offre Show Uses multi-autorità, rename coordinati degli heading, repair avanzato o Tag Integrity trasversale. Il Workspace protegge già il sidecar Scratchpad nelle operazioni Rename, Duplicate e Move to Trash, insieme al sidecar Source Notes, perché una normale operazione sul documento non deve separare o perdere i dati associati. Le integrazioni Research avanzate appartengono alla fase Scratchpad Full già prevista dalla roadmap.
+
+### Flusso consigliato
+
+1. Salva il documento.
+2. Crea heading con `{#id}` espliciti quando vuoi collegamenti stabili.
+3. Seleziona un passaggio e usa **Capture Selection in Scratchpad**.
+4. Assegna tipo, stato e tag.
+5. Collega una o più sezioni.
+6. Ritrova la voce con ricerca, tag o **Show Scratchpad for Current Section**.
+7. Sviluppa il Body.
+8. Usa **Insert** o **Copy** quando il materiale è pronto.
+9. Marca la voce Resolved oppure archiviala.

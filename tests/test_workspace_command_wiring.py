@@ -291,7 +291,7 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
     def test_trash_context_action_is_capability_adapter_and_no_permanent_delete_exists(self):
         panel=(ROOT/'calamus/calamus_workspace_panel.py').read_text(encoding='utf-8')
         ui=(ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8')
-        self.assertIn('if not item.is_symlink and not item.name.endswith(".source-notes.md"):', panel)
+        self.assertIn('if not item.is_symlink and not item.managed_sidecar:', panel)
         self.assertIn('Gtk.MenuItem(label="Move to Trash")', panel)
         self.assertIn('self._on_move_to_trash()', panel)
         self.assertNotIn('Permanently Delete', panel + ui)

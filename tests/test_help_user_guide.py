@@ -167,10 +167,10 @@ class UserGuidePureTests(unittest.TestCase):
         self.assertGreaterEqual(text.count("#### Passo P"), 12)
         self.assertGreater(len(text), 120000)
 
-    def test_canonical_research_panel_guide_is_complete_and_excludes_scratchpad(self):
+    def test_canonical_research_panel_guide_includes_scratchpad_basic(self):
         text = load_user_guide(ROOT)
         for required in (
-            "Guida canonica completa del pannello Research (Scratchpad escluso)",
+            "Guida canonica completa del pannello Research",
             "Prima idea fondamentale: Research non è un unico archivio",
             "Percorso rapido: dal documento vuoto al controllo finale",
             "Clip Collection: frammenti riutilizzabili, non fonti",
@@ -191,7 +191,10 @@ class UserGuidePureTests(unittest.TestCase):
             "Export Research Apparatus",
             "Esempio completo: costruire un articolo teologico",
             "Checklist finale prima di consegnare un lavoro",
-            "La guida dello **Scratchpad** sarà aggiunta in seguito",
+            "Scratchpad Basic",
+            "article.md.scratchpad.md",
+            "Capture Selection in Scratchpad",
+            "Show Scratchpad for Current Section",
         ):
             self.assertIn(required, text)
         self.assertGreater(len(text), 105000)
@@ -200,12 +203,12 @@ class UserGuidePureTests(unittest.TestCase):
         sections = parse_user_guide_sections(load_user_guide(ROOT))
         titles = tuple(section.title for section in sections)
         self.assertEqual(
-            titles.count("Guida canonica completa del pannello Research (Scratchpad escluso)"),
+            titles.count("Guida canonica completa del pannello Research"),
             1,
         )
         section = next(
             item for item in sections
-            if item.title == "Guida canonica completa del pannello Research (Scratchpad escluso)"
+            if item.title == "Guida canonica completa del pannello Research"
         )
         self.assertIn("Schema mentale", section.body)
         self.assertIn("Research Check", section.body)

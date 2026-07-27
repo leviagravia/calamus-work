@@ -14,6 +14,9 @@ from pathlib import Path
 ALLOWED_TEXT_SUFFIXES = frozenset({".txt", ".md"})
 DEFAULT_TEXT_SUFFIX = ".txt"
 MAX_BASENAME_BYTES = 255
+SOURCE_NOTES_SUFFIX = ".source-notes.md"
+SCRATCHPAD_SUFFIX = ".scratchpad.md"
+MANAGED_SIDECAR_SUFFIXES = (SOURCE_NOTES_SUFFIX, SCRATCHPAD_SUFFIX)
 
 
 class WorkspaceOperationError(ValueError):
@@ -61,6 +64,10 @@ class WorkspaceRenamePlan:
     companion_target_path: str | None = None
     companion_token: WorkspacePathToken | None = None
     managed_target_path: str | None = None
+    scratchpad_source_path: str | None = None
+    scratchpad_target_path: str | None = None
+    scratchpad_token: WorkspacePathToken | None = None
+    managed_scratchpad_target_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -76,6 +83,9 @@ class WorkspaceDuplicatePlan:
     companion_source_path: str | None = None
     companion_target_path: str | None = None
     companion_token: WorkspaceContentToken | None = None
+    scratchpad_source_path: str | None = None
+    scratchpad_target_path: str | None = None
+    scratchpad_token: WorkspaceContentToken | None = None
 
 
 @dataclass(frozen=True)
@@ -89,6 +99,8 @@ class WorkspaceTrashPlan:
     source_token: WorkspacePathToken
     companion_source_path: str | None = None
     companion_token: WorkspacePathToken | None = None
+    scratchpad_source_path: str | None = None
+    scratchpad_token: WorkspacePathToken | None = None
 
 
 def normalize_text_suffix(suffix: str) -> str:
@@ -243,7 +255,10 @@ def plan_workspace_rename(
     source_token: WorkspacePathToken,
     companion_source_path: str | None = None,
     companion_token: WorkspacePathToken | None = None,
+    scratchpad_source_path: str | None = None,
+    scratchpad_token: WorkspacePathToken | None = None,
     manage_source_notes: bool = False,
+    manage_scratchpad: bool = False,
 ) -> WorkspaceRenamePlan:
     """Build one same-parent, root-confined rename plan without I/O.
 
@@ -271,11 +286,11 @@ def plan_workspace_rename(
         raise WorkspaceOperationError("The selected item is incompatible with the Workspace root.") from exc
 
     source_name = os.path.basename(canonical_source)
-    if source_name.endswith(".source-notes.md"):
-        raise WorkspaceOperationError("Rename the document, not its managed Source Notes sidecar.")
+    if any(source_name.casefold().endswith(suffix) for suffix in MANAGED_SIDECAR_SUFFIXES):
+        raise WorkspaceOperationError("Rename the document, not one of its managed sidecars.")
     display_name = normalize_workspace_rename_name(raw_name)
-    if display_name.endswith(".source-notes.md"):
-        raise WorkspaceOperationError("That suffix is reserved for managed Source Notes sidecars.")
+    if any(display_name.casefold().endswith(suffix) for suffix in MANAGED_SIDECAR_SUFFIXES):
+        raise WorkspaceOperationError("That suffix is reserved for managed document sidecars.")
     if display_name == source_name:
         raise WorkspaceOperationError("The new name is unchanged.")
     target = os.path.abspath(os.path.join(parent, display_name))
@@ -288,17 +303,33 @@ def plan_workspace_rename(
     companion_target = None
     if companion_source_path is not None:
         companion_source = os.path.abspath(companion_source_path)
-        expected_companion = canonical_source + ".source-notes.md"
+        expected_companion = canonical_source + SOURCE_NOTES_SUFFIX
         if companion_source != expected_companion or companion_token is None:
             raise WorkspaceOperationError("The managed Source Notes companion is inconsistent.")
-        companion_target = target + ".source-notes.md"
+        companion_target = target + SOURCE_NOTES_SUFFIX
     else:
         companion_source = None
         if companion_token is not None:
-            raise WorkspaceOperationError("A companion token requires a companion path.")
-    managed_target = target + ".source-notes.md" if manage_source_notes else None
+            raise WorkspaceOperationError("A Source Notes token requires a Source Notes path.")
+
+    scratchpad_target = None
+    if scratchpad_source_path is not None:
+        scratchpad_source = os.path.abspath(scratchpad_source_path)
+        expected_scratchpad = canonical_source + SCRATCHPAD_SUFFIX
+        if scratchpad_source != expected_scratchpad or scratchpad_token is None:
+            raise WorkspaceOperationError("The managed Scratchpad companion is inconsistent.")
+        scratchpad_target = target + SCRATCHPAD_SUFFIX
+    else:
+        scratchpad_source = None
+        if scratchpad_token is not None:
+            raise WorkspaceOperationError("A Scratchpad token requires a Scratchpad path.")
+
+    managed_target = target + SOURCE_NOTES_SUFFIX if manage_source_notes else None
+    managed_scratchpad_target = target + SCRATCHPAD_SUFFIX if manage_scratchpad else None
     if companion_target is not None and managed_target != companion_target:
         raise WorkspaceOperationError("The managed Source Notes destination is inconsistent.")
+    if scratchpad_target is not None and managed_scratchpad_target != scratchpad_target:
+        raise WorkspaceOperationError("The managed Scratchpad destination is inconsistent.")
 
     return WorkspaceRenamePlan(
         kind="rename",
@@ -314,6 +345,10 @@ def plan_workspace_rename(
         companion_target_path=companion_target,
         companion_token=companion_token,
         managed_target_path=managed_target,
+        scratchpad_source_path=scratchpad_source,
+        scratchpad_target_path=scratchpad_target,
+        scratchpad_token=scratchpad_token,
+        managed_scratchpad_target_path=managed_scratchpad_target,
     )
 
 def _truncate_utf8_component(value: str, max_bytes: int) -> str:
@@ -347,8 +382,8 @@ def next_duplicate_text_name(
         raise TypeError("occupied_names must be a tuple or list of strings")
     if not isinstance(reserve_managed_sidecar, bool):
         raise TypeError("reserve_managed_sidecar must be boolean")
-    if source_name.endswith(".source-notes.md"):
-        raise WorkspaceOperationError("Duplicate the document, not its managed Source Notes sidecar.")
+    if any(source_name.casefold().endswith(suffix) for suffix in MANAGED_SIDECAR_SUFFIXES):
+        raise WorkspaceOperationError("Duplicate the document, not one of its managed sidecars.")
     suffix = Path(source_name).suffix.casefold()
     if suffix not in ALLOWED_TEXT_SUFFIXES:
         raise WorkspaceOperationError("Only regular .txt and .md Workspace files can be duplicated.")
@@ -359,10 +394,10 @@ def next_duplicate_text_name(
         max_stem_bytes = MAX_BASENAME_BYTES - len(os.fsencode(marker + suffix))
         fitted_stem = _truncate_utf8_component(stem, max_stem_bytes)
         candidate = f"{fitted_stem}{marker}{suffix}"
-        companion = candidate + ".source-notes.md"
+        companions = tuple(candidate + suffix for suffix in MANAGED_SIDECAR_SUFFIXES)
         if candidate.casefold() in occupied:
             continue
-        if reserve_managed_sidecar and companion.casefold() in occupied:
+        if reserve_managed_sidecar and any(name.casefold() in occupied for name in companions):
             continue
         return candidate
     raise WorkspaceOperationError("No safe duplicate name is available in this folder.")
@@ -376,6 +411,8 @@ def plan_duplicate_text_file(
     source_token: WorkspaceContentToken,
     companion_source_path: str | None = None,
     companion_token: WorkspaceContentToken | None = None,
+    scratchpad_source_path: str | None = None,
+    scratchpad_token: WorkspaceContentToken | None = None,
 ) -> WorkspaceDuplicatePlan:
     """Build one same-parent, no-overwrite text-file duplication plan."""
     if not isinstance(root, str) or not root.strip():
@@ -413,13 +450,27 @@ def plan_duplicate_text_file(
         if not isinstance(companion_source_path, str) or companion_token is None:
             raise WorkspaceOperationError("The managed Source Notes companion is inconsistent.")
         companion_source = os.path.abspath(companion_source_path)
-        if companion_source != canonical_source + ".source-notes.md":
+        if companion_source != canonical_source + SOURCE_NOTES_SUFFIX:
             raise WorkspaceOperationError("The managed Source Notes companion is inconsistent.")
         if not isinstance(companion_token, WorkspaceContentToken):
             raise TypeError("companion_token must be WorkspaceContentToken")
-        companion_target = target + ".source-notes.md"
+        companion_target = target + SOURCE_NOTES_SUFFIX
     elif companion_token is not None:
-        raise WorkspaceOperationError("A companion token requires a companion path.")
+        raise WorkspaceOperationError("A Source Notes token requires a Source Notes path.")
+
+    scratchpad_source = None
+    scratchpad_target = None
+    if scratchpad_source_path is not None:
+        if not isinstance(scratchpad_source_path, str) or scratchpad_token is None:
+            raise WorkspaceOperationError("The managed Scratchpad companion is inconsistent.")
+        scratchpad_source = os.path.abspath(scratchpad_source_path)
+        if scratchpad_source != canonical_source + SCRATCHPAD_SUFFIX:
+            raise WorkspaceOperationError("The managed Scratchpad companion is inconsistent.")
+        if not isinstance(scratchpad_token, WorkspaceContentToken):
+            raise TypeError("scratchpad_token must be WorkspaceContentToken")
+        scratchpad_target = target + SCRATCHPAD_SUFFIX
+    elif scratchpad_token is not None:
+        raise WorkspaceOperationError("A Scratchpad token requires a Scratchpad path.")
 
     return WorkspaceDuplicatePlan(
         kind="duplicate-text-file",
@@ -433,6 +484,9 @@ def plan_duplicate_text_file(
         companion_source_path=companion_source,
         companion_target_path=companion_target,
         companion_token=companion_token,
+        scratchpad_source_path=scratchpad_source,
+        scratchpad_target_path=scratchpad_target,
+        scratchpad_token=scratchpad_token,
     )
 
 
@@ -444,6 +498,8 @@ def plan_move_to_trash(
     source_token: WorkspacePathToken,
     companion_source_path: str | None = None,
     companion_token: WorkspacePathToken | None = None,
+    scratchpad_source_path: str | None = None,
+    scratchpad_token: WorkspacePathToken | None = None,
 ) -> WorkspaceTrashPlan:
     """Build one root-confined system-Trash plan without filesystem I/O.
 
@@ -475,9 +531,9 @@ def plan_move_to_trash(
         raise WorkspaceOperationError("The selected item is incompatible with the Workspace root.") from exc
 
     source_name = os.path.basename(canonical_source)
-    if source_name.endswith(".source-notes.md"):
+    if any(source_name.casefold().endswith(suffix) for suffix in MANAGED_SIDECAR_SUFFIXES):
         raise WorkspaceOperationError(
-            "Move the document to Trash, not its managed Source Notes sidecar."
+            "Move the document to Trash, not one of its managed sidecars."
         )
 
     companion_source = None
@@ -485,12 +541,24 @@ def plan_move_to_trash(
         if not isinstance(companion_source_path, str) or companion_token is None:
             raise WorkspaceOperationError("The managed Source Notes companion is inconsistent.")
         companion_source = os.path.abspath(companion_source_path)
-        if companion_source != canonical_source + ".source-notes.md":
+        if companion_source != canonical_source + SOURCE_NOTES_SUFFIX:
             raise WorkspaceOperationError("The managed Source Notes companion is inconsistent.")
         if not isinstance(companion_token, WorkspacePathToken):
             raise TypeError("companion_token must be WorkspacePathToken")
     elif companion_token is not None:
-        raise WorkspaceOperationError("A companion token requires a companion path.")
+        raise WorkspaceOperationError("A Source Notes token requires a Source Notes path.")
+
+    scratchpad_source = None
+    if scratchpad_source_path is not None:
+        if not isinstance(scratchpad_source_path, str) or scratchpad_token is None:
+            raise WorkspaceOperationError("The managed Scratchpad companion is inconsistent.")
+        scratchpad_source = os.path.abspath(scratchpad_source_path)
+        if scratchpad_source != canonical_source + SCRATCHPAD_SUFFIX:
+            raise WorkspaceOperationError("The managed Scratchpad companion is inconsistent.")
+        if not isinstance(scratchpad_token, WorkspacePathToken):
+            raise TypeError("scratchpad_token must be WorkspacePathToken")
+    elif scratchpad_token is not None:
+        raise WorkspaceOperationError("A Scratchpad token requires a Scratchpad path.")
 
     return WorkspaceTrashPlan(
         kind="move-to-trash",
@@ -502,4 +570,6 @@ def plan_move_to_trash(
         source_token=source_token,
         companion_source_path=companion_source,
         companion_token=companion_token,
+        scratchpad_source_path=scratchpad_source,
+        scratchpad_token=scratchpad_token,
     )

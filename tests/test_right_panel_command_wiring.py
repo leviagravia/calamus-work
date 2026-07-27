@@ -86,9 +86,10 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         self.assertNotIn("references", host.lower())
         self.assertIn('self._host.show("research")', research)
         self.assertIn("register_client", research_view)
-        self.assertIn("source-notes", source(LAUNCHER).lower())
-        for future in ("scratchpad", "concepts"):
-            self.assertNotIn(future, research_view.lower())
+        launcher = source(LAUNCHER).lower()
+        self.assertIn("source-notes", launcher)
+        self.assertIn("scratchpad", launcher)
+        self.assertNotIn("concepts", research_view.lower())
 
     def test_clip_store_is_markdown_primary_with_legacy_json_fallback(self):
         clips = source(CLIPS)

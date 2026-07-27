@@ -200,16 +200,22 @@ class WorkspaceGioAdapterTests(unittest.TestCase):
         source = self.root / "Draft.md"
         source.write_text("draft", encoding="utf-8")
         sidecar = Path(str(source) + ".source-notes.md")
+        scratchpad = Path(str(source) + ".scratchpad.md")
         sidecar.write_text("notes", encoding="utf-8")
+        scratchpad.write_text("scratch", encoding="utf-8")
         plan = plan_workspace_rename(
             str(self.root), str(source), "Chapter.md", source_is_directory=False,
             source_token=self.token(source), companion_source_path=str(sidecar),
-            companion_token=self.token(sidecar), manage_source_notes=True,
+            companion_token=self.token(sidecar), scratchpad_source_path=str(scratchpad),
+            scratchpad_token=self.token(scratchpad), manage_source_notes=True,
+            manage_scratchpad=True,
         )
         result = self.adapter.rename_item(plan)
         self.assertTrue(result.success, result.message)
         self.assertFalse(sidecar.exists())
+        self.assertFalse(scratchpad.exists())
         self.assertEqual((self.root / "Chapter.md.source-notes.md").read_text(encoding="utf-8"), "notes")
+        self.assertEqual((self.root / "Chapter.md.scratchpad.md").read_text(encoding="utf-8"), "scratch")
 
     def test_sidecar_collision_blocks_primary_rename(self):
         source = self.root / "Draft.md"
@@ -308,18 +314,23 @@ class WorkspaceGioAdapterTests(unittest.TestCase):
         source=self.root/'Draft.md'
         source.write_text('draft',encoding='utf-8')
         sidecar=Path(str(source)+'.source-notes.md')
+        scratchpad=Path(str(source)+'.scratchpad.md')
         sidecar.write_text('notes',encoding='utf-8')
+        scratchpad.write_text('scratch',encoding='utf-8')
         occupied=[p.name for p in self.root.iterdir()]
         plan=plan_duplicate_text_file(
             str(self.root),str(source),occupied,source_token=self.content_token(source),
             companion_source_path=str(sidecar),companion_token=self.content_token(sidecar),
+            scratchpad_source_path=str(scratchpad),scratchpad_token=self.content_token(scratchpad),
         )
         result=self.adapter.duplicate_text_file(plan)
         self.assertTrue(result.success,result.message)
         self.assertEqual((self.root/'Draft copy.md').read_text(encoding='utf-8'),'draft')
         self.assertEqual((self.root/'Draft copy.md.source-notes.md').read_text(encoding='utf-8'),'notes')
+        self.assertEqual((self.root/'Draft copy.md.scratchpad.md').read_text(encoding='utf-8'),'scratch')
         self.assertEqual(source.read_text(encoding='utf-8'),'draft')
         self.assertEqual(sidecar.read_text(encoding='utf-8'),'notes')
+        self.assertEqual(scratchpad.read_text(encoding='utf-8'),'scratch')
 
 
     def test_move_to_system_trash_is_real_and_carries_managed_sidecar(self):
@@ -343,7 +354,9 @@ root.mkdir()
 source = root / "Draft.md"
 source.write_text("draft", encoding="utf-8")
 sidecar = Path(str(source) + ".source-notes.md")
+scratchpad = Path(str(source) + ".scratchpad.md")
 sidecar.write_text("notes", encoding="utf-8")
+scratchpad.write_text("scratch", encoding="utf-8")
 
 def token(path):
     st = path.lstat()
@@ -352,7 +365,8 @@ def token(path):
 plan = plan_move_to_trash(
     str(root), str(source), source_is_directory=False,
     source_token=token(source), companion_source_path=str(sidecar),
-    companion_token=token(sidecar),
+    companion_token=token(sidecar), scratchpad_source_path=str(scratchpad),
+    scratchpad_token=token(scratchpad),
 )
 result = WorkspaceGioAdapter().move_to_trash(plan)
 trash_files = Path(os.environ["XDG_DATA_HOME"]) / "Trash" / "files"
@@ -362,6 +376,7 @@ print(json.dumps({
     "message": result.message,
     "source_exists": os.path.lexists(source),
     "sidecar_exists": os.path.lexists(sidecar),
+    "scratchpad_exists": os.path.lexists(scratchpad),
     "trash_names": sorted(p.name for p in trash_files.iterdir()) if trash_files.exists() else [],
 }))
 '''
@@ -381,8 +396,10 @@ print(json.dumps({
             self.assertTrue(payload["committed"])
             self.assertFalse(payload["source_exists"])
             self.assertFalse(payload["sidecar_exists"])
+            self.assertFalse(payload["scratchpad_exists"])
             self.assertIn("Draft.md", payload["trash_names"])
             self.assertIn("Draft.md.source-notes.md", payload["trash_names"])
+            self.assertIn("Draft.md.scratchpad.md", payload["trash_names"])
 
     def test_trash_source_replacement_by_symlink_is_blocked(self):
         source = self.root / "Draft.md"

@@ -28,6 +28,7 @@ class WorkspaceOperationResult:
     committed: bool = False
     source_path: str = ""
     companion_path: str = ""
+    scratchpad_path: str = ""
     rollback_failed: bool = False
 
 
@@ -222,11 +223,17 @@ class WorkspaceGioAdapter:
         if plan.kind != "rename":
             raise ValueError(f"unsupported Workspace operation: {plan.kind}")
         if not HAVE_GIO:
-            return WorkspaceOperationResult(False, plan.target_path, "GIO is unavailable; nothing was renamed.", False)
+            return WorkspaceOperationResult(
+                False, plan.target_path, "GIO is unavailable; nothing was renamed.", False
+            )
 
         validated = self._validated_parent(plan)
         if validated is None:
-            return WorkspaceOperationResult(False, plan.target_path, "The parent folder changed or resolves outside the Writing Workspace.", False)
+            return WorkspaceOperationResult(
+                False, plan.target_path,
+                "The parent folder changed or resolves outside the Writing Workspace.",
+                False,
+            )
         root, _parent = validated
         if (
             os.path.islink(plan.source_path)
@@ -234,74 +241,98 @@ class WorkspaceGioAdapter:
             or plan.source_is_directory != os.path.isdir(plan.source_path)
             or not self._target_within_root(root, plan.source_path)
         ):
-            return WorkspaceOperationResult(False, plan.target_path, "The selected item changed before it could be renamed.", False)
+            return WorkspaceOperationResult(
+                False, plan.target_path,
+                "The selected item changed before it could be renamed.", False,
+            )
         if self._collision_exists(plan.source_path, plan.target_path):
-            return WorkspaceOperationResult(False, plan.target_path, "A file or folder with that name already exists.", False)
-        if plan.managed_target_path is not None and os.path.lexists(plan.managed_target_path):
+            return WorkspaceOperationResult(
+                False, plan.target_path,
+                "A file or folder with that name already exists.", False,
+            )
+
+        companions = (
+            (
+                "Source Notes", plan.companion_source_path,
+                plan.companion_target_path, plan.companion_token,
+                plan.managed_target_path,
+            ),
+            (
+                "Scratchpad", plan.scratchpad_source_path,
+                plan.scratchpad_target_path, plan.scratchpad_token,
+                plan.managed_scratchpad_target_path,
+            ),
+        )
+        for label, source_path, target_path, _token, managed_target in companions:
+            if managed_target is None or not os.path.lexists(managed_target):
+                continue
             same_managed_file = False
-            if plan.companion_source_path is not None:
+            if source_path is not None:
                 try:
-                    same_managed_file = os.path.samefile(
-                        plan.companion_source_path, plan.managed_target_path
-                    )
+                    same_managed_file = os.path.samefile(source_path, managed_target)
                 except OSError:
                     same_managed_file = False
             if not same_managed_file:
                 return WorkspaceOperationResult(
                     False, plan.target_path,
-                    "A managed Source Notes sidecar already exists for the destination name.",
+                    f"A managed {label} sidecar already exists for the destination name.",
                     False,
                 )
 
-        companion_moved = False
-        companion_new_file = None
+        moved_companions: list[tuple[str, str, str, object]] = []
         primary_moved = False
         primary_new_file = None
 
         def rollback_failure(message: str) -> WorkspaceOperationResult:
             primary_residual = primary_moved
-            companion_residual = companion_moved
             if primary_moved and primary_new_file is not None:
                 try:
                     primary_new_file.set_display_name(plan.source_name, None)
                     primary_residual = False
                 except GLib.Error:
                     primary_residual = True
-            if companion_moved and companion_new_file is not None:
+            companion_residual = False
+            for _label, source_path, _target_path, new_file in reversed(moved_companions):
                 try:
-                    companion_new_file.set_display_name(
-                        os.path.basename(plan.companion_source_path), None
-                    )
-                    companion_residual = False
+                    new_file.set_display_name(os.path.basename(source_path), None)
                 except GLib.Error:
                     companion_residual = True
             rollback_failed = primary_residual or companion_residual
             return WorkspaceOperationResult(
                 False, plan.target_path,
-                (f"{message} Rollback was incomplete." if rollback_failed else message),
-                rollback_failed, source_path=plan.source_path,
+                f"{message} Rollback was incomplete." if rollback_failed else message,
+                committed=rollback_failed,
+                source_path=plan.source_path,
                 companion_path=plan.companion_target_path or "",
+                scratchpad_path=plan.scratchpad_target_path or "",
                 rollback_failed=rollback_failed,
             )
 
-        if plan.companion_source_path is not None:
-            assert plan.companion_target_path is not None
-            assert plan.companion_token is not None
+        for label, source_path, target_path, token, _managed_target in companions:
+            if source_path is None:
+                continue
+            assert target_path is not None
+            assert token is not None
             if (
-                os.path.islink(plan.companion_source_path)
-                or not os.path.isfile(plan.companion_source_path)
-                or not self._same_token(plan.companion_source_path, plan.companion_token)
-                or self._collision_exists(plan.companion_source_path, plan.companion_target_path)
+                os.path.islink(source_path)
+                or not os.path.isfile(source_path)
+                or not self._same_token(source_path, token)
+                or self._collision_exists(source_path, target_path)
             ):
-                return WorkspaceOperationResult(False, plan.target_path, "The managed Source Notes sidecar changed or its destination already exists.", False)
+                return WorkspaceOperationResult(
+                    False, plan.target_path,
+                    f"The managed {label} sidecar changed or its destination already exists.",
+                    False,
+                )
 
         try:
-            if plan.companion_source_path is not None:
-                companion = Gio.File.new_for_path(plan.companion_source_path)
-                companion_new_file = companion.set_display_name(
-                    os.path.basename(plan.companion_target_path), None
-                )
-                companion_moved = True
+            for label, source_path, target_path, _token, _managed_target in companions:
+                if source_path is None:
+                    continue
+                assert target_path is not None
+                companion = Gio.File.new_for_path(source_path)
+                new_file = companion.set_display_name(os.path.basename(target_path), None)
+                moved_companions.append((label, source_path, target_path, new_file))
 
             source = Gio.File.new_for_path(plan.source_path)
             renamed = source.set_display_name(plan.display_name, None)
@@ -312,24 +343,33 @@ class WorkspaceGioAdapter:
                 return rollback_failure(
                     "The returned rename destination identity was unexpected."
                 )
-            expected_type = Gio.FileType.DIRECTORY if plan.source_is_directory else Gio.FileType.REGULAR
+            expected_type = (
+                Gio.FileType.DIRECTORY if plan.source_is_directory
+                else Gio.FileType.REGULAR
+            )
             info = renamed.query_info(
                 "standard::type,standard::is-symlink",
-                Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None
+                Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None,
             )
-            if (info.get_is_symlink() or info.get_file_type() != expected_type
-                    or not self._target_within_root(root, plan.target_path)):
+            if (
+                info.get_is_symlink()
+                or info.get_file_type() != expected_type
+                or not self._target_within_root(root, plan.target_path)
+            ):
                 return rollback_failure(
                     "The final confined rename identity could not be verified."
                 )
-            if plan.companion_target_path is not None:
-                if not os.path.isfile(plan.companion_target_path) or os.path.islink(plan.companion_target_path):
+            for label, _source_path, target_path, _token, _managed_target in companions:
+                if target_path is None:
+                    continue
+                if not os.path.isfile(target_path) or os.path.islink(target_path):
                     return rollback_failure(
-                        "The renamed Source Notes sidecar could not be verified."
+                        f"The renamed {label} sidecar could not be verified."
                     )
             return WorkspaceOperationResult(
                 True, plan.target_path, committed=True, source_path=plan.source_path,
-                companion_path=plan.companion_target_path or ""
+                companion_path=plan.companion_target_path or "",
+                scratchpad_path=plan.scratchpad_target_path or "",
             )
         except GLib.Error as exc:
             return rollback_failure(f"The item could not be renamed: {exc.message}")
@@ -372,14 +412,16 @@ class WorkspaceGioAdapter:
             raise ValueError(f"unsupported Workspace operation: {plan.kind}")
         if not HAVE_GIO:
             return WorkspaceOperationResult(
-                False, plan.target_path, "GIO is unavailable; nothing was duplicated.", False
+                False, plan.target_path,
+                "GIO is unavailable; nothing was duplicated.", False,
             )
 
         validated = self._validated_parent(plan)
         if validated is None:
             return WorkspaceOperationResult(
                 False, plan.target_path,
-                "The parent folder changed or resolves outside the Writing Workspace.", False,
+                "The parent folder changed or resolves outside the Writing Workspace.",
+                False,
             )
         root, _parent = validated
         if (
@@ -394,45 +436,67 @@ class WorkspaceGioAdapter:
             )
         if os.path.lexists(plan.target_path):
             return WorkspaceOperationResult(
-                False, plan.target_path, "The duplicate destination already exists.", False
-            )
-        managed_target = plan.target_path + ".source-notes.md"
-        if os.path.lexists(managed_target):
-            return WorkspaceOperationResult(
                 False, plan.target_path,
-                "A managed Source Notes sidecar already exists for the duplicate name.", False,
+                "The duplicate destination already exists.", False,
             )
-        if plan.companion_source_path is not None:
+
+        companions = (
+            (
+                "Source Notes", plan.companion_source_path,
+                plan.companion_target_path, plan.companion_token,
+                plan.target_path + ".source-notes.md",
+            ),
+            (
+                "Scratchpad", plan.scratchpad_source_path,
+                plan.scratchpad_target_path, plan.scratchpad_token,
+                plan.target_path + ".scratchpad.md",
+            ),
+        )
+        for label, source_path, target_path, token, managed_target in companions:
+            if os.path.lexists(managed_target):
+                return WorkspaceOperationResult(
+                    False, plan.target_path,
+                    f"A managed {label} sidecar already exists for the duplicate name.",
+                    False,
+                )
+            if source_path is None:
+                if target_path is not None or token is not None:
+                    return WorkspaceOperationResult(
+                        False, plan.target_path,
+                        f"The managed {label} duplication plan is inconsistent.", False,
+                    )
+                continue
             if (
-                plan.companion_target_path != managed_target
-                or plan.companion_token is None
-                or os.path.islink(plan.companion_source_path)
-                or not os.path.isfile(plan.companion_source_path)
-                or self._current_content_token(plan.companion_source_path) != plan.companion_token
+                target_path != managed_target
+                or token is None
+                or os.path.islink(source_path)
+                or not os.path.isfile(source_path)
+                or self._current_content_token(source_path) != token
             ):
                 return WorkspaceOperationResult(
                     False, plan.target_path,
-                    "The managed Source Notes sidecar changed before duplication.", False,
+                    f"The managed {label} sidecar changed before duplication.",
+                    False,
                 )
 
         created_primary = False
-        created_companion = False
         primary_target_token = None
-        companion_target_token = None
+        created_companions: list[tuple[str, WorkspaceContentToken | None]] = []
 
         def rollback_failure(message: str) -> WorkspaceOperationResult:
-            companion_ok = (not created_companion) or self._delete_created_file(
-                plan.companion_target_path or "", companion_target_token
-            )
+            companions_ok = True
+            for path, token in reversed(created_companions):
+                companions_ok = self._delete_created_file(path, token) and companions_ok
             primary_ok = (not created_primary) or self._delete_created_file(
                 plan.target_path, primary_target_token
             )
-            rollback_failed = not (primary_ok and companion_ok)
+            rollback_failed = not (primary_ok and companions_ok)
             return WorkspaceOperationResult(
                 False, plan.target_path,
                 f"{message} Rollback was incomplete." if rollback_failed else message,
                 committed=rollback_failed, source_path=plan.source_path,
                 companion_path=plan.companion_target_path or "",
+                scratchpad_path=plan.scratchpad_target_path or "",
                 rollback_failed=rollback_failed,
             )
 
@@ -456,17 +520,18 @@ class WorkspaceGioAdapter:
                     "The duplicated file or source identity could not be verified."
                 )
 
-            if plan.companion_source_path is not None:
-                assert plan.companion_target_path is not None
-                companion_source = Gio.File.new_for_path(plan.companion_source_path)
-                companion_target = Gio.File.new_for_path(plan.companion_target_path)
+            for label, source_path, target_path, token, _managed_target in companions:
+                if source_path is None:
+                    continue
+                assert target_path is not None
+                assert token is not None
+                companion_source = Gio.File.new_for_path(source_path)
+                companion_target = Gio.File.new_for_path(target_path)
                 companion_source.copy(
                     companion_target, Gio.FileCopyFlags.NONE, None, None
                 )
-                created_companion = True
-                companion_target_token = self._current_content_token(
-                    plan.companion_target_path
-                )
+                target_token = self._current_content_token(target_path)
+                created_companions.append((target_path, target_token))
                 companion_info = companion_target.query_info(
                     "standard::type,standard::is-symlink",
                     Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None,
@@ -474,19 +539,21 @@ class WorkspaceGioAdapter:
                 if (
                     companion_info.get_is_symlink()
                     or companion_info.get_file_type() != Gio.FileType.REGULAR
-                    or self._current_content_token(plan.companion_source_path)
-                    != plan.companion_token
+                    or self._current_content_token(source_path) != token
                 ):
                     return rollback_failure(
-                        "The duplicated Source Notes companion could not be verified."
+                        f"The duplicated {label} companion could not be verified."
                     )
 
             return WorkspaceOperationResult(
                 True, plan.target_path, committed=True, source_path=plan.source_path,
                 companion_path=plan.companion_target_path or "",
+                scratchpad_path=plan.scratchpad_target_path or "",
             )
         except GLib.Error as exc:
-            return rollback_failure(f"The text file could not be duplicated: {exc.message}")
+            return rollback_failure(
+                f"The text file could not be duplicated: {exc.message}"
+            )
 
 
     @staticmethod
@@ -529,13 +596,12 @@ class WorkspaceGioAdapter:
         return True, ""
 
     def move_to_trash(self, plan: WorkspaceTrashPlan) -> WorkspaceOperationResult:
-        """Move one verified item to the system Trash with no delete fallback.
+        """Move one verified item and every present managed sidecar to Trash.
 
-        A managed Source Notes companion is preflighted before the primary item.
-        GIO does not provide a cross-item atomic Trash transaction, so the
-        primary document is trashed first.  A later companion failure is
-        reported as an explicit committed partial result; Calamus never falls
-        back to permanent deletion and never hides the partial outcome.
+        GIO does not provide a cross-item atomic Trash transaction.  Every
+        companion is therefore preflighted before the primary commit.  Any
+        later partial outcome is explicit and is never replaced by permanent
+        deletion or silent repair.
         """
         if not isinstance(plan, WorkspaceTrashPlan):
             raise TypeError("plan must be WorkspaceTrashPlan")
@@ -543,7 +609,8 @@ class WorkspaceGioAdapter:
             raise ValueError(f"unsupported Workspace operation: {plan.kind}")
         if not HAVE_GIO:
             return WorkspaceOperationResult(
-                False, plan.parent_path, "GIO is unavailable; nothing was moved to Trash.", False
+                False, plan.parent_path,
+                "GIO is unavailable; nothing was moved to Trash.", False,
             )
 
         validated = self._validated_trash_source(plan)
@@ -554,7 +621,10 @@ class WorkspaceGioAdapter:
                 False,
             )
         root, parent = validated
-        expected_type = Gio.FileType.DIRECTORY if plan.source_is_directory else Gio.FileType.REGULAR
+        expected_type = (
+            Gio.FileType.DIRECTORY if plan.source_is_directory
+            else Gio.FileType.REGULAR
+        )
         if (
             os.path.islink(plan.source_path)
             or not self._same_token(plan.source_path, plan.source_token)
@@ -562,7 +632,8 @@ class WorkspaceGioAdapter:
             or not self._target_within_root(root, plan.source_path)
         ):
             return WorkspaceOperationResult(
-                False, parent, "The selected item changed before it could be moved to Trash.", False
+                False, parent,
+                "The selected item changed before it could be moved to Trash.", False,
             )
 
         source = Gio.File.new_for_path(plan.source_path)
@@ -570,66 +641,86 @@ class WorkspaceGioAdapter:
         if not trashable:
             return WorkspaceOperationResult(False, parent, message, False)
 
-        companion = None
-        if plan.companion_source_path is not None:
+        companion_specs = (
+            ("Source Notes", plan.companion_source_path, plan.companion_token),
+            ("Scratchpad", plan.scratchpad_source_path, plan.scratchpad_token),
+        )
+        companions: list[tuple[str, str, object]] = []
+        for label, source_path, token in companion_specs:
+            if source_path is None:
+                if token is not None:
+                    return WorkspaceOperationResult(
+                        False, parent,
+                        f"The managed {label} Trash plan is inconsistent.", False,
+                    )
+                continue
             if (
-                plan.companion_token is None
-                or os.path.islink(plan.companion_source_path)
-                or not os.path.isfile(plan.companion_source_path)
-                or not self._same_token(plan.companion_source_path, plan.companion_token)
-                or not self._target_within_root(root, plan.companion_source_path)
+                token is None
+                or os.path.islink(source_path)
+                or not os.path.isfile(source_path)
+                or not self._same_token(source_path, token)
+                or not self._target_within_root(root, source_path)
             ):
                 return WorkspaceOperationResult(
                     False, parent,
-                    "The managed Source Notes sidecar changed before the item could be moved to Trash.",
+                    f"The managed {label} sidecar changed before the item could be moved to Trash.",
                     False,
                 )
-            companion = Gio.File.new_for_path(plan.companion_source_path)
+            companion = Gio.File.new_for_path(source_path)
             companion_trashable, companion_message = self._trash_capability(
                 companion, Gio.FileType.REGULAR
             )
             if not companion_trashable:
-                return WorkspaceOperationResult(False, parent, companion_message, False)
+                return WorkspaceOperationResult(
+                    False, parent, companion_message, False
+                )
+            companions.append((label, source_path, companion))
 
         try:
             if not source.trash(None):
                 return WorkspaceOperationResult(
-                    False, parent, "The system Trash operation was not accepted.", False
+                    False, parent,
+                    "The system Trash operation was not accepted.", False,
                 )
         except GLib.Error as exc:
             return WorkspaceOperationResult(
-                False, parent, f"The item could not be moved to Trash: {exc.message}", False
+                False, parent,
+                f"The item could not be moved to Trash: {exc.message}", False,
             )
 
-        primary_committed = not os.path.lexists(plan.source_path)
-        if not primary_committed:
+        if os.path.lexists(plan.source_path):
             return WorkspaceOperationResult(
                 False, parent,
                 "GIO reported success, but the selected item is still present at its original path.",
                 False,
             )
 
-        if companion is not None:
+        trashed_labels: list[str] = []
+        for label, source_path, companion in companions:
             try:
                 companion_ok = bool(companion.trash(None))
             except GLib.Error as exc:
                 return WorkspaceOperationResult(
                     False, parent,
-                    "The item was moved to Trash, but its managed Source Notes sidecar "
-                    f"could not be moved: {exc.message}",
+                    "The item was moved to Trash, but its managed "
+                    f"{label} sidecar could not be moved: {exc.message}",
                     True, source_path=plan.source_path,
                     companion_path=plan.companion_source_path or "",
+                    scratchpad_path=plan.scratchpad_source_path or "",
                 )
-            if not companion_ok or os.path.lexists(plan.companion_source_path):
+            if not companion_ok or os.path.lexists(source_path):
                 return WorkspaceOperationResult(
                     False, parent,
-                    "The item was moved to Trash, but its managed Source Notes sidecar remains "
-                    "at the original path.",
+                    "The item was moved to Trash, but its managed "
+                    f"{label} sidecar remains at the original path.",
                     True, source_path=plan.source_path,
                     companion_path=plan.companion_source_path or "",
+                    scratchpad_path=plan.scratchpad_source_path or "",
                 )
+            trashed_labels.append(label)
 
         return WorkspaceOperationResult(
             True, parent, committed=True, source_path=plan.source_path,
             companion_path=plan.companion_source_path or "",
+            scratchpad_path=plan.scratchpad_source_path or "",
         )

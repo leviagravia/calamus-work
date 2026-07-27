@@ -158,10 +158,15 @@ def build_menu(app) -> None:
     researchm.append(app.research_item)
     add_separator(researchm)
     add_item(researchm, "Clip Collection", app.show_clip_collection)
+    add_item(researchm, "Scratchpad", app.show_scratchpad)
     add_item(researchm, "References", app.show_references)
     add_item(researchm, "Reference Sets", app.show_reference_sets)
     add_item(researchm, "Source Notes", app.show_source_notes)
     add_item(researchm, "Authoring Bridge", app.show_authoring_bridge)
+    add_separator(researchm)
+    add_item(researchm, "Capture Selection in Scratchpad…", app.on_capture_selection_in_scratchpad)
+    add_item(researchm, "New Scratchpad Entry for Current Section…", app.on_new_scratchpad_for_current_section)
+    add_item(researchm, "Show Scratchpad for Current Section", app.on_show_scratchpad_for_current_section)
     add_separator(researchm)
     add_item(
         researchm,

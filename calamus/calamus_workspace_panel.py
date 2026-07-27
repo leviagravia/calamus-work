@@ -177,7 +177,7 @@ class WorkspacePanelView:
         # W84 exposes only the canonical system-Trash gateway.  No permanent
         # delete action exists, and symbolic links remain outside the bounded
         # mutation scope.
-        if not item.is_symlink and not item.name.endswith(".source-notes.md"):
+        if not item.is_symlink and not item.managed_sidecar:
             menu.append(Gtk.SeparatorMenuItem())
             trash = Gtk.MenuItem(label="Move to Trash")
             trash.connect(

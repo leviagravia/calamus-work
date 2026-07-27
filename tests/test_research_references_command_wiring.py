@@ -79,12 +79,13 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
         self.assertIn("self._host.hide()", runtime)
         self.assertNotIn(".remove(", view)
 
-    def test_three_real_clients_are_registered_without_future_placeholders(self):
+    def test_real_clients_include_scratchpad_without_concepts_or_tags_placeholders(self):
         block = method_source("build_research_panel")
         self.assertIn('"clip-collection"', block)
         self.assertIn('"references"', block)
         self.assertIn('"source-notes"', block)
-        for future in ("scratchpad", "concepts", '"tags"'):
+        self.assertIn('"scratchpad"', block)
+        for future in ("concepts", '"tags"'):
             self.assertNotIn(future, block)
 
     def test_reference_panel_keeps_crud_and_quick_cite_without_import_export_ownership(self):

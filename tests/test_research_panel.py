@@ -31,6 +31,18 @@ class FakeView:
         self.focused += 1
 
 
+class ResettingHost(FakeHost):
+    """Simulate Gtk.show_all() restoring the first stack child."""
+
+    def __init__(self, view):
+        super().__init__()
+        self._view = view
+
+    def show(self, section):
+        super().show(section)
+        self._view.active_client = "clip-collection"
+
+
 class FakeMenuItem:
     def __init__(self):
         self.active = False
@@ -50,6 +62,16 @@ class ResearchPanelRuntimeTests(unittest.TestCase):
         self.assertEqual(host.calls, [("show", "research")])
         self.assertEqual(view.active_client, "references")
         self.assertTrue(item.active)
+        self.assertEqual(view.focused, 1)
+
+    def test_show_selects_requested_client_after_host_becomes_visible(self):
+        view, item = FakeView(), FakeMenuItem()
+        host = ResettingHost(view)
+        runtime = ResearchPanelRuntime(host, view, item, lambda: None)
+        self.assertTrue(runtime.show("scratchpad"))
+        self.assertEqual(host.calls, [("show", "research")])
+        self.assertEqual(view.shown, ["scratchpad"])
+        self.assertEqual(view.active_client, "scratchpad")
         self.assertEqual(view.focused, 1)
 
     def test_hide_preserves_active_client_and_focuses_editor(self):

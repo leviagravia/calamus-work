@@ -8,6 +8,7 @@ from pathlib import Path
 INTERNAL_SUFFIXES = frozenset({".txt", ".md"})
 DEFAULT_MAX_ITEMS = 5000
 DEFAULT_MAX_DEPTH = 32
+MANAGED_DOCUMENT_SIDECAR_SUFFIXES = (".source-notes.md", ".scratchpad.md")
 
 
 class WorkspaceError(ValueError):
@@ -24,6 +25,7 @@ class WorkspaceItem:
     is_directory: bool
     is_symlink: bool
     internal_text: bool
+    managed_sidecar: bool = False
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,13 @@ class WorkspaceSnapshot:
     def by_absolute_path(self, path: str) -> WorkspaceItem | None:
         target = os.path.abspath(path)
         return next((item for item in self.items if item.path == target), None)
+
+
+def is_managed_document_sidecar_name(name: str) -> bool:
+    if not isinstance(name, str):
+        return False
+    folded = name.casefold()
+    return any(folded.endswith(suffix) for suffix in MANAGED_DOCUMENT_SIDECAR_SUFFIXES)
 
 
 def normalize_workspace_root(path: str) -> str:
@@ -105,6 +114,7 @@ def scan_workspace(
             is_symlink = entry.is_symlink()
             is_directory = entry.is_dir(follow_symlinks=False)
             suffix = Path(entry.name).suffix.casefold()
+            managed_sidecar = is_managed_document_sidecar_name(entry.name)
             items.append(WorkspaceItem(
                 root=canonical_root,
                 path=path,
@@ -113,7 +123,13 @@ def scan_workspace(
                 depth=depth,
                 is_directory=is_directory,
                 is_symlink=is_symlink,
-                internal_text=(not is_directory and not is_symlink and suffix in INTERNAL_SUFFIXES),
+                internal_text=(
+                    not is_directory
+                    and not is_symlink
+                    and not managed_sidecar
+                    and suffix in INTERNAL_SUFFIXES
+                ),
+                managed_sidecar=managed_sidecar,
             ))
             if is_directory and not is_symlink:
                 visit(path, depth + 1)

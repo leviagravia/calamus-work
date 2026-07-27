@@ -76,10 +76,10 @@ class RuntimeIdentityWorkingCopyTests(unittest.TestCase):
 
     def test_development_identity_constants_are_exact(self):
         self.assertEqual(DEVELOPMENT_BUILD_LABEL, "Development build")
-        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W90")
+        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W91")
         self.assertEqual(
             PUBLISHED_BASELINE,
-            "673c17aa3239bf189f11c93af36e4ea137df2f6d",
+            "5a2dd7efe24fa5e6bb4660053c3db936010e6d06",
         )
 
     def test_historical_package_version_is_preserved_but_not_runtime_label(self):

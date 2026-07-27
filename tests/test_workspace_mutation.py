@@ -33,14 +33,19 @@ class RealExclusiveLocalAdapter:
             if os.path.lexists(plan.target_path):
                 raise FileExistsError(plan.target_path)
             shutil.copyfile(plan.source_path, plan.target_path)
-            if plan.companion_source_path:
-                if os.path.lexists(plan.companion_target_path):
-                    os.unlink(plan.target_path)
-                    raise FileExistsError(plan.companion_target_path)
-                shutil.copyfile(plan.companion_source_path, plan.companion_target_path)
+            for source_path, target_path in (
+                (plan.companion_source_path, plan.companion_target_path),
+                (plan.scratchpad_source_path, plan.scratchpad_target_path),
+            ):
+                if source_path:
+                    if os.path.lexists(target_path):
+                        os.unlink(plan.target_path)
+                        raise FileExistsError(target_path)
+                    shutil.copyfile(source_path, target_path)
             return WorkspaceOperationResult(
                 True, plan.target_path, committed=True, source_path=plan.source_path,
                 companion_path=plan.companion_target_path or '',
+                scratchpad_path=plan.scratchpad_target_path or '',
             )
         except OSError as exc:
             return WorkspaceOperationResult(False, plan.target_path, str(exc), committed=False)
@@ -49,12 +54,20 @@ class RealExclusiveLocalAdapter:
         try:
             if os.path.lexists(plan.target_path):
                 raise FileExistsError(plan.target_path)
-            if plan.companion_target_path and os.path.lexists(plan.companion_target_path):
-                raise FileExistsError(plan.companion_target_path)
-            if plan.companion_source_path:
-                os.rename(plan.companion_source_path, plan.companion_target_path)
+            for source_path, target_path in (
+                (plan.companion_source_path, plan.companion_target_path),
+                (plan.scratchpad_source_path, plan.scratchpad_target_path),
+            ):
+                if target_path and os.path.lexists(target_path):
+                    raise FileExistsError(target_path)
+                if source_path:
+                    os.rename(source_path, target_path)
             os.rename(plan.source_path, plan.target_path)
-            return WorkspaceOperationResult(True, plan.target_path, committed=True, source_path=plan.source_path)
+            return WorkspaceOperationResult(
+                True, plan.target_path, committed=True, source_path=plan.source_path,
+                companion_path=plan.companion_target_path or '',
+                scratchpad_path=plan.scratchpad_target_path or '',
+            )
         except OSError as exc:
             return WorkspaceOperationResult(False, plan.target_path, str(exc), committed=False, source_path=plan.source_path)
 
@@ -62,24 +75,27 @@ class RealExclusiveLocalAdapter:
         bucket = Path(plan.root).parent / "SystemTrash"
         bucket.mkdir(exist_ok=True)
         primary_target = bucket / plan.source_name
-        companion_target = (
-            bucket / Path(plan.companion_source_path).name
-            if plan.companion_source_path else None
+        companion_targets = tuple(
+            (source_path, bucket / Path(source_path).name)
+            for source_path in (plan.companion_source_path, plan.scratchpad_source_path)
+            if source_path
         )
         try:
-            if primary_target.exists() or (companion_target and companion_target.exists()):
+            if primary_target.exists() or any(target.exists() for _source, target in companion_targets):
                 raise FileExistsError("trash collision")
             os.rename(plan.source_path, primary_target)
-            if plan.companion_source_path:
-                os.rename(plan.companion_source_path, companion_target)
+            for source_path, target_path in companion_targets:
+                os.rename(source_path, target_path)
             return WorkspaceOperationResult(
                 True, plan.parent_path, committed=True, source_path=plan.source_path,
                 companion_path=plan.companion_source_path or "",
+                scratchpad_path=plan.scratchpad_source_path or "",
             )
         except OSError as exc:
             return WorkspaceOperationResult(
                 False, plan.parent_path, str(exc), committed=not os.path.lexists(plan.source_path),
                 source_path=plan.source_path, companion_path=plan.companion_source_path or "",
+                scratchpad_path=plan.scratchpad_source_path or "",
             )
 
 
@@ -442,6 +458,67 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
             if item is None:
                 continue
             self.errors.clear()
+            self.assertFalse(self.runtime.move_to_trash(item))
+            self.assertTrue(self.errors)
+
+    def test_rename_text_file_moves_source_notes_and_scratchpad_sidecars(self):
+        source = self.drafts / "Existing.md"
+        source_notes = Path(str(source) + ".source-notes.md")
+        scratchpad = Path(str(source) + ".scratchpad.md")
+        source_notes.write_text("notes", encoding="utf-8")
+        scratchpad.write_text("scratch", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        self.assertTrue(self.runtime.rename_item(selected, "Chapter.md"))
+        self.assertFalse(source_notes.exists())
+        self.assertFalse(scratchpad.exists())
+        self.assertEqual(
+            (self.drafts / "Chapter.md.source-notes.md").read_text(encoding="utf-8"),
+            "notes",
+        )
+        self.assertEqual(
+            (self.drafts / "Chapter.md.scratchpad.md").read_text(encoding="utf-8"),
+            "scratch",
+        )
+
+    def test_duplicate_text_file_copies_source_notes_and_scratchpad_sidecars(self):
+        source = self.drafts / "Existing.md"
+        Path(str(source) + ".source-notes.md").write_text("notes", encoding="utf-8")
+        Path(str(source) + ".scratchpad.md").write_text("scratch", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        self.assertTrue(self.runtime.duplicate_text_file(selected))
+        target = self.drafts / "Existing copy.md"
+        self.assertEqual(Path(str(target) + ".source-notes.md").read_text(encoding="utf-8"), "notes")
+        self.assertEqual(Path(str(target) + ".scratchpad.md").read_text(encoding="utf-8"), "scratch")
+
+    def test_move_to_trash_carries_source_notes_and_scratchpad_sidecars(self):
+        source = self.drafts / "Existing.md"
+        source_notes = Path(str(source) + ".source-notes.md")
+        scratchpad = Path(str(source) + ".scratchpad.md")
+        source_notes.write_text("notes", encoding="utf-8")
+        scratchpad.write_text("scratch", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        selected = self.view.snapshot.by_relative_path("Drafts/Existing.md")
+        self.assertTrue(self.runtime.move_to_trash(selected))
+        self.assertFalse(source.exists())
+        self.assertFalse(source_notes.exists())
+        self.assertFalse(scratchpad.exists())
+
+    def test_both_managed_sidecars_are_non_openable_and_direct_mutations_fail(self):
+        source = self.drafts / "Existing.md"
+        for suffix in (".source-notes.md", ".scratchpad.md"):
+            Path(str(source) + suffix).write_text("managed", encoding="utf-8")
+        self.workspace_runtime.refresh()
+        for suffix in (".source-notes.md", ".scratchpad.md"):
+            relative = "Drafts/Existing.md" + suffix
+            item = self.view.snapshot.by_relative_path(relative)
+            self.assertIsNotNone(item)
+            self.assertTrue(item.managed_sidecar)
+            self.assertFalse(item.internal_text)
+            self.errors.clear()
+            self.assertFalse(self.runtime.rename_item(item, "Other.md"))
+            self.assertFalse(self.runtime.duplicate_text_file(item))
             self.assertFalse(self.runtime.move_to_trash(item))
             self.assertTrue(self.errors)
 

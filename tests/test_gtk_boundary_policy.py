@@ -44,6 +44,9 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
             "calamus/calamus_pandoc.py",
             "calamus/calamus_pandoc_process.py",
             "calamus/calamus_pandoc_controller.py",
+            "calamus/calamus_scratchpad.py",
+            "calamus/calamus_scratchpad_store.py",
+            "calamus/calamus_scratchpad_controller.py",
         )
         for relative in paths:
             text = (ROOT / relative).read_text(encoding="utf-8")

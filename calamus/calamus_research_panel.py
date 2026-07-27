@@ -35,8 +35,11 @@ class ResearchPanelRuntime:
 
     def show(self, client_id: str | None = None) -> bool:
         target = client_id or self.active_client or self._default_client
-        self._view.show_client(target)
+        # Make the shell visible before selecting its client. Gtk.show_all() can
+        # otherwise restore the first visible stack child and undo a selection
+        # made while the Research widget is still detached/hidden.
         self._host.show("research")
+        self._view.show_client(target)
         self._sync_menu(True)
         self._view.focus_active()
         return True

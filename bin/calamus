@@ -133,6 +133,13 @@ from calamus_pandoc_controller import PandocExportController
 from calamus_pandoc_runtime import PandocExportRuntime
 from calamus_research_panel import ResearchPanelRuntime
 from calamus_research_panel_view import ResearchPanelViewAdapter
+from calamus_scratchpad_runtime import ScratchpadRuntime
+from calamus_scratchpad_gateway import (
+    current_section_target as scratchpad_current_section_target,
+    selected_text as scratchpad_selected_text,
+    insert_body as scratchpad_insert_body,
+    copy_body as scratchpad_copy_body, sync_document as scratchpad_sync_document,
+)
 from calamus_navigation import line_to_buffer_index
 from calamus_view_preferences import load_text_wrap_preference, prepare_text_wrap_plan
 from calamus_typography import (
@@ -2157,6 +2164,16 @@ class App(Gtk.Window):
             apply_heading_link_plan=self.apply_heading_link_plan,
             on_error=lambda message: show_error(self, message),
         )
+        self.scratchpad_runtime = ScratchpadRuntime(
+            self,
+            document_path_provider=lambda: self.document.file_path,
+            document_structure_provider=lambda: self.navigation_controller.structure,
+            current_section_provider=lambda: scratchpad_current_section_target(self),
+            selected_text_provider=lambda: scratchpad_selected_text(self),
+            show_target=self.show_heading_target,
+            insert_body=lambda body: scratchpad_insert_body(self, body),
+            copy_body=lambda body: scratchpad_copy_body(self, body),
+        )
         self.research_panel_view = ResearchPanelViewAdapter(
             lambda: self.research_panel_runtime.hide(),
         )
@@ -2164,6 +2181,12 @@ class App(Gtk.Window):
             "clip-collection",
             "Clips",
             self.clip_collection.widget,
+        )
+        self.research_panel_view.register_client(
+            "scratchpad",
+            "Scratchpad",
+            self.scratchpad_runtime.widget,
+            self.scratchpad_runtime.activate,
         )
         self.research_panel_view.register_client(
             "references",
@@ -2267,6 +2290,19 @@ class App(Gtk.Window):
 
     def show_clip_collection(self, *_):
         return self.research_panel_runtime.show("clip-collection")
+
+    def show_scratchpad(self, *_):
+        return self.research_panel_runtime.show("scratchpad")
+
+    def on_capture_selection_in_scratchpad(self, *_):
+        return self.scratchpad_runtime.capture_selection()
+
+    def on_new_scratchpad_for_current_section(self, *_):
+        return self.scratchpad_runtime.new_for_current_section()
+
+    def on_show_scratchpad_for_current_section(self, *_):
+        self.research_panel_runtime.show("scratchpad")
+        return self.scratchpad_runtime.show_for_current_section()
 
     def show_references(self, *_):
         return self.research_panel_runtime.show("references")
@@ -2435,8 +2471,8 @@ class App(Gtk.Window):
         return self.navigation_controller.navigate_identifier(target) is not None
 
     def sync_source_notes_document(self, *, force=False):
-        if hasattr(self, "source_note_panel_runtime"):
-            self.source_note_panel_runtime.sync_document(force=force)
+        if hasattr(self, "source_note_panel_runtime"): self.source_note_panel_runtime.sync_document(force=force)
+        scratchpad_sync_document(self, force=force)
 
     def toggle_clip_collection(self, *_):
         return self.show_clip_collection()

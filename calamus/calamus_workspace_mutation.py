@@ -5,7 +5,9 @@ from collections.abc import Callable
 import os
 from typing import Any
 
-from calamus_workspace import WorkspaceError, WorkspaceItem, path_is_within_root
+from calamus_workspace import (
+    WorkspaceError, WorkspaceItem, is_managed_document_sidecar_name, path_is_within_root,
+)
 from calamus_workspace_controller import WorkspaceController
 from calamus_workspace_gio import WorkspaceGioAdapter, WorkspaceOperationResult
 from calamus_workspace_identity import WorkspacePathReferenceSnapshot, path_is_trashed
@@ -83,6 +85,16 @@ class WorkspaceMutationController:
             stat_result.st_size, stat_result.st_mtime_ns,
         )
 
+    def _managed_sidecar(self, document_path: str, suffix: str, *, content: bool):
+        candidate = document_path + suffix
+        if not os.path.lexists(candidate):
+            return None, None
+        label = "Scratchpad" if suffix == ".scratchpad.md" else "Source Notes"
+        if os.path.islink(candidate) or not os.path.isfile(candidate):
+            raise WorkspaceError(f"The managed {label} sidecar is not a regular file.")
+        token = self._content_token(candidate) if content else self._path_token(candidate)
+        return candidate, token
+
     def plan_duplicate(
         self, selected: WorkspaceItem | None
     ) -> WorkspaceDuplicatePlan:
@@ -95,25 +107,24 @@ class WorkspaceMutationController:
             raise WorkspaceError("Symbolic links cannot be duplicated from Writing Workspace.")
         if not current.internal_text or not os.path.isfile(current.path):
             raise WorkspaceError("Only regular .txt and .md Workspace files can be duplicated.")
-        if current.name.endswith(".source-notes.md"):
-            raise WorkspaceError("Duplicate the document, not its managed Source Notes sidecar.")
+        if current.managed_sidecar or is_managed_document_sidecar_name(current.name):
+            raise WorkspaceError("Duplicate the document, not one of its managed sidecars.")
         parent = os.path.dirname(current.path)
         try:
             occupied_names = tuple(os.listdir(parent))
         except OSError as exc:
             raise WorkspaceError(f"The containing folder cannot be read: {exc}") from exc
-        companion_path = None
-        companion_token = None
-        candidate = current.path + ".source-notes.md"
-        if os.path.lexists(candidate):
-            if os.path.islink(candidate) or not os.path.isfile(candidate):
-                raise WorkspaceError("The managed Source Notes sidecar is not a regular file.")
-            companion_path = candidate
-            companion_token = self._content_token(candidate)
+        companion_path, companion_token = self._managed_sidecar(
+            current.path, ".source-notes.md", content=True
+        )
+        scratchpad_path, scratchpad_token = self._managed_sidecar(
+            current.path, ".scratchpad.md", content=True
+        )
         return plan_duplicate_text_file(
             self._workspace.root, current.path, occupied_names,
             source_token=self._content_token(current.path),
             companion_source_path=companion_path, companion_token=companion_token,
+            scratchpad_source_path=scratchpad_path, scratchpad_token=scratchpad_token,
         )
 
     def plan_move_to_trash(
@@ -126,25 +137,27 @@ class WorkspaceMutationController:
             raise WorkspaceError("Symbolic links cannot be moved to Trash from Writing Workspace.")
         if not current.is_directory and not os.path.isfile(current.path):
             raise WorkspaceError("Only regular files and folders can be moved to Trash.")
-        if current.name.endswith(".source-notes.md"):
+        if current.managed_sidecar or is_managed_document_sidecar_name(current.name):
             raise WorkspaceError(
-                "Move the document to Trash, not its managed Source Notes sidecar."
+                "Move the document to Trash, not one of its managed sidecars."
             )
-        companion_path = None
-        companion_token = None
+        companion_path = companion_token = None
+        scratchpad_path = scratchpad_token = None
         if current.internal_text and not current.is_directory:
-            candidate = current.path + ".source-notes.md"
-            if os.path.lexists(candidate):
-                if os.path.islink(candidate) or not os.path.isfile(candidate):
-                    raise WorkspaceError("The managed Source Notes sidecar is not a regular file.")
-                companion_path = candidate
-                companion_token = self._path_token(candidate)
+            companion_path, companion_token = self._managed_sidecar(
+                current.path, ".source-notes.md", content=False
+            )
+            scratchpad_path, scratchpad_token = self._managed_sidecar(
+                current.path, ".scratchpad.md", content=False
+            )
         return plan_move_to_trash(
             self._workspace.root, current.path,
             source_is_directory=current.is_directory,
             source_token=self._path_token(current.path),
             companion_source_path=companion_path,
             companion_token=companion_token,
+            scratchpad_source_path=scratchpad_path,
+            scratchpad_token=scratchpad_token,
         )
 
     def plan_rename(
@@ -157,22 +170,28 @@ class WorkspaceMutationController:
             raise WorkspaceError("Symbolic links cannot be renamed from Writing Workspace.")
         if not current.is_directory and not os.path.isfile(current.path):
             raise WorkspaceError("Only regular files and folders can be renamed.")
-        companion_path = None
-        companion_token = None
+        if current.managed_sidecar or is_managed_document_sidecar_name(current.name):
+            raise WorkspaceError("Rename the document, not one of its managed sidecars.")
+        companion_path = companion_token = None
+        scratchpad_path = scratchpad_token = None
         if current.internal_text and not current.is_directory:
-            candidate = current.path + ".source-notes.md"
-            if os.path.lexists(candidate):
-                if os.path.islink(candidate) or not os.path.isfile(candidate):
-                    raise WorkspaceError("The managed Source Notes sidecar is not a regular file.")
-                companion_path = candidate
-                companion_token = self._path_token(candidate)
+            companion_path, companion_token = self._managed_sidecar(
+                current.path, ".source-notes.md", content=False
+            )
+            scratchpad_path, scratchpad_token = self._managed_sidecar(
+                current.path, ".scratchpad.md", content=False
+            )
+        manage_sidecars = bool(current.internal_text and not current.is_directory)
         return plan_workspace_rename(
             self._workspace.root, current.path, raw_name,
             source_is_directory=current.is_directory,
             source_token=self._path_token(current.path),
             companion_source_path=companion_path,
             companion_token=companion_token,
-            manage_source_notes=bool(current.internal_text and not current.is_directory),
+            scratchpad_source_path=scratchpad_path,
+            scratchpad_token=scratchpad_token,
+            manage_source_notes=manage_sidecars,
+            manage_scratchpad=manage_sidecars,
         )
 
     def execute(
