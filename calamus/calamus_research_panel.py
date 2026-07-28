@@ -41,7 +41,6 @@ class ResearchPanelRuntime:
         self._host.show("research")
         self._view.show_client(target)
         self._sync_menu(True)
-        self._view.focus_active()
         return True
 
     def hide(self) -> bool:

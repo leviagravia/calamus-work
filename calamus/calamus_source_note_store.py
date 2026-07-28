@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 from typing import Any
 
+from calamus_managed_sidecars import SOURCE_NOTES_SIDECAR, document_sidecar_path
 from calamus_research_file import FileToken, atomic_write_utf8, file_token
 from calamus_source_notes import SourceLocator, SourceNote
 
@@ -72,7 +72,7 @@ class SourceNoteSaveResult:
 def source_notes_path(document_path: Any) -> str | None:
     if not isinstance(document_path, str) or not document_path.strip():
         return None
-    return os.path.abspath(os.path.expanduser(document_path.strip())) + ".source-notes.md"
+    return document_sidecar_path(document_path, SOURCE_NOTES_SIDECAR)
 
 
 def _fence_for(text: str) -> str:

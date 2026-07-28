@@ -93,6 +93,7 @@ modules = [
     "calamus_bibtex_dialogs",
     "calamus_bibtex_runtime",
     "calamus_research_file",
+    "calamus_managed_sidecars",
     "calamus_source_notes",
     "calamus_source_note_store",
     "calamus_source_note_controller",

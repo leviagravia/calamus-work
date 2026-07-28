@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 from typing import Any
 
+from calamus_managed_sidecars import SCRATCHPAD_SIDECAR, document_sidecar_path
 from calamus_research_file import FileToken, atomic_write_utf8, file_token
 from calamus_scratchpad import ScratchpadEntry
 
@@ -50,7 +50,7 @@ class ScratchpadSaveResult:
 def scratchpad_path(document_path: Any) -> str | None:
     if not isinstance(document_path, str) or not document_path.strip():
         return None
-    return os.path.abspath(os.path.expanduser(document_path.strip())) + ".scratchpad.md"
+    return document_sidecar_path(document_path, SCRATCHPAD_SIDECAR)
 
 
 def _fence_for(text: str) -> str:

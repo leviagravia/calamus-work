@@ -58,6 +58,7 @@ class ScratchpadRuntime:
             self.on_insert,
             self.on_copy,
             self.on_clear_section_filter,
+            self.on_refresh,
         )
         kwargs = {
             "document_structure_provider": document_structure_provider,
@@ -153,6 +154,9 @@ class ScratchpadRuntime:
 
     def on_clear_section_filter(self, *_):
         self._controller.clear_section_filter()
+
+    def on_refresh(self, *_):
+        return self.sync_document(force=True)
 
     def on_edit(self, *_):
         self.sync_document()

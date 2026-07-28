@@ -158,13 +158,13 @@ def build_menu(app) -> None:
     researchm.append(app.research_item)
     add_separator(researchm)
     add_item(researchm, "Clip Collection", app.show_clip_collection)
-    add_item(researchm, "Scratchpad", app.show_scratchpad)
+    add_item(researchm, "Scratchpad\tCtrl+Alt+S", app.show_scratchpad)
     add_item(researchm, "References", app.show_references)
     add_item(researchm, "Reference Sets", app.show_reference_sets)
     add_item(researchm, "Source Notes", app.show_source_notes)
     add_item(researchm, "Authoring Bridge", app.show_authoring_bridge)
     add_separator(researchm)
-    add_item(researchm, "Capture Selection in Scratchpad…", app.on_capture_selection_in_scratchpad)
+    add_item(researchm, "Capture Selection in Scratchpad…\tCtrl+Alt+Shift+S", app.on_capture_selection_in_scratchpad)
     add_item(researchm, "New Scratchpad Entry for Current Section…", app.on_new_scratchpad_for_current_section)
     add_item(researchm, "Show Scratchpad for Current Section", app.on_show_scratchpad_for_current_section)
     add_separator(researchm)
@@ -342,6 +342,8 @@ def shortcut_bindings(app):
         ("<Control><Alt>R", app.on_reload_favourites),
         ("<Control><Alt>F10", app.on_character_map),
         ("<Control><Alt>C", app.toggle_research_panel),
+        ("<Control><Alt>S", app.show_scratchpad),
+        ("<Control><Alt><Shift>S", app.on_capture_selection_in_scratchpad),
         ("<Control><Alt>Q", app.on_quick_cite),
         ("<Control><Alt><Shift>Q", app.on_open_citation_in_references),
         ("F9", app.toggle_focus_mode),

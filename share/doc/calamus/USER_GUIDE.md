@@ -2,35 +2,535 @@
 
 Calamus is a lightweight, offline-first editor for plain-text and Markdown writing. This guide explains the visible commands and gives practical examples. The guide is part of the Calamus source and must be updated whenever a work item adds or changes a user-visible feature.
 
+## Current command menu (W92 candidate)
+
+This chapter is the authoritative map of the commands that are visible in the W92 candidate. It follows the menu bar from left to right and includes every static submenu. Dynamic lists such as recent files, templates, workspaces and favourites are described as lists because their rows depend on the user’s data.
+
+Use this chapter when you know **where a command should be** but do not yet know what it does. Complex tools have separate tutorial chapters later in the guide. A command shown here is available now. The next chapter, **Final command menu target**, is explicitly a roadmap and must not be read as a list of already implemented functions.
+
+### File
+
+`File` owns document lifecycle, templates, the Writing Workspace, file favourites, printing and application exit.
+
+- **New — `Ctrl+N`**: create a new empty document after the normal unsaved-changes check.
+- **New from Template**: open the dynamic template submenu and create a document from a saved template.
+- **Open… — `Ctrl+O`**: choose and open a text or Markdown document.
+- **Recent Files**: open one of the files recorded in the recent-files list.
+- **Writing Workspace**: manage the folder-based writing workspace.
+  - **Show Workspace Panel**: reveal the Workspace in the left panel.
+  - **New Text File…**: create a new text file inside the selected workspace folder.
+  - **New Folder…**: create a folder inside the selected workspace folder.
+  - **Rename Selected Item…**: rename the selected file or folder together with managed research sidecars when applicable.
+  - **Duplicate Selected Text File**: duplicate a selected text file transactionally and carry its managed sidecars.
+  - **Move Selected Item to Trash**: send the selected item and its managed sidecars to the system Trash.
+  - **Change Workspace Folder…**: choose a different workspace root.
+  - **Recent Workspaces**: reopen a root from the dynamic recent-workspaces list.
+  - **Rescan Folder Contents**: rebuild the visible Workspace tree from disk.
+  - **Reveal Workspace Folder in File Manager**: open the root in the desktop file manager.
+  - **Close Workspace**: detach the current workspace without deleting files.
+- **Save — `Ctrl+S`**: save the active document to its current path.
+- **Save As… — `Ctrl+Shift+S`**: save the active document under a new path.
+- **Save as Template…**: store the current text as a reusable template.
+- **Manage Templates…**: inspect, rename or remove saved templates.
+- **Favorites**: maintain favourite files, not positions inside a document.
+  - **Add to Favourites — `Ctrl+Alt+B`**: add the current file to the favourites list.
+  - **Edit Favourites… — `Ctrl+Shift+D`**: edit the stored list.
+  - **Reload Favourites — `Ctrl+Alt+R`**: reload the list from its authority.
+  - The remaining rows are the dynamic favourite-file entries.
+- **Print Preview… — `Ctrl+Shift+P`**: preview the printable form of the current document.
+- **Print… — `Ctrl+P`**: open the system print workflow.
+- **Quit — `Ctrl+Q`**: close Calamus through the normal lifecycle checks.
+
+### Edit
+
+`Edit` contains reversible editing, clipboard commands and the complete current search/replace surface.
+
+- **Undo — `Ctrl+Z`**: undo the most recent editor mutation.
+- **Redo — `Ctrl+Y`**: reapply the most recently undone mutation.
+- **Cut — `Ctrl+X`**: move the selection to the clipboard.
+- **Copy — `Ctrl+C`**: copy the selection.
+- **Paste — `Ctrl+V`**: paste clipboard text.
+- **Paste as Plain Text — `Ctrl+Shift+V`**: paste without rich-text formatting.
+- **Select All — `Ctrl+A`**: select the entire document.
+- **Duplicate Line / Selection — `Ctrl+D`**: duplicate the selection or the current line.
+- **Find / Replace… — `Ctrl+F`**: open the unified find-and-replace interface.
+- **Find All…**: collect all current matches for navigation.
+- **Find Next Word — `Ctrl+G`**: move to the next match.
+- **Find Previous — `Ctrl+Shift+G`**: move to the previous match.
+- **Replace — `Ctrl+H`**: open replace controls.
+- **Replace All — `Ctrl+Shift+H`**: replace all confirmed matches.
+
+### Research
+
+`Research` supports writing with reusable clips, document-local provisional work, bibliography, source-grounded notes, explicit links and derived checks. It does not create a hidden project database.
+
+- **Research Panel — `Ctrl+Alt+C`**: show or hide the shared right-side Research Panel.
+- **Clip Collection**: activate the Clip Collection client.
+- **Scratchpad — `Ctrl+Alt+S`**: activate the document-local Scratchpad client.
+- **References**: activate the global Markdown bibliography.
+- **Reference Sets**: activate explicit named sets of Reference keys.
+- **Source Notes**: activate the current document’s source-note sidecar.
+- **Authoring Bridge**: activate derived backlinks, uses and broken-link views.
+- **Capture Selection in Scratchpad… — `Ctrl+Alt+Shift+S`**: create a Scratchpad entry from selected manuscript text.
+- **New Scratchpad Entry for Current Section…**: create an entry already linked to the current explicit heading.
+- **Show Scratchpad for Current Section**: open Scratchpad filtered by the current section.
+- **Create Source Note from Selection…**: create a Quote, Paraphrase or Comment from selected text.
+- **Insert Link to Heading…**: insert an explicit internal link to a document heading.
+- **Quick Cite… — `Ctrl+Alt+Q`**: search References and insert a Pandoc citation marker.
+- **Open Citation in References — `Ctrl+Alt+Shift+Q`**: resolve the citation at the caret and open its Reference.
+- **Rename Reference Key…**: preview and apply a controlled key migration across managed authorities.
+- **Research Check…**: run an integrated consistency audit.
+- **Tag Integrity…**: find and safely normalize explicit tag variants.
+- **Import BibTeX/BibLaTeX…**: preview and import bibliographic records into `references.md`.
+- **Export References as BibTeX/BibLaTeX…**: derive a `.bib` export without creating a second authority.
+- **Export Research Apparatus…**: create one of the five derived Markdown research products.
+- **Export with Pandoc/citeproc…**: create formatted bibliographies or documents with processed citations.
+
+### Navigate
+
+`Navigate` changes location or the visible left-side navigation client. It does not alter manuscript text.
+
+- **Navigator Panel — `Ctrl+Alt+N`**: show or hide the document-structure Navigator.
+- **Writing Workspace**: show or hide the folder Workspace in the same left-panel host.
+- **Go to Line… — `Ctrl+L`**: move to an exact logical line.
+- **Go to Section… — `Ctrl+Shift+L`**: choose a parsed Markdown section and move to it.
+- **Next Heading — `Ctrl+PageDown`**: move to the next heading.
+- **Previous Heading — `Ctrl+PageUp`**: move to the previous heading.
+
+### Revise
+
+`Revise` changes text deliberately. Selection-sensitive commands act on the selection and must remain undoable through the editor mutation gateway.
+
+- **UPPERCASE (convert selected) — `Ctrl+Alt+U`**: convert the selection to uppercase.
+- **Lowercase (convert selected) — `Ctrl+Alt+Shift+U`**: convert the selection to lowercase.
+- **Title Case — `Ctrl+Alt+Y`**: apply title capitalization.
+- **Sentence case — `Ctrl+Alt+Shift+Y`**: normalize the selection as sentence case.
+- **Insert Date/Time — `Ctrl+Alt+D`**: insert the current date and time.
+- **Insert Bookmark Here — `Ctrl+F2`**: add or remove a bookmark at the current position.
+- **Next Bookmark — `F2`**: move to the next bookmark.
+- **Previous Bookmark — `Shift+F2`**: move to the previous bookmark.
+- **Manage Bookmarks…**: inspect and manage bookmark positions.
+- **Paste Clean from PDF — `Ctrl+Alt+V`**: clean clipboard text copied from a PDF before insertion.
+- **Clean Selected Text from PDF — `Ctrl+Alt+Shift+V`**: clean selected PDF-derived text already in the document.
+- **Smart Typography — `Ctrl+Alt+M`**: normalize common typographic forms.
+- **Reflow Paragraph — `Ctrl+Alt+J`**: reflow the current paragraph.
+- **Join Lines — `Ctrl+J`**: join selected or adjacent lines according to the command contract.
+- **Remove Extra Spaces**: collapse unwanted repeated spaces.
+- **Remove Trailing Spaces**: remove spaces at line endings.
+- **Sort Alphabetically A-Z — `Ctrl+Alt+Up`**: sort selected lines ascending.
+- **Sort Alphabetically Z-A — `Ctrl+Alt+Down`**: sort selected lines descending.
+
+### View
+
+`View` currently exposes concentration and auxiliary visual tools.
+
+- **Focus Mode — `F9`**: reduce visual distraction around the editor.
+- **Distraction-Free Mode — `F11`**: switch to the full distraction-free presentation.
+- **Highlight Current Line — `Ctrl+Alt+I`**: toggle current-line highlighting.
+- **Character Map — `Ctrl+Alt+F10`**: open the character-selection utility.
+
+### Options
+
+`Options` is still visible in W92 for historical compatibility. The approved final menu removes this top-level menu and redistributes these commands under `View` and `Tools`.
+
+- **Word Wrap — `Alt+Z`**: toggle wrapping of long logical lines.
+- **Font… — `Ctrl+Shift+F`**: choose the editor font.
+- **Transparent Mode — `Ctrl+Shift+T`**: toggle the saved transparency mode.
+- **Always on Top — `Ctrl+Shift+A`**: keep the main window above ordinary windows.
+- **White Background**: select the light appearance.
+- **Dark Mode**: select the dark appearance.
+- **Line Numbers — `Ctrl+Alt+L`**: show or hide logical line numbers.
+- **Font Bigger — `Ctrl++`**: increase the editor font size.
+- **Font Smaller — `Ctrl+-`**: decrease the editor font size.
+- **Opacity**: set an exact window opacity.
+  - **Opacity Selection…**: choose a value through the opacity dialog.
+  - **100%, 90%, 88%, 80%, 70%, 60%, 50%, 40%, 30%**: apply the selected preset directly.
+
+### Tools
+
+`Tools` contains external utilities and diagnostic information.
+
+- **External Spellcheck — `F7`**: run the configured external spelling workflow.
+- **Document Statistics — `Ctrl+Alt+W`**: show counts and document measurements.
+- **Language…**: select the language used by supported language tools.
+- **System Info…**: show runtime, source identity and environment information.
+
+### Help
+
+- **User Guide…**: open this guide with the Guide Navigator visible by default.
+- **Keyboard Shortcuts — `Ctrl+/`**: show the shortcut reference.
+- **About — `F1`**: show the stable Calamus identity and credits.
+
+### What is not a current top-level menu
+
+W92 does **not** yet expose a top-level `Writing` menu. `Options` is still present even though it is excluded from the approved final menu. The final target below records the intended destination and must not be used to infer that an unfinished command already exists.
+
+## Final command menu target
+
+This chapter records the final menu architecture approved in operational-memory Entry 061 and updates it with the later certified Research, Workspace, Reference Sets, Authoring Bridge, Pandoc and Scratchpad decisions. It is a **roadmap**, not a claim about the current executable.
+
+Status words used below:
+
+- **Available**: already present in the current W92 candidate, although its final menu location may still change.
+- **Planned**: approved final target but not yet certified.
+- **Frozen**: approved scope deliberately postponed. Scratchpad Full is frozen until after W96.
+- **Retired**: rejected or removed behavior that must not be presented as available.
+
+The final top-level order is:
+
+```text
+File
+Edit
+Research
+Navigate
+Writing
+Revise
+View
+Tools
+Help
+```
+
+`Search` and `Options` are not final top-level menus. Search remains under `Edit`; current Options commands move mainly to `View` and `Tools`.
+
+### Final File
+
+```text
+File
+├── New                                      [Available]
+├── New from Template                        [Available]
+├── Open…                                    [Available]
+├── Open Recent                              [Available]
+│   ├── [recent files]
+│   └── Clear Recent Files                   [Planned]
+├── Writing Workspace                        [Available]
+│   ├── Show Workspace Panel
+│   ├── New Text File…
+│   ├── New Folder…
+│   ├── Rename Selected Item…
+│   ├── Duplicate Selected Text File
+│   ├── Move Selected Item to Trash
+│   ├── Change Workspace Folder…
+│   ├── Recent Workspaces
+│   ├── Rescan Folder Contents
+│   ├── Reveal Workspace Folder in File Manager
+│   └── Close Workspace
+├── Save                                     [Available]
+├── Save As…                                 [Available]
+├── Save a Copy…                             [Planned]
+├── Revert to Saved                          [Planned]
+├── Templates                                [Available]
+│   ├── Save as Template…
+│   └── Manage Templates…
+├── Favorites                                [Available]
+│   ├── Add Current File to Favorites
+│   ├── Open Favorite…
+│   ├── Remove Current File from Favorites
+│   └── Manage Favorites…
+├── Export                                   [Planned shell; Pandoc engine available]
+│   ├── Export as PDF…
+│   ├── Export as HTML…
+│   ├── Export as DOCX…
+│   └── Export as Markdown…
+├── Page Setup…                              [Planned]
+├── Print Preview…                           [Available]
+├── Print…                                   [Available]
+└── Quit                                     [Available]
+```
+
+Favorites remain file/document shortcuts. They are not bookmarks and therefore never belong under `Navigate`.
+
+### Final Edit
+
+```text
+Edit
+├── Undo                                     [Available]
+├── Redo                                     [Available]
+├── Cut                                      [Available]
+├── Copy                                     [Available]
+├── Paste                                    [Available]
+├── Paste as Plain Text                      [Available]
+├── Select All                               [Available]
+├── Duplicate Line / Selection               [Available]
+├── Find / Replace…                          [Available]
+├── Find All…                                [Available]
+├── Find Next                                [Available]
+├── Find Previous                            [Available]
+├── Replace Current                          [Partly available through Replace]
+├── Replace All                              [Available]
+├── Go to Search Result                      [Planned]
+└── Clear Search Highlight                   [Planned]
+```
+
+Preferences belong under `Tools` in the final menu.
+
+### Final Research
+
+```text
+Research
+├── Show / Hide Research Panel               [Available]
+├── Clip Collection                          [Available]
+├── Scratchpad                               [Basic available; Full frozen until after W96]
+│   ├── Show Scratchpad                      [Available]
+│   ├── Capture Selection in Scratchpad…     [Available]
+│   ├── New Entry for Current Section…       [Available]
+│   ├── Show for Current Section             [Available]
+│   ├── Insert Body                          [Available in panel]
+│   ├── Copy Body                            [Available in panel]
+│   ├── Refresh                              [Available in panel]
+│   ├── Archive / Restore / Delete           [Available in panel]
+│   ├── Clear Scratchpad                     [Retired as an unsafe blind bulk action]
+│   ├── Links to References and Source Notes [Frozen: Scratchpad Full]
+│   ├── Related Entries                      [Frozen: Scratchpad Full]
+│   └── Show Uses                            [Frozen: Scratchpad Full]
+├── References                               [Available]
+│   ├── Add Reference Note                   [Adapted as New Reference]
+│   ├── Insert Reference Marker              [Adapted as Quick Cite…]
+│   ├── Open References List                 [Available as References]
+│   ├── Clear Unused References              [Planned only with impact preview]
+│   ├── New / Edit / Duplicate / Delete
+│   ├── Related References
+│   ├── Quick Cite…
+│   ├── Open Citation in References
+│   └── Rename Reference Key…
+├── Reference Sets                           [Available]
+│   ├── New / Edit / Delete Set
+│   └── Navigate Set Members
+├── Source Notes                             [Available]
+│   ├── Add Source Note                      [Available as New / Create from Selection]
+│   ├── Insert Source Note Marker            [Planned; explicit textual convention required]
+│   ├── Open Source Notes                    [Available]
+│   ├── Manage Source Notes                  [Available through the panel]
+│   ├── Create Source Note from Selection…
+│   ├── New / Edit / Delete Source Note
+│   └── Navigate Document Target
+├── Authoring Bridge                         [Available]
+│   ├── Backlinks by Reference
+│   ├── Backlinks by Heading
+│   ├── Related References
+│   └── Broken Research Links
+├── Tags                                     [Planned final client from Entry 061]
+│   ├── Add Tag to Selection                 [Planned; exact authority still to be frozen]
+│   ├── Show Tags List
+│   ├── Go to Next Tag                       [Planned]
+│   ├── Go to Previous Tag                   [Planned]
+│   ├── Show Uses
+│   ├── Rename Tag…
+│   ├── Merge Tags…
+│   └── Manage Tags…
+├── Insert Link to Heading…                  [Available]
+├── Research Check…                          [Available]
+├── Tag Integrity…                           [Available]
+├── Import BibTeX/BibLaTeX…                  [Available]
+├── Export References as BibTeX/BibLaTeX…   [Available]
+├── Export Research Apparatus…               [Available]
+├── Export with Pandoc/citeproc…             [Available]
+└── Research Panel Settings…                 [Planned]
+```
+
+The final Tags client is a projection over explicit tags already stored in Markdown authorities. It must not become a database, automatic taxonomy, knowledge graph or AI tagging system.
+
+### Final Navigate
+
+```text
+Navigate
+├── Navigator Panel                          [Available]
+├── Writing Workspace                        [Available]
+├── Go to Line…                              [Available]
+├── Go to Beginning                          [Planned]
+├── Go to End                                [Planned]
+├── Go to Section…                           [Available]
+├── Refresh Section List                     [Planned explicit command]
+├── Bookmarks                                [Available core; final placement planned]
+│   ├── Insert Bookmark Here
+│   ├── Next Bookmark
+│   ├── Previous Bookmark
+│   └── Manage Bookmarks…
+├── Position History                         [Planned]
+│   ├── Back
+│   └── Forward
+├── Revision Marks                           [Planned]
+│   ├── Next Revision Mark
+│   └── Previous Revision Mark
+├── Next Heading                             [Available]
+├── Previous Heading                         [Available]
+├── Next Paragraph                           [Planned]
+├── Previous Paragraph                       [Planned]
+├── Next Footnote                            [Planned]
+└── Previous Footnote                        [Planned]
+```
+
+Bookmarks are named positions inside one document. They are distinct from File Favorites.
+
+### Final Writing
+
+```text
+Writing
+├── Word Count                               [Planned placement]
+├── Document Statistics                      [Available under Tools today]
+├── Writing Statistics                       [Planned]
+├── Set Word Goal…                           [Planned]
+├── Show Word Goal                           [Planned]
+├── Clear Word Goal                          [Planned]
+├── Focus Mode                               [Available under View today]
+├── Typewriter Mode                          [Retired until a safe redesign exists]
+├── Distraction-Free Mode                    [Available under View today]
+├── Insert Heading                           [Planned]
+├── Insert Subheading                        [Planned]
+├── Insert Separator                         [Planned]
+├── Insert Footnote                          [Planned]
+├── Insert Citation Placeholder              [Planned]
+├── Insert Comment / Note                    [Planned]
+├── Insert Date                              [Planned separate command]
+├── Insert Time                              [Planned separate command]
+└── Insert Date and Time                     [Available under Revise today]
+```
+
+Typewriter Mode must not return merely because it appears in the target. It remains unavailable until its GTK scrolling and cursor lifecycle can be certified.
+
+### Final Revise
+
+```text
+Revise
+├── Uppercase                                [Available]
+├── Lowercase                                [Available]
+├── Title Case                               [Available]
+├── Sentence Case                            [Available]
+├── Invert Case                              [Planned]
+├── Fix Word Spacing                         [Planned]
+├── Remove Extra Spaces                      [Available]
+├── Remove Trailing Spaces                   [Available]
+├── Normalize Line Breaks                    [Planned]
+├── Reflow Paragraph                         [Available]
+├── Reflow Selection                         [Planned]
+├── Clean Selected Text from PDF             [Available]
+├── Paste Clean from PDF                     [Available]
+├── Smart Typography                         [Available core]
+│   ├── Straight Quotes to Curly Quotes      [Planned explicit subcommand]
+│   ├── Curly Quotes to Straight Quotes      [Planned explicit subcommand]
+│   ├── Hyphen to En Dash                    [Planned explicit subcommand]
+│   ├── Double Hyphen to Em Dash             [Planned explicit subcommand]
+│   └── Normalize Apostrophes                [Planned explicit subcommand]
+├── Revision Marks                           [Planned]
+│   ├── Insert Revision Mark
+│   ├── Remove Revision Mark
+│   ├── Clear All Revision Marks
+│   └── Show Revision Marks List
+├── Trim Empty Lines                         [Planned]
+├── Remove Duplicate Blank Lines             [Planned]
+└── Clean Text…                              [Planned]
+```
+
+### Final View
+
+```text
+View
+├── Text Wrap                                [Available under Options today]
+├── Font…                                    [Available under Options today]
+├── Increase Font Size                       [Available under Options today]
+├── Decrease Font Size                       [Available under Options today]
+├── Reset Font Size                          [Planned]
+├── Line Numbers                             [Available under Options today]
+├── Highlight Current Line                   [Available]
+├── Status Bar                               [Planned]
+├── Research Panel                           [Available through Research]
+├── Navigator Panel                          [Available through Navigate]
+├── Writing Workspace                        [Available through Navigate/File]
+├── Fullscreen / Distraction-Free Mode       [Available]
+├── Always on Top                            [Available under Options today]
+├── Theme                                    [Available core]
+│   ├── Light
+│   ├── Dark
+│   └── System Default                       [Planned explicit choice]
+├── Transparency                             [Available core]
+│   ├── Increase Transparency                [Planned relative command]
+│   ├── Decrease Transparency                [Planned relative command]
+│   └── Reset Transparency                   [Planned]
+├── Zoom In                                  [Planned]
+├── Zoom Out                                 [Planned]
+└── Reset Zoom                               [Planned]
+```
+
+The current top-level `Options` menu disappears when these placements are completed and certified.
+
+### Final Tools
+
+```text
+Tools
+├── Spell Check                              [External workflow available]
+│   ├── Check Spelling
+│   ├── Set Language
+│   ├── Add Word to Dictionary               [Planned]
+│   └── Manage Dictionaries…                 [Planned]
+├── Character Map                            [Available under View today]
+├── Insert Special Character…                [Planned]
+├── Document Info                            [Planned]
+├── System Info…                             [Available]
+├── Writing Workflow Tools                   [Planned]
+│   ├── Reading Time
+│   ├── Estimate Pages
+│   ├── Outline from Headings
+│   └── Export Outline…
+├── Preferences…                             [Planned]
+└── Reset Preferences                        [Planned]
+```
+
+### Final Help
+
+```text
+Help
+├── About Calamus                            [Available, final wording]
+├── User Guide / Command Guide               [Available; hierarchical Navigator in W92 R3]
+├── Keyboard Shortcuts                       [Available]
+├── Writing Principles                       [Planned]
+└── Writing Workflow                         [Planned]
+```
+
+The User Guide opens with a dedicated hierarchical **Guide Navigator** visible by default. This is not the document Navigator: it reads only the guide headings and never changes the active manuscript, its caret or its left-panel state.
+
+### Rule for keeping Help complete
+
+Whenever a work item adds, removes, renames or relocates a visible command, that same work item must update:
+
+1. the current menu map in this guide;
+2. the relevant tutorial or command explanation;
+3. the final target map when the architectural target changes;
+4. the Help Navigator tests that verify menu and submenu visibility.
+
+A work item cannot be published as user-visible functionality while Help still describes an earlier menu.
+
 ## Learning the Research apparatus
 
 The Research apparatus is easiest to learn when each object has one clear job. Calamus deliberately keeps the document, bibliography and notes separate so that every file remains readable, portable and recoverable.
 
-### The five objects you must distinguish
+### The six objects you must distinguish
 
 | Object | What it is | Where it lives | What it is for |
 |---|---|---|---|
 | **Reference** | One bibliographic record identified by a stable key such as `ratzinger1968` | Global `references.md` | Describes a source once: author, title, date, publisher, tags and related metadata |
 | **Citation** | A Pandoc citation marker such as `[@ratzinger1968]` inside the manuscript | Current document | Shows where a source is cited in the prose |
-| **Source Note** | A quotation, paraphrase or research comment with its own stable ID | Document sidecar `Document.md.source-notes.md` | Preserves research material and its provenance without inserting it into the manuscript |
-| **Document Target** | An explicit heading identifier such as `#introduction` created by `## Introduction {#introduction}` | Current document | Connects a Source Note or internal link to a precise section of the manuscript |
+| **Source Note** | A quotation, paraphrase or research comment with its own stable ID | Document sidecar `Document.md.source-notes.md` | Preserves material derived from a source and its provenance without inserting it into the manuscript |
+| **Scratchpad Entry** | A Note, Idea, Draft or Task with its own stable ID | Document sidecar `Document.md.scratchpad.md` | Develops the author’s provisional thinking before it becomes manuscript text |
+| **Document Target** | An explicit heading identifier such as `#introduction` created by `## Introduction {#introduction}` | Current document | Connects a Source Note, Scratchpad Entry or internal link to a precise section of the manuscript |
 | **Backlink** | A read-only result calculated from the files above | Nowhere: it is derived on demand | Answers questions such as “Where is this Reference cited?” or “Which notes belong to this section?” |
 
-A Reference is not a citation. A citation is not a Source Note. A Source Note may point both to a Reference and to a document heading, but neither relationship is mandatory for a **Comment** note. Backlinks are never stored and never become a fourth authority.
+A Reference is not a citation. A Source Note preserves material grounded in a source; a Scratchpad Entry develops the author’s own provisional work. Either may point to a document heading. Backlinks are derived on demand and never become a stored authority.
 
-### Three rules that prevent most mistakes
+### Four rules that prevent most mistakes
 
 1. **Create the Reference before creating quotations or paraphrases.** Quote and Paraphrase notes require a valid Reference key.
-2. **Give important headings explicit IDs.** Write `## Method {#method}` rather than relying on an automatically generated slug. Calamus offers only explicit, unique IDs as stable targets.
-3. **Refresh derived views after an authority changes.** Authoring Bridge is a snapshot. After editing the document, References or Source Notes, press **Refresh** before opening an old result.
+2. **Use Scratchpad for provisional thinking, not Source Notes.** An Idea, Draft or writing Task belongs in `Document.md.scratchpad.md`; quotations and paraphrases belong in Source Notes.
+3. **Give important headings explicit IDs.** Write `## Method {#method}` rather than relying on an automatically generated slug. Calamus offers only explicit, unique IDs as stable targets.
+4. **Refresh views after an authority changes.** Authoring Bridge is a snapshot, and Scratchpad may change outside Calamus. Use the relevant **Refresh** command before relying on an old view.
 
 ### Which command should I use?
 
 | Your intention | Use this command |
 |---|---|
 | Register a book, article or archival source | `Research → References` |
-| Save a quotation, paraphrase or research observation | `Research → Source Notes` |
-| Turn selected manuscript text into a note without retyping it | `Research → Create Source Note from Selection…` |
+| Save a quotation, paraphrase or source-based research observation | `Research → Source Notes` |
+| Capture an idea, draft or writing task for the current document | `Research → Scratchpad` or `Ctrl+Alt+S` |
+| Preserve selected manuscript text as provisional material | `Research → Capture Selection in Scratchpad…` or `Ctrl+Alt+Shift+S` |
+| Turn selected manuscript text into a source-grounded note | `Research → Create Source Note from Selection…` |
 | Insert a citation key in the manuscript | `Research → Quick Cite…` |
 | Link prose to a stable section of the same document | `Research → Insert Link to Heading…` |
 | See every citation and note connected to a source | `Research → Authoring Bridge → Backlinks by Reference` |
@@ -61,11 +561,14 @@ Source Notes belong to a saved document. Therefore the first operation is not to
 
 Use `.md`, not `.txt`, when the manuscript will contain Markdown headings, internal links and Pandoc citations.
 
-Calamus will later keep the document-specific research notes beside this file in:
+Calamus keeps document-specific research material beside this file in two transparent sidecars:
 
-`tradition-and-renewal.md.source-notes.md`
+```text
+tradition-and-renewal.md.source-notes.md
+tradition-and-renewal.md.scratchpad.md
+```
 
-Do not create or edit that sidecar manually while Calamus is using it.
+The first stores source-grounded notes; the second stores provisional authorial work. Do not edit either sidecar simultaneously in another application while Calamus is using it.
 
 ### Stage 2 — Understand heading levels before typing the outline
 
@@ -932,9 +1435,315 @@ The document, `references.md` and the document Source Notes sidecar remain separ
 
 ## Research Panel
 
-`Research → Research Panel` opens the right-side Research workspace. It hosts the currently selected Research client: Clips, References, Reference Sets, Source Notes or Authoring Bridge.
+`Research → Research Panel` opens the right-side Research workspace. Its selector follows the same learning order as the Research menu: **Clip Collection**, **Scratchpad**, **References**, **Reference Sets**, **Source Notes** and **Authoring Bridge**. The User Guide presents these clients in the same order, so the path learned in Help is the path encountered in the application.
 
-Practical example: while editing `Chapter-01.md`, open the Research Panel, select References, then double-click or activate a source to inspect it without leaving the document.
+Practical example: while editing `Chapter-01.md`, open the Research Panel and move from Clip Collection to Scratchpad before entering the bibliographic workflow. Clip Collection answers “what reusable text do I keep globally?”, while Scratchpad answers “what provisional thinking belongs to this document?”. References and Source Notes come later because they introduce sources and source-grounded evidence.
+
+
+## Clip Collection
+
+`Research → Clip Collection` is the first content client in the Research Panel. It stores short pieces of text that you expect to reuse in more than one document: a Markdown structure, a recurring formula, a standard paragraph, a checklist, a quotation template or a pastoral refrain written by you.
+
+### The question Clip Collection answers
+
+Use Clip Collection when the question is:
+
+> “Will I probably reuse this exact or nearly exact text in another document?”
+
+Do not use it merely because a passage is unfinished. Unfinished material tied to one document belongs in Scratchpad. Evidence taken from a book, article or archival source belongs in Source Notes. Bibliographic metadata belongs in References.
+
+Example:
+
+- `## Introduzione {#introduzione}` as a reusable Markdown pattern → **Clip Collection**;
+- an idea for the introduction of the current article → **Scratchpad**;
+- a paraphrase of Ratzinger for that introduction → **Source Notes**;
+- the book by Ratzinger → **References**.
+
+### A first two-minute exercise
+
+1. Open `Research → Clip Collection`.
+2. Create a clip named `Three-part outline`.
+3. Enter a small reusable outline in its body.
+4. Save it.
+5. Place the cursor in a disposable test document and insert the clip.
+6. Undo the insertion once, so you see that insertion participates in the document’s normal editing history.
+
+After this exercise, leave Clip Collection and open Scratchpad. The difference should be visible immediately: a clip is reusable across documents; a Scratchpad Entry belongs to the current saved document.
+
+### Keep the collection small enough to remember
+
+Clip Collection works best as a deliberate shelf, not as a dumping ground. Use clear titles, remove obsolete duplicates and prefer one reliable clip over several nearly identical variants. When an item begins to contain project-specific reasoning, move that reasoning into the appropriate document’s Scratchpad rather than turning the global clip library into an unstructured notebook.
+
+## Scratchpad
+
+`Research → Scratchpad` or `Ctrl+Alt+S` opens the structured notebook belonging to the current saved document. The current implementation is **Scratchpad Basic**: it is intentionally small, explicit and file-based. Its purpose is to make the distance between a passing thought and finished manuscript text manageable.
+
+Scratchpad is not a miniature database and not a second document editor. It is the place where you can safely hold material that is useful but not yet ready to remain in the manuscript: an idea, a rough paragraph, a question expressed as a Note, or a concrete writing Task.
+
+### Start with the mental model, not with the buttons
+
+Before creating an entry, ask what kind of object you actually have:
+
+| What you have | Where it belongs | Example |
+|---|---|---|
+| Reusable text independent of the current document | Clip Collection | A standard Markdown outline |
+| Provisional thinking for the current document | Scratchpad | “The conclusion should return to the image of memory” |
+| Material taken from a source | Source Notes | A quotation with page number |
+| Bibliographic identity of a work | References | Author, title, year and citation key |
+| Text already accepted as part of the manuscript | The document | A finished paragraph in the chapter |
+
+This distinction prevents the most common learning problem: using every Research client as if it were a generic notes box.
+
+### First guided exercise: ten minutes from an empty document
+
+Use a disposable document copy for this exercise.
+
+1. Create and save `Scratchpad-Practice.md`. Scratchpad cannot own persistent entries until the document has a real path.
+2. Type the following structure in the document. The four leading spaces are only formatting in this guide; in the document the headings begin at the left margin:
+
+        # Tradition and Memory
+
+        ## Introduction {#introduction}
+
+        ## Historical roots {#historical-roots}
+
+        ## Pastoral consequences {#pastoral-consequences}
+
+        ## Conclusion {#conclusion}
+
+3. Place the cursor under `Introduction`.
+4. Open `Research → Scratchpad` or press `Ctrl+Alt+S`.
+5. Press **New** and create:
+   - Type: `Idea`
+   - Status: `Inbox`
+   - Title: `Open with lived memory`
+   - Body: `Begin from the way a community remembers before explaining the theory.`
+   - Tag: `introduction`
+   - Section: `#introduction`
+6. Save the entry. It now exists in `Scratchpad-Practice.md.scratchpad.md`, not in the document text.
+7. Select the unfinished sentence `Memory is not only...` in the document and use `Research → Capture Selection in Scratchpad…` or `Ctrl+Alt+Shift+S`.
+8. Give the captured entry the title `Rough opening sentence`, choose Type `Draft`, link it to `#introduction`, and save it.
+9. Use `Research → Show Scratchpad for Current Section`. Only entries linked to `#introduction` should remain visible.
+10. Select `Rough opening sentence`, improve its Body, then use **Insert**. The Body enters the document at the cursor, but the Scratchpad Entry remains available for review.
+11. Undo the document insertion once. The entry remains in Scratchpad because document Undo does not rewrite the sidecar.
+12. Mark the idea `Active`, then later `Resolved` when the introduction no longer depends on it.
+
+At the end of this exercise you have learned the complete basic cycle: **capture → clarify → connect → retrieve → insert → resolve**.
+
+### Where the data lives
+
+Scratchpad belongs to one saved document. For example:
+
+    article.md
+    article.md.scratchpad.md
+
+The sidecar is readable UTF-8 Markdown. There is no hidden database, global Scratchpad library, background index or knowledge graph. A backup of the document should include its `.scratchpad.md` companion. Writing Workspace operations Rename, Duplicate and Move to Trash carry the managed sidecar with the document.
+
+A practical consequence follows: two documents with the same title in different folders have different Scratchpads because ownership is determined by the complete document path.
+
+### Understand the four types through examples
+
+The type describes what the entry **is**, not how urgent it feels.
+
+- **Note** — an observation or question that does not yet demand a direction. Example: `Check whether “memory” is being used historically or theologically.`
+- **Idea** — a possible direction for the argument. Example: `Contrast institutional memory with living tradition in the second section.`
+- **Draft** — prose already taking shape but not yet accepted into the manuscript. Example: a rough transition paragraph between two headings.
+- **Task** — a concrete action required by the document. Example: `Verify the page locator for the Newman quotation.`
+
+Do not create artificial types by encoding them in punctuation or titles. A question can be a Note; a concept under development can be an Idea. Tags and titles provide the vocabulary without enlarging the data model.
+
+### Understand the four states as a simple lifecycle
+
+The status answers “where is this entry in my work?”
+
+- **Inbox** — captured quickly and not yet reviewed.
+- **Active** — deliberately part of the current writing process.
+- **Resolved** — dealt with, incorporated or consciously rejected, but still worth retaining.
+- **Archived** — removed from ordinary working views without deletion.
+
+A useful daily habit is:
+
+1. capture freely into Inbox while writing;
+2. review Inbox at the end of the session;
+3. promote only useful entries to Active;
+4. mark completed decisions Resolved;
+5. archive material that should remain available but no longer occupy the working list.
+
+Scratchpad is not a task manager: it has no priorities, due dates, reminders or notifications.
+
+### Three ways to create an entry
+
+#### New
+
+Press **New** in the Scratchpad client, or press `Insert` while the entry list owns focus. Use this when the thought does not already exist as selected document text.
+
+Example: while reading the Introduction, you realise that the conclusion should echo its opening image. Create an Idea titled `Return to opening image`, link it to both `#introduction` and `#conclusion`, and tag it `structure`.
+
+#### Capture Selection in Scratchpad
+
+Select text in the document and choose `Research → Capture Selection in Scratchpad…`, or press `Ctrl+Alt+Shift+S`. Calamus copies the selection into a new entry Body. It does not delete or alter the selected document text.
+
+Use capture when a paragraph interrupts the current flow but may still contain something worth developing. After capture, decide explicitly whether the original paragraph should remain, be revised or be removed through normal document editing.
+
+#### New Scratchpad Entry for Current Section
+
+Place the cursor inside a heading that has an explicit Pandoc identifier and choose `Research → New Scratchpad Entry for Current Section…`. The dialog opens with that section already selected.
+
+A stable heading looks like this in the document:
+
+    ## Tradition and memory {#tradition-and-memory}
+
+Calamus stores `#tradition-and-memory`. It does not store a line number or guess a section from similar wording.
+
+### Titles, Body, tags and section links
+
+A useful entry usually has four layers:
+
+- **Title** — short enough to recognise in a list;
+- **Body** — the actual thought, draft or instruction;
+- **Tags** — manual terms for finding related entries;
+- **Sections** — explicit locations in the current document where the entry matters.
+
+Example:
+
+- Title: `Distinguish memory from nostalgia`
+- Type: `Idea`
+- Status: `Active`
+- Tags: `memory`, `definition`, `chapter-2`
+- Sections: `#historical-roots`, `#pastoral-consequences`
+- Body: `Define memory as a living reception of the past; reserve nostalgia for idealising a past that no longer challenges the present.`
+
+Tags are flat and manual. Their spelling is preserved. Calamus does not invent synonyms, infer concepts or generate a taxonomy. Prefer a small stable vocabulary over many nearly identical forms.
+
+A single entry may point to several headings. **Open Section** navigates to a selected target. `Research → Show Scratchpad for Current Section` filters the list to the section under the cursor. Press **All** to return to the complete list.
+
+When a target is missing or ambiguous, Calamus reports the problem rather than guessing. Repair the heading ID or edit the entry’s section links explicitly.
+
+### Finding an entry without remembering where you put it
+
+The search field checks stable ID, title, Body, tags and section targets. Combine it with Type, Status, Tag and Current Section filters.
+
+Useful retrieval patterns:
+
+- show `Draft` + `Active` to find prose ready for another revision;
+- show `Task` + `Inbox` at the end of the day to triage unfinished actions;
+- choose tag `conclusion` to collect all provisional material for the ending;
+- place the cursor in a section and use **Show Scratchpad for Current Section** to reduce the list to the local context;
+- choose **Current work** to hide Archived entries without deleting them.
+
+When a result seems missing, clear the search, press **All**, remove Type/Status/Tag filters and press **Refresh**. Most “lost entry” cases are active filters, not data loss.
+
+### From provisional material to manuscript text
+
+Select an entry and use:
+
+- **Insert** to place its Body at the current cursor through Calamus’s normal document-editing gateway;
+- **Copy** to place the Body on the clipboard without changing the document.
+
+Insert participates in Undo and marks the document modified. It does **not** automatically delete, archive or resolve the entry. This is deliberate: inserting prose and deciding that an idea is finished are different decisions.
+
+A safe sequence is:
+
+1. open the destination section;
+2. reread the surrounding paragraph;
+3. insert or copy the Body;
+4. revise the document text in context;
+5. return to Scratchpad;
+6. mark the entry Resolved only when its role is genuinely complete.
+
+### Refresh and changes made outside Calamus
+
+Press **Refresh** or `F5` when the sidecar may have changed outside the current view. Refresh reloads the file from disk; it is not a save command.
+
+Before every Scratchpad write, Calamus checks whether the sidecar changed after it was loaded. A stale conflict offers **Reload**, **Overwrite** or **Cancel**:
+
+- choose **Reload** when the external version is authoritative;
+- choose **Overwrite** only after deliberately deciding that the current Calamus state should replace it;
+- choose **Cancel** when you need to inspect both versions first.
+
+The ordinary safe choice is Reload, followed by reapplying the intended edit. Writes use a staged file, flush, `fsync` and atomic replacement. Malformed data remains visible but read-only until corrected; Calamus does not silently “repair” an authority.
+
+### Archive, restore and delete
+
+**Archive** removes an entry from ordinary work without destroying it. Applying Archive to an already archived entry restores it as Active.
+
+**Delete** or the `Delete` key asks for confirmation and permanently removes the selected entry from the sidecar. Cancelling the confirmation changes nothing. Prefer Archive when you are uncertain; use Delete only for material you truly do not want to retain.
+
+### Three realistic working scenarios
+
+#### Scenario A — A paragraph is interesting but disrupts the argument
+
+Capture it as a Draft, give it a precise title, link it to the section where it might belong, then remove or rewrite the original through normal document editing. Later filter Active Drafts and decide whether to insert the revised Body.
+
+#### Scenario B — An idea concerns two distant sections
+
+Create one Idea and link it to both headings. Do not duplicate it. From either section, **Show Scratchpad for Current Section** makes the shared entry visible; **Open Section** lets you move between its targets.
+
+#### Scenario C — You discover work that must be done before publication
+
+Create a Task such as `Check all page locators in section 3`, tag it `verification`, and leave it Active. When the checks are complete, mark it Resolved. Use Scratchpad for the writing obligation; keep the source-specific evidence and locators in Source Notes.
+
+### Common mistakes and recovery
+
+#### “I created a source quotation in Scratchpad”
+
+Create a Source Note with source key and locator. Scratchpad may hold your interpretation or writing plan, but it should not become the authority for source-grounded evidence.
+
+#### “I cannot see an entry I know exists”
+
+Press **All**, clear search and filters, include Archived entries, then press **Refresh**. Also confirm that the currently open document is the document that owns the sidecar.
+
+#### “Show Scratchpad for Current Section returns nothing”
+
+Confirm that the cursor is inside a heading with one explicit `{#id}` and that the entry links to the same ID. Similar heading text is not enough.
+
+#### “Insert put text in the wrong place”
+
+Undo the document edit, place the cursor correctly and insert again. The Scratchpad Entry remains untouched.
+
+#### “I edited the sidecar externally and now Calamus warns about stale data”
+
+Do not choose Overwrite reflexively. Reload, inspect the external change, and repeat the intended edit from the fresh state.
+
+#### “The list is becoming overwhelming”
+
+Review Inbox, resolve decisions, archive inactive material and stabilise your tags. The solution is a small maintenance rhythm, not more entry types or more hidden automation.
+
+### A five-minute end-of-session review
+
+Before closing a substantial writing session:
+
+1. open Scratchpad;
+2. filter `Inbox`;
+3. give each useful capture a clear title and type;
+4. link it to the relevant sections;
+5. delete accidental captures only after confirmation;
+6. move current work to Active;
+7. mark completed items Resolved;
+8. archive material that no longer needs attention;
+9. press Refresh if another editor touched the sidecar;
+10. save the document and back up both document and sidecar.
+
+This small review is what turns Scratchpad from a pile of fragments into a dependable writing instrument.
+
+### Current boundaries
+
+Scratchpad Basic does not yet connect entries directly to References, Source Notes or other Scratchpad Entries. It does not provide multi-authority Show Uses, coordinated heading rename, advanced repair or cross-authority Tag Integrity. Those advanced functions are not silently simulated in the current version.
+
+The dependable current contract is narrower: document-local entries, explicit tags, explicit section links, transparent Markdown storage, safe refresh and controlled insertion into the manuscript.
+
+### Quick reference after you have learned the workflow
+
+- Open Scratchpad: `Ctrl+Alt+S`
+- Capture selection: `Ctrl+Alt+Shift+S`
+- New entry while list has focus: `Insert`
+- Refresh from disk: `F5`
+- Delete with confirmation: `Delete`
+- Remove section filter: **All**
+- Put Body in document: **Insert**
+- Put Body on clipboard: **Copy**
+- Hide without destroying: **Archive**
+- Return an archived entry to work: **Archive** again
 
 ## References
 
@@ -1539,7 +2348,7 @@ A reliable References workflow is simple: register each source once, use stable 
 
 Questa è la guida operativa completa dell’apparato Research di Calamus. È pensata per chi scrive saggi, articoli, tesi, omelie documentate, libri o ricerche teologiche e desidera lavorare con fonti, citazioni e note senza affidare il proprio materiale a un database opaco.
 
-Lo **Scratchpad Basic** è ora parte del pannello Research. Tutto ciò che segue riguarda le funzioni Research disponibili: Clip Collection, References, Related References, Reference Sets, Source Notes, Create Source Note from Selection, Insert Link to Heading, Authoring Bridge, Quick Cite, Open Citation in References, Rename Reference Key, Research Check, Tag Integrity, import/export BibTeX o BibLaTeX ed Export Research Apparatus.
+Lo **Scratchpad Basic** è ora parte del pannello Research. Tutto ciò che segue riguarda le funzioni Research disponibili: Clip Collection, Scratchpad, References, Related References, Reference Sets, Source Notes, Create Source Note from Selection, Insert Link to Heading, Authoring Bridge, Quick Cite, Open Citation in References, Rename Reference Key, Research Check, Tag Integrity, import/export BibTeX o BibLaTeX ed Export Research Apparatus.
 
 Le etichette dei menu e dei pulsanti sono riportate in inglese perché corrispondono all’interfaccia reale. Le spiegazioni sono in italiano.
 
@@ -1547,14 +2356,15 @@ Le etichette dei menu e dei pulsanti sono riportate in inglese perché corrispon
 
 Il pannello Research presenta più strumenti nello stesso spazio laterale, ma i dati non appartengono tutti allo stesso file. Questa separazione è intenzionale: rende ogni informazione leggibile, esportabile e recuperabile anche senza Calamus.
 
-Le autorità sono quattro:
+Le autorità sono cinque:
 
 1. **Documento attivo**: il file `.md` o `.txt` che stai scrivendo. Contiene il testo, le citazioni Pandoc e gli eventuali link interni alle intestazioni.
 2. **References**: la biblioteca globale in `references.md`. Contiene una sola scheda canonica per ogni fonte.
 3. **Source Notes**: il sidecar del documento, per esempio `Chapter-01.md.source-notes.md`. Contiene note di lettura appartenenti a quel documento.
-4. **Reference Sets**: il file globale `reference-sets.md`. Contiene liste statiche e ordinate di citation key.
+4. **Scratchpad**: il sidecar `Chapter-01.md.scratchpad.md`. Contiene Note, Idea, Draft e Task che appartengono al lavoro intellettuale sul documento prima di diventare testo definitivo.
+5. **Reference Sets**: il file globale `reference-sets.md`. Contiene liste statiche e ordinate di citation key.
 
-Authoring Bridge, Research Check e gli export sono **proiezioni derivate**: leggono le autorità e mostrano o producono risultati. Non diventano una quinta autorità e non conservano un grafo o un indice nascosto.
+Authoring Bridge, Research Check e gli export sono **proiezioni derivate**: leggono le autorità e mostrano o producono risultati. Non diventano una sesta autorità e non conservano un grafo o un indice nascosto.
 
 Schema mentale:
 
@@ -1571,11 +2381,16 @@ references.md
 Documento.md.source-notes.md
     └── note di lettura del documento
 
+Documento.md.scratchpad.md
+    ├── Note / Idea / Draft / Task
+    ├── tag manuali
+    └── collegamenti espliciti alle sezioni
+
 reference-sets.md
     └── insiemi statici di citation key
 
 Authoring Bridge / Research Check / Export
-    └── risultati ricostruiti leggendo i quattro file
+    └── risultati ricostruiti leggendo le cinque autorità
 ```
 
 Questa mappa risolve molti dubbi:
@@ -1583,6 +2398,8 @@ Questa mappa risolve molti dubbi:
 - una Reference non è una citazione;
 - una citazione non è una Source Note;
 - un Related Reference non è un membro di set;
+- una Source Note non è una voce Scratchpad: la prima conserva materiale proveniente da una fonte, la seconda sviluppa il pensiero dell'autore;
+- una clip riutilizzabile non è una voce Scratchpad locale al documento;
 - un set non copia i dati bibliografici;
 - Authoring Bridge non memorizza backlink;
 - un export non sostituisce `references.md`.
@@ -1607,17 +2424,19 @@ I Reference Sets sono normalmente:
 ~/.local/share/calamus/research/reference-sets.md
 ```
 
-Le Source Notes stanno accanto al documento:
+Le Source Notes e lo Scratchpad stanno accanto al documento:
 
 ```text
 ~/Documents/Libro/Capitolo-01.md
 ~/Documents/Libro/Capitolo-01.md.source-notes.md
+~/Documents/Libro/Capitolo-01.md.scratchpad.md
 ```
 
 Questo significa che un backup serio deve includere:
 
 - i documenti `.md` e `.txt`;
 - tutti i sidecar `.source-notes.md`;
+- tutti i sidecar `.scratchpad.md`;
 - `references.md`;
 - `reference-sets.md`;
 - gli eventuali file locali collegati nelle References.
@@ -1643,16 +2462,18 @@ La prima volta segui questo itinerario senza saltare passaggi.
     ## Conclusione {#conclusione}
 ```
 
-3. Apri `Research → References` e registra due o tre fonti.
-4. Inserisci una prima citazione con `Research → Quick Cite…`.
-5. Crea una Source Note da una frase selezionata.
-6. Collega la Source Note a una Reference e, quando utile, a una heading del documento.
-7. Apri `Research → Authoring Bridge` per vedere citazioni, note e link derivati.
-8. Crea una relazione esplicita tra due References solo se esiste un motivo scientifico.
-9. Crea un Reference Set per il lavoro corrente.
-10. Esegui `Research → Research Check…`.
-11. Correggi errori e warning.
-12. Esporta soltanto alla fine.
+3. Apri `Research → Scratchpad` (`Ctrl+Alt+S`) e annota la prima Idea collegandola alla sezione corrente.
+4. Seleziona un passaggio provvisorio e usa `Capture Selection in Scratchpad…` (`Ctrl+Alt+Shift+S`) per conservarlo senza lasciarlo nel manoscritto.
+5. Apri `Research → References` e registra due o tre fonti.
+6. Inserisci una prima citazione con `Research → Quick Cite…`.
+7. Crea una Source Note da una frase selezionata.
+8. Collega la Source Note a una Reference e, quando utile, a una heading del documento.
+9. Sviluppa nello Scratchpad le idee che collegano fonti e struttura; usa **Insert** soltanto quando il testo è pronto.
+10. Apri `Research → Authoring Bridge` per vedere citazioni, note e link derivati.
+11. Crea una relazione esplicita tra due References solo se esiste un motivo scientifico.
+12. Crea un Reference Set per il lavoro corrente.
+13. Esegui `Research → Research Check…`.
+14. Correggi errori e warning, quindi esporta soltanto alla fine.
 
 Questo itinerario è il modo più semplice per apprendere il sistema: prima le autorità, poi i collegamenti, infine i controlli e gli export.
 
@@ -1663,6 +2484,7 @@ Questo itinerario è il modo più semplice per apprendere il sistema: prima le a
 I client disponibili sono:
 
 - **Clip Collection**;
+- **Scratchpad**;
 - **References**;
 - **Reference Sets**;
 - **Source Notes**;
@@ -2122,7 +2944,52 @@ Se rinomini il testo visibile della heading ma mantieni l’ID, il collegamento 
 
 La cancellazione di una Source Note non modifica automaticamente il testo del documento.
 
-### 10. Create Source Note from Selection
+### 10. Scratchpad Basic: dal pensiero provvisorio al testo
+
+`Research → Scratchpad` oppure `Ctrl+Alt+S` apre il taccuino locale del documento corrente. Scratchpad non conserva dati bibliografici e non sostituisce Source Notes: organizza il lavoro dell'autore che sta tra le fonti e il manoscritto.
+
+Il sidecar è trasparente:
+
+```text
+Capitolo-01.md
+Capitolo-01.md.scratchpad.md
+```
+
+Ogni voce possiede un ID stabile, un tipo fra **Note**, **Idea**, **Draft** e **Task**, uno stato, tag manuali, zero o più heading target e un Body Markdown. Non esistono Concept o Question come tipi autonomi, priorità, scadenze, notifiche, inferenza semantica o knowledge graph.
+
+#### 10.1 Cattura rapida e scorciatoie
+
+- **New** crea una voce vuota;
+- `Capture Selection in Scratchpad…` oppure `Ctrl+Alt+Shift+S` copia la selezione in una nuova Note senza modificare il documento;
+- `New Scratchpad Entry for Current Section…` prepara una voce collegata alla heading corrente;
+- **Insert** trasferisce il Body al cursore attraverso il normale command gateway e produce un unico Undo;
+- **Copy** copia il Body senza cambiare il documento.
+
+Quando la lista Scratchpad possiede il focus, `Insert` crea una voce, `Delete` richiede la cancellazione e `F5` ricarica il sidecar. Il pulsante **Refresh** esegue lo stesso reload esplicito.
+
+#### 10.2 Collegare il pensiero alla struttura
+
+Usa heading con ID Pandoc espliciti e univoci:
+
+```markdown
+    ## Fondamenti teologici {#fondamenti-teologici}
+```
+
+Una voce può collegarsi a più sezioni del documento corrente. **Open Section** naviga al target; `Show Scratchpad for Current Section` filtra le voci associate alla sezione del cursore. Calamus non usa numeri di riga, offset persistenti o somiglianze semantiche. Un target mancante o ambiguo viene segnalato e deve essere corretto esplicitamente.
+
+#### 10.3 Tag, ricerca e stato
+
+I tag sono manuali, piatti e case-preserving. Servono per ritrovare il materiale, non per costruire una tassonomia. La ricerca comprende ID, titolo, Body, tag e heading target. I filtri Type, Status, Tag e Current Section lavorano su una proiezione in memoria ricostruita dal sidecar.
+
+**Archive** esclude una voce dal lavoro corrente senza eliminarla; premuto di nuovo la ripristina come Active. **Delete** rimuove la voce soltanto dopo conferma e non modifica il manoscritto.
+
+#### 10.4 Modifiche esterne e Workspace
+
+Se il sidecar cambia fuori da Calamus, la scrittura fallisce chiusa e propone Reload, Overwrite o Cancel. **Refresh** è la scelta ordinaria quando vuoi rileggere l'autorità dal disco. Rename, Duplicate e Move to Trash eseguiti dal Writing Workspace trasportano insieme il documento, Source Notes e Scratchpad.
+
+Scratchpad Full aggiungerà References, Source Notes, Related Entries, Show Uses e integrità multi-autorità; Basic resta deliberatamente document-local e privo di database. Per la descrizione completa consulta anche il topic autonomo **Scratchpad Basic** nella colonna sinistra della User Guide.
+
+### 11. Create Source Note from Selection
 
 Questa funzione trasforma una selezione del documento in una bozza di Source Note.
 
@@ -2146,7 +3013,7 @@ Selezionala, crea una Source Note di tipo Quote, associa `ratzinger1968`, inseri
 
 La selezione iniziale è uno snapshot: modificare il documento mentre il dialogo è aperto non deve sostituire silenziosamente il testo catturato.
 
-### 11. Insert Link to Heading
+### 12. Insert Link to Heading
 
 `Research → Insert Link to Heading…` inserisce un link Markdown verso una heading esplicitamente identificata.
 
@@ -2181,7 +3048,7 @@ Usa ID leggibili e stabili:
 
 Evita di basare collegamenti importanti soltanto sul testo visibile della heading.
 
-### 12. Quick Cite: inserire citazioni senza ricordare le key
+### 13. Quick Cite: inserire citazioni senza ricordare le key
 
 `Research → Quick Cite…` oppure `Ctrl+Alt+Q` inserisce una citazione Pandoc.
 
@@ -2214,7 +3081,7 @@ Procedura:
 
 Quick Cite non crea una Source Note. Inserisce soltanto il marker citazionale nel documento.
 
-### 13. Open Citation in References
+### 14. Open Citation in References
 
 Quando il cursore è dentro o vicino a una citazione, usa:
 
@@ -2238,7 +3105,7 @@ Se il comando non trova nulla:
 - esegui Research Check;
 - verifica che la key o l’alias esista.
 
-### 14. Rename Reference Key: una migrazione controllata
+### 15. Rename Reference Key: una migrazione controllata
 
 Non rinominare manualmente una key in `references.md`. Usa `Research → Rename Reference Key…`.
 
@@ -2284,7 +3151,7 @@ Alias: newman1870
 
 Se uno dei file cambia dopo la preview, Calamus deve fermarsi come stale. Se una scrittura fallisce, tenta il rollback delle autorità già aggiornate.
 
-### 15. Authoring Bridge: leggere le relazioni derivate
+### 16. Authoring Bridge: leggere le relazioni derivate
 
 Authoring Bridge è una mappa ricostruita dai file attuali. Non salva backlink e non mantiene un indice persistente.
 
@@ -2295,7 +3162,7 @@ Modalità disponibili:
 - **Related References**: relazioni esplicite tra References;
 - **Broken Research links**: problemi navigabili.
 
-#### 15.1 By Reference
+#### 16.1 By Reference
 
 Scegli una Reference per vedere, secondo il contenuto presente:
 
@@ -2315,7 +3182,7 @@ Results:
 
 Aprire una citazione porta al documento. Aprire una Source Note porta alla nota esatta.
 
-#### 15.2 By Heading
+#### 16.2 By Heading
 
 Scegli una heading per vedere:
 
@@ -2325,11 +3192,11 @@ Scegli una heading per vedere:
 
 È utile per verificare se una sezione possiede fonti e note sufficienti prima della redazione.
 
-#### 15.3 Related References
+#### 16.3 Related References
 
 Scegli una Reference e naviga le relazioni esplicite. Il conteggio deriva da `references.md` e deve aggiornarsi dopo **Refresh**.
 
-#### 15.4 Broken Research links
+#### 16.4 Broken Research links
 
 Questa modalità raccoglie problemi come:
 
@@ -2341,7 +3208,7 @@ Questa modalità raccoglie problemi come:
 
 Usala come elenco operativo: apri un problema, correggi l’autorità proprietaria, poi premi **Refresh**.
 
-### 16. Research Check: controllo complessivo
+### 17. Research Check: controllo complessivo
 
 `Research → Research Check…` controlla la coerenza delle autorità.
 
@@ -2379,7 +3246,7 @@ Workflow consigliato:
 4. leggi le advisories senza trattarle come guasti;
 5. riesegui il controllo finché il quadro è comprensibile.
 
-### 17. Tag Integrity: rinominare e unificare tag senza sostituzioni cieche
+### 18. Tag Integrity: rinominare e unificare tag senza sostituzioni cieche
 
 `Research → Tag Integrity…` analizza i tag di References e Source Notes.
 
@@ -2409,7 +3276,7 @@ La preview deve mostrare quali occorrenze logiche cambiano. Testo libero, titoli
 
 Non usare Tag Integrity come sostituzione globale di parole.
 
-### 18. Import BibTeX/BibLaTeX
+### 19. Import BibTeX/BibLaTeX
 
 `Research → Import BibTeX/BibLaTeX…` importa un file `.bib` locale attraverso una preview.
 
@@ -2442,7 +3309,7 @@ Principi:
 
 Dopo l’importazione esegui Research Check.
 
-### 19. Export References as BibTeX/BibLaTeX
+### 20. Export References as BibTeX/BibLaTeX
 
 Questo comando produce un `.bib` derivato per Pandoc, JabRef, KBibTeX o altri strumenti.
 
@@ -2461,7 +3328,7 @@ calamus-references.bib = export derivato
 
 Se correggi un autore nel file esportato, la modifica non torna automaticamente in Calamus. Correggi la Reference e rigenera l’export.
 
-### 20. Export Research Apparatus
+### 21. Export Research Apparatus
 
 `Research → Export Research Apparatus…` crea prodotti Markdown leggibili.
 
@@ -2488,7 +3355,7 @@ L’export può riunire bibliografia, citazioni e note, ma resta derivato. Calam
 - il sidecar Source Notes corrente;
 - altre autorità Research.
 
-### 21. Gestire modifiche esterne e stato stale
+### 22. Gestire modifiche esterne e stato stale
 
 I file Research sono leggibili e possono essere aperti da un editor esterno. Questo non significa che sia sicuro modificarli contemporaneamente a Calamus.
 
@@ -2506,7 +3373,7 @@ Regole:
 - chiudi Calamus prima di manutenzioni manuali complesse;
 - conserva un backup del file prima di modifiche strutturali.
 
-### 22. Esempio completo: costruire un articolo teologico
+### 23. Esempio completo: costruire un articolo teologico
 
 Progetto:
 
@@ -2515,7 +3382,7 @@ Titolo: Tradizione e rinnovamento nella vita parrocchiale
 Documento: Tradizione-Rinnovamento.md
 ```
 
-#### 22.1 Registra le fonti
+#### 23.1 Registra le fonti
 
 ```text
 ratzinger1968 — Introduction to Christianity
@@ -2523,7 +3390,7 @@ newman1870 — An Essay on the Development of Christian Doctrine
 lubac1949 — Catholicism
 ```
 
-#### 22.2 Crea una relazione
+#### 23.2 Crea una relazione
 
 ```text
 ratzinger1968 ↔ newman1870
@@ -2531,7 +3398,7 @@ ratzinger1968 ↔ newman1870
 
 Motivo: entrambe le opere aiutano a comprendere continuità, sviluppo e identità della fede.
 
-#### 22.3 Crea i set
+#### 23.3 Crea i set
 
 ```text
 Core sources
@@ -2546,7 +3413,7 @@ Check locators
 - lubac1949
 ```
 
-#### 22.4 Crea Source Notes
+#### 23.4 Crea Source Notes
 
 Nota 1:
 
@@ -2580,7 +3447,7 @@ Text: Tradurre il principio teologico in criteri concreti per il consiglio pasto
 Tags: da-sviluppare
 ```
 
-#### 22.5 Scrivi con Quick Cite
+#### 23.5 Scrivi con Quick Cite
 
 ```markdown
     ## Fondamenti teologici {#fondamenti-teologici}
@@ -2592,14 +3459,14 @@ impedisce di ridurre questo processo a una scelta puramente individuale
 [@lubac1949, pp. 101-103].
 ```
 
-#### 22.6 Verifica con Authoring Bridge
+#### 23.6 Verifica con Authoring Bridge
 
 - By Reference: ogni fonte deve mostrare le occorrenze previste;
 - By Heading: `#fondamenti-teologici` deve mostrare le Source Notes collegate;
 - Related References: `ratzinger1968` deve mostrare `newman1870`;
 - Broken Research links: nessun risultato inatteso.
 
-#### 22.7 Esegui Research Check
+#### 23.7 Esegui Research Check
 
 Risultato ideale:
 
@@ -2609,16 +3476,16 @@ Risultato ideale:
 advisories comprese e giustificate
 ```
 
-#### 22.8 Esporta
+#### 23.8 Esporta
 
 1. genera il `.bib` derivato;
 2. genera il Complete Research Dossier;
 3. conserva gli export nella cartella `Exports`;
 4. continua a correggere i dati soltanto nelle autorità canoniche.
 
-### 23. Workflow per diversi tipi di lavoro
+### 24. Workflow per diversi tipi di lavoro
 
-#### 23.1 Articolo breve
+#### 24.1 Articolo breve
 
 - 5-15 References;
 - un set `Core sources`;
@@ -2626,7 +3493,7 @@ advisories comprese e giustificate
 - Quick Cite durante la redazione;
 - Research Check prima della consegna.
 
-#### 23.2 Capitolo di libro o tesi
+#### 24.2 Capitolo di libro o tesi
 
 - References globali riutilizzate tra capitoli;
 - un sidecar Source Notes per capitolo;
@@ -2634,21 +3501,21 @@ advisories comprese e giustificate
 - heading ID stabili;
 - dossier Research per revisione e supervisione.
 
-#### 23.3 Omelia o conferenza documentata
+#### 24.3 Omelia o conferenza documentata
 
 - set `Testi biblici`, `Padri`, `Magistero`, `Studi`;
 - Source Notes brevi con locator;
 - tag per tema pastorale;
 - export della bibliografia o dossier per l’archivio.
 
-#### 23.4 Ricerca esplorativa
+#### 24.4 Ricerca esplorativa
 
 - References con annotation chiare;
 - tag `da-leggere`, `letto`, `da-verificare`;
 - set temporanei per domande specifiche;
 - evitare relazioni inferite: aggiungere Related References solo dopo una lettura reale.
 
-### 24. Errori comuni e recupero
+### 25. Errori comuni e recupero
 
 #### La key contiene `@`
 
@@ -2701,6 +3568,14 @@ Esegui Research Check e ripara dal dialogo Related References. Non aggiungere ma
 
 Usa Rename Reference Key. Una rinomina manuale non garantisce la migrazione di tutte le autorità.
 
+#### Lo Scratchpad non mostra una modifica fatta con un editor esterno
+
+Premi **Refresh** o `F5` con la lista focalizzata. Non usare Overwrite se vuoi conservare la versione esterna. Evita di modificare contemporaneamente lo stesso sidecar in due applicazioni.
+
+#### Una voce Scratchpad non appare nella sezione corrente
+
+Controlla che la heading possieda un ID Pandoc esplicito e univoco e che la voce sia collegata a quel target. Premi **All** per rimuovere il filtro, correggi il collegamento e applica di nuovo `Show Scratchpad for Current Section`.
+
 #### Ho modificato un export pensando che fosse la libreria
 
 Riporta la correzione in References e rigenera l’export. Il file derivato non è l’autorità.
@@ -2709,7 +3584,7 @@ Riporta la correzione in References e rigenera l’export. Il file derivato non 
 
 È un’advisory, non necessariamente un errore. Decidi se la fonte è preparatoria, appartiene a un altro capitolo o può essere rimossa.
 
-### 25. Disciplina consigliata per una biblioteca che cresce
+### 26. Disciplina consigliata per una biblioteca che cresce
 
 1. Registra una fonte una sola volta.
 2. Usa key stabili e leggibili.
@@ -2724,7 +3599,7 @@ Riporta la correzione in References e rigenera l’export. Il file derivato non 
 11. Tratta gli export come prodotti rigenerabili.
 12. Non modificare simultaneamente le stesse autorità in Calamus e in un editor esterno.
 
-### 26. Checklist finale prima di consegnare un lavoro
+### 27. Checklist finale prima di consegnare un lavoro
 
 Documento:
 
@@ -2748,6 +3623,13 @@ Source Notes:
 - i target sono ancora validi;
 - i commenti personali sono distinti dal testo della fonte.
 
+Scratchpad:
+
+- le voci ancora utili non sono rimaste per errore in Archived;
+- i tag sono coerenti e i target di sezione sono validi;
+- Draft e Idea pronti sono stati inseriti o marcati Resolved;
+- il sidecar `.scratchpad.md` è incluso nel backup del documento.
+
 Relations and Sets:
 
 - Related References sono motivate e simmetriche;
@@ -2762,14 +3644,15 @@ Integrity and export:
 - Tag Integrity eseguita quando necessario;
 - `.bib` e dossier rigenerati dopo le ultime correzioni.
 
-### 27. Glossario essenziale
+### 28. Glossario essenziale
 
 - **Authority**: file che possiede un dato e può essere modificato come fonte canonica.
 - **Reference**: scheda bibliografica globale.
 - **Citation key**: identità stabile di una Reference.
 - **Alias**: key precedente o alternativa che risolve alla key primaria.
 - **Citation**: marker Pandoc nel documento.
-- **Source Note**: nota di lettura appartenente a un documento.
+- **Source Note**: nota di lettura appartenente a un documento e fondata, quando richiesto, su una Reference.
+- **Scratchpad Entry**: Note, Idea, Draft o Task appartenente al lavoro intellettuale sul documento corrente.
 - **Sidecar**: file compagno del documento.
 - **Locator**: pagina, capitolo, sezione o paragrafo della fonte.
 - **Document Target**: heading ID a cui una Source Note è collegata.
@@ -2780,15 +3663,16 @@ Integrity and export:
 - **Impact preview**: piano dettagliato delle modifiche prima della scrittura.
 - **Derived export**: file prodotto dalle autorità e rigenerabile.
 
-### 28. Regola conclusiva
+### 29. Regola conclusiva
 
 Il Research Panel funziona bene quando ogni informazione viene collocata nel posto giusto:
 
 ```text
 Dati bibliografici        → References
 Citazione nel testo       → documento
-Estratto o idea puntuale  → Source Notes
-Rapporto tra due opere    → Related References
+Estratto fondato su fonte → Source Notes
+Idea, bozza o task locale   → Scratchpad
+Rapporto tra due opere      → Related References
 Gruppo per un compito     → Reference Sets
 Navigazione e controllo   → Authoring Bridge / Research Check
 Scambio con altri tool    → import/export derivati
@@ -3478,83 +4362,3 @@ Prima di confermare:
 ## Keyboard Shortcuts and About
 
 `Help → Keyboard Shortcuts` shows the current command registry. `Help → About` shows application identity, purpose and licensing information.
-
-## Scratchpad Basic
-
-`Research → Scratchpad` apre il taccuino strutturato del documento corrente. Lo Scratchpad conserva materiale che non è ancora testo definitivo: appunti, idee, bozze e piccole attività di scrittura. Non sostituisce il documento, References o Source Notes e non costruisce un knowledge graph.
-
-### Autorità e file
-
-Lo Scratchpad appartiene a un solo documento salvato. Per esempio:
-
-```text
-article.md
-article.md.scratchpad.md
-```
-
-Il sidecar è Markdown UTF-8 leggibile fuori da Calamus. Non esistono database, indici persistenti, JSON nascosti o un archivio globale. Se il documento non è ancora salvato, Calamus chiede di salvarlo prima di creare una voce persistente.
-
-### Tipi e stati
-
-I tipi disponibili sono soltanto:
-
-- **Note**: appunto libero;
-- **Idea**: direzione da sviluppare;
-- **Draft**: frammento già formulato;
-- **Task**: azione concreta relativa al documento o alla ricerca.
-
-Non esistono tipi autonomi Concept o Question. Un concetto o una domanda possono essere espressi nel titolo, nel corpo e nei tag di una Note o Idea.
-
-Gli stati sono **Inbox**, **Active**, **Resolved** e **Archived**. Non ci sono priorità, scadenze, notifiche o funzioni da task manager.
-
-### Creare e catturare
-
-Premere **New** nel client Scratchpad per creare una voce. `Research → Capture Selection in Scratchpad…` copia la selezione del documento nel Body, senza cancellare o modificare il testo originale. `Research → New Scratchpad Entry for Current Section…` crea una voce già collegata alla sezione corrente.
-
-La sezione corrente deve possedere un identificatore Pandoc esplicito e univoco:
-
-```markdown
-## Tradizione e memoria {#tradizione-e-memoria}
-```
-
-Calamus conserva il target `#tradizione-e-memoria`. Non usa numeri di riga, offset persistenti o somiglianze semantiche.
-
-### Tag e collegamenti
-
-I tag sono manuali, piatti e locali allo Scratchpad. La forma digitata dall'utente viene conservata; la ricerca e il filtro confrontano l'identità senza creare una tassonomia. Calamus non genera, suggerisce o deduce tag.
-
-Una voce può essere collegata a più heading espliciti del documento corrente. Nel dialogo di modifica selezionare le sezioni desiderate. **Open Section** apre uno dei target collegati. Se un target manca o è ambiguo, Calamus lo segnala e non indovina una sostituzione.
-
-`Research → Show Scratchpad for Current Section` apre il pannello e mostra soltanto le voci collegate alla sezione in cui si trova il cursore. Il pulsante **All** rimuove il filtro.
-
-### Ricerca, filtri e archivio
-
-La ricerca comprende ID, titolo, Body, tag e target di sezione. I filtri disponibili sono Type, Status, Tag e Current Section. Lo stato predefinito **Current work** esclude le voci archiviate senza cancellarle.
-
-**Archive** sposta una voce fuori dal lavoro ordinario; premuto su una voce già archiviata la ripristina come Active. **Delete** richiede conferma e rimuove definitivamente la voce dal sidecar, senza modificare il documento.
-
-### Inserire o copiare nel documento
-
-**Insert** inserisce il Body alla posizione corrente del cursore attraverso il normale gateway di modifica di Calamus. L'operazione entra nella cronologia Undo, attiva il dirty state e non elimina né risolve automaticamente la voce.
-
-**Copy** copia il Body negli appunti senza modificare il documento.
-
-### Modifiche esterne e sicurezza
-
-Prima di ogni scrittura Calamus confronta il token del sidecar. Se il file è cambiato fuori dall'applicazione, offre **Reload**, **Overwrite** o **Cancel**. Le scritture usano staging, flush, `fsync` e sostituzione atomica. Un file malformato resta leggibile ma viene trattato come read-only finché non è corretto; Calamus non esegue riparazioni silenziose.
-
-### Limiti della fase Basic
-
-Scratchpad Basic non collega ancora References, Source Notes o altre voci Scratchpad. Non offre Show Uses multi-autorità, rename coordinati degli heading, repair avanzato o Tag Integrity trasversale. Il Workspace protegge già il sidecar Scratchpad nelle operazioni Rename, Duplicate e Move to Trash, insieme al sidecar Source Notes, perché una normale operazione sul documento non deve separare o perdere i dati associati. Le integrazioni Research avanzate appartengono alla fase Scratchpad Full già prevista dalla roadmap.
-
-### Flusso consigliato
-
-1. Salva il documento.
-2. Crea heading con `{#id}` espliciti quando vuoi collegamenti stabili.
-3. Seleziona un passaggio e usa **Capture Selection in Scratchpad**.
-4. Assegna tipo, stato e tag.
-5. Collega una o più sezioni.
-6. Ritrova la voce con ricerca, tag o **Show Scratchpad for Current Section**.
-7. Sviluppa il Body.
-8. Usa **Insert** o **Copy** quando il materiale è pronto.
-9. Marca la voce Resolved oppure archiviala.

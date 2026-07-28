@@ -21,14 +21,10 @@ class FakeView:
     def __init__(self):
         self.active_client = None
         self.shown = []
-        self.focused = 0
 
     def show_client(self, client):
         self.active_client = client
         self.shown.append(client)
-
-    def focus_active(self):
-        self.focused += 1
 
 
 class ResettingHost(FakeHost):
@@ -62,7 +58,6 @@ class ResearchPanelRuntimeTests(unittest.TestCase):
         self.assertEqual(host.calls, [("show", "research")])
         self.assertEqual(view.active_client, "references")
         self.assertTrue(item.active)
-        self.assertEqual(view.focused, 1)
 
     def test_show_selects_requested_client_after_host_becomes_visible(self):
         view, item = FakeView(), FakeMenuItem()
@@ -72,7 +67,6 @@ class ResearchPanelRuntimeTests(unittest.TestCase):
         self.assertEqual(host.calls, [("show", "research")])
         self.assertEqual(view.shown, ["scratchpad"])
         self.assertEqual(view.active_client, "scratchpad")
-        self.assertEqual(view.focused, 1)
 
     def test_hide_preserves_active_client_and_focuses_editor(self):
         host, view, item = FakeHost(), FakeView(), FakeMenuItem()

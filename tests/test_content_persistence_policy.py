@@ -7,6 +7,7 @@ CLIPS = ROOT / "calamus" / "calamus_clips.py"
 STATE = ROOT / "calamus" / "calamus_state.py"
 REFERENCES = ROOT / "calamus" / "calamus_reference_store.py"
 SOURCE_NOTES = ROOT / "calamus" / "calamus_source_note_store.py"
+MANAGED_SIDECARS = ROOT / "calamus" / "calamus_managed_sidecars.py"
 RESEARCH_FILE = ROOT / "calamus" / "calamus_research_file.py"
 SOURCE_DIR = ROOT / "calamus"
 
@@ -48,7 +49,10 @@ class ContentPersistencePolicyTests(unittest.TestCase):
 
     def test_source_notes_are_document_sidecar_markdown_not_json(self):
         source_notes = source(SOURCE_NOTES)
-        self.assertIn('".source-notes.md"', source_notes)
+        managed = source(MANAGED_SIDECARS)
+        self.assertIn('SOURCE_NOTES_SIDECAR', source_notes)
+        self.assertIn('document_sidecar_path', source_notes)
+        self.assertIn('".source-notes.md"', managed)
         self.assertIn('"# Calamus Source Notes v1"', source_notes)
         self.assertIn("atomic_write_utf8", source_notes)
         self.assertNotIn("source-notes.json", source_notes)

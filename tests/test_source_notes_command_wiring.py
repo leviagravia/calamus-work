@@ -59,7 +59,8 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
 
     def test_sidecar_is_document_specific_markdown(self):
         store = source(STORE)
-        self.assertIn('return os.path.abspath(os.path.expanduser(document_path.strip())) + ".source-notes.md"', store)
+        self.assertIn('from calamus_managed_sidecars import SOURCE_NOTES_SIDECAR, document_sidecar_path', store)
+        self.assertIn('return document_sidecar_path(document_path, SOURCE_NOTES_SIDECAR)', store)
         self.assertIn('"# Calamus Source Notes v1"', store)
         self.assertIn('encoding="utf-8"', store)
         self.assertNotIn("source-notes.json", store)

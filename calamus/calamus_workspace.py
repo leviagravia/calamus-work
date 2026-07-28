@@ -5,11 +5,14 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
+from calamus_managed_sidecars import (
+    MANAGED_DOCUMENT_SIDECAR_SUFFIXES,
+    is_managed_sidecar_name,
+)
+
 INTERNAL_SUFFIXES = frozenset({".txt", ".md"})
 DEFAULT_MAX_ITEMS = 5000
 DEFAULT_MAX_DEPTH = 32
-MANAGED_DOCUMENT_SIDECAR_SUFFIXES = (".source-notes.md", ".scratchpad.md")
-
 
 class WorkspaceError(ValueError):
     pass
@@ -45,8 +48,7 @@ class WorkspaceSnapshot:
 def is_managed_document_sidecar_name(name: str) -> bool:
     if not isinstance(name, str):
         return False
-    folded = name.casefold()
-    return any(folded.endswith(suffix) for suffix in MANAGED_DOCUMENT_SIDECAR_SUFFIXES)
+    return is_managed_sidecar_name(name)
 
 
 def normalize_workspace_root(path: str) -> str:

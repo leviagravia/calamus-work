@@ -179,6 +179,20 @@ class ScratchpadPanelViewAdapter:
             self.search.grab_focus()
 
 
+def _dispatch_scratchpad_list_key(key: str, on_add, on_delete, on_refresh) -> bool:
+    """Dispatch one list-local Scratchpad key without owning GTK state."""
+    if key == "Insert":
+        on_add()
+        return True
+    if key in {"Delete", "KP_Delete"}:
+        on_delete()
+        return True
+    if key == "F5":
+        on_refresh()
+        return True
+    return False
+
+
 def build_scratchpad_panel_view(
     on_add,
     on_edit,
@@ -188,6 +202,7 @@ def build_scratchpad_panel_view(
     on_insert,
     on_copy,
     on_clear_section_filter,
+    on_refresh,
 ):
     from gi.repository import Gtk, Pango
 
@@ -240,6 +255,10 @@ def build_scratchpad_panel_view(
     clear_section.set_tooltip_text("Clear current-section filter")
     clear_section.connect("clicked", on_clear_section_filter)
     section_row.pack_end(clear_section, False, False, 0)
+    refresh = Gtk.Button(label="Refresh")
+    refresh.set_tooltip_text("Reload the current Scratchpad sidecar from disk")
+    refresh.connect("clicked", on_refresh)
+    section_row.pack_end(refresh, False, False, 0)
     panel.pack_start(section_row, False, False, 0)
 
     status = Gtk.Label()
@@ -256,7 +275,7 @@ def build_scratchpad_panel_view(
     scroll.add(listbox)
     panel.pack_start(scroll, True, True, 0)
 
-    buttons: list[Any] = [clear_section]
+    buttons: list[Any] = [clear_section, refresh]
     primary = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
     for label, callback in (("New", on_add), ("Edit", on_edit), ("Archive", on_archive), ("Delete", on_delete)):
         button = Gtk.Button(label=label)
@@ -288,6 +307,13 @@ def build_scratchpad_panel_view(
         tuple(buttons),
     )
     listbox.connect("row-activated", lambda *_: on_edit())
+
+    def on_list_key_press(_widget, event):
+        from gi.repository import Gdk
+        key = Gdk.keyval_name(event.keyval) or ""
+        return _dispatch_scratchpad_list_key(key, on_add, on_delete, on_refresh)
+
+    listbox.connect("key-press-event", on_list_key_press)
     return adapter
 
 

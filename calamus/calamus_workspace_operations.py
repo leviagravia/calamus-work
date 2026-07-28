@@ -11,12 +11,16 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
+from calamus_managed_sidecars import (
+    MANAGED_DOCUMENT_SIDECAR_SUFFIXES,
+    SCRATCHPAD_SUFFIX,
+    SOURCE_NOTES_SUFFIX,
+)
+
 ALLOWED_TEXT_SUFFIXES = frozenset({".txt", ".md"})
 DEFAULT_TEXT_SUFFIX = ".txt"
 MAX_BASENAME_BYTES = 255
-SOURCE_NOTES_SUFFIX = ".source-notes.md"
-SCRATCHPAD_SUFFIX = ".scratchpad.md"
-MANAGED_SIDECAR_SUFFIXES = (SOURCE_NOTES_SUFFIX, SCRATCHPAD_SUFFIX)
+MANAGED_SIDECAR_SUFFIXES = MANAGED_DOCUMENT_SIDECAR_SUFFIXES
 
 
 class WorkspaceOperationError(ValueError):

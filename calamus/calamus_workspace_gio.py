@@ -14,6 +14,7 @@ except Exception:  # Import remains possible in headless/source-only environment
     GLib = None
     HAVE_GIO = False
 
+from calamus_managed_sidecars import SCRATCHPAD_SUFFIX, SOURCE_NOTES_SUFFIX
 from calamus_workspace_operations import (
     WorkspaceContentToken, WorkspaceDuplicatePlan, WorkspaceOperationPlan,
     WorkspacePathToken, WorkspaceRenamePlan, WorkspaceTrashPlan,
@@ -444,12 +445,12 @@ class WorkspaceGioAdapter:
             (
                 "Source Notes", plan.companion_source_path,
                 plan.companion_target_path, plan.companion_token,
-                plan.target_path + ".source-notes.md",
+                plan.target_path + SOURCE_NOTES_SUFFIX,
             ),
             (
                 "Scratchpad", plan.scratchpad_source_path,
                 plan.scratchpad_target_path, plan.scratchpad_token,
-                plan.target_path + ".scratchpad.md",
+                plan.target_path + SCRATCHPAD_SUFFIX,
             ),
         )
         for label, source_path, target_path, token, managed_target in companions:

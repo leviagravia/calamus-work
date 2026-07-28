@@ -38,7 +38,7 @@ class ResearchPanelViewAdapter:
         )
         self.widget.pack_start(header, False, False, 0)
 
-        # Three real clients no longer fit a narrow tab switcher without
+        # Multiple real clients no longer fit a narrow tab switcher without
         # forcing the whole editor wider. A compact selector preserves the
         # canonical single-client stack and full client names.
         self.selector = Gtk.ComboBoxText()
@@ -91,18 +91,20 @@ class ResearchPanelViewAdapter:
             self._syncing_selector = False
         self._activate(client_id)
 
-    def focus_active(self) -> None:
-        active = self.active_client
-        if active:
-            self._activate(active)
-
     def _on_selector_changed(self, selector) -> None:
         if self._syncing_selector:
             return
         client_id = selector.get_active_id()
-        if client_id in self._clients:
+        if client_id not in self._clients:
+            return
+        # Gtk emits notify::visible-child-name while the selector callback is
+        # still running. Guard that transition and activate exactly once.
+        self._syncing_selector = True
+        try:
             self.stack.set_visible_child_name(client_id)
-            self._activate(client_id)
+        finally:
+            self._syncing_selector = False
+        self._activate(client_id)
 
     def _on_visible_child_changed(self, *_):
         active = self.active_client

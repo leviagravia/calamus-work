@@ -24,6 +24,7 @@ def method_source(name):
 class ScratchpadCommandWiringTests(unittest.TestCase):
     def test_modules_exist_and_are_provenance_tracked(self):
         modules = (
+            "calamus_managed_sidecars",
             "calamus_scratchpad",
             "calamus_scratchpad_store",
             "calamus_scratchpad_controller",
@@ -44,8 +45,8 @@ class ScratchpadCommandWiringTests(unittest.TestCase):
         self.assertNotIn('"question"', model)
         ui = source(UI)
         for command in (
-            'add_item(researchm, "Scratchpad", app.show_scratchpad)',
-            '"Capture Selection in Scratchpad…"',
+            'add_item(researchm, "Scratchpad\\tCtrl+Alt+S", app.show_scratchpad)',
+            '"Capture Selection in Scratchpad…\\tCtrl+Alt+Shift+S"',
             '"New Scratchpad Entry for Current Section…"',
             '"Show Scratchpad for Current Section"',
         ):
@@ -61,6 +62,9 @@ class ScratchpadCommandWiringTests(unittest.TestCase):
     def test_document_mutation_and_clipboard_use_app_gateways(self):
         gateway = source(ROOT / "calamus/calamus_scratchpad_gateway.py")
         self.assertIn('app.execute_command("Insert Scratchpad Body"', gateway)
+        shortcuts = source(ROOT / "calamus/calamus_shortcuts.py")
+        self.assertIn('ShortcutSpec("Research", "Scratchpad", "Ctrl+Alt+S")', shortcuts)
+        self.assertIn('ShortcutSpec("Research", "Capture Selection in Scratchpad", "Ctrl+Alt+Shift+S")', shortcuts)
         self.assertIn("app.text.grab_focus()", gateway)
         self.assertIn("clipboard.set_text", gateway)
         self.assertNotIn("open(", gateway)

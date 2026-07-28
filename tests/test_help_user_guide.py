@@ -3,7 +3,12 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from calamus_help import load_user_guide, parse_user_guide_sections, user_guide_candidates
+from calamus_help import (
+    load_user_guide,
+    parse_user_guide_sections,
+    parse_user_guide_topics,
+    user_guide_candidates,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +33,7 @@ class UserGuidePureTests(unittest.TestCase):
     def test_research_learning_path_explains_authorities_and_recovery(self):
         text = load_user_guide(ROOT)
         for required in (
-            "The five objects you must distinguish",
+            "The six objects you must distinguish",
             "Start here: from a blank editor to a finished short academic article",
             "Source Note types: Quote, Paraphrase and Comment",
             "Understanding every Source Note field",
@@ -37,7 +42,7 @@ class UserGuidePureTests(unittest.TestCase):
             "Research habits that scale",
             "Research glossary",
             "A Reference is not a citation",
-            "Backlinks are never stored",
+            "Backlinks are derived on demand",
             "Undo does not change Source Notes",
         ):
             self.assertIn(required, text)
@@ -214,6 +219,154 @@ class UserGuidePureTests(unittest.TestCase):
         self.assertIn("Research Check", section.body)
         self.assertIn("Regola conclusiva", section.body)
         self.assertGreater(len(section.body), 30000)
+
+    def test_research_help_topics_follow_menu_learning_order(self):
+        text = load_user_guide(ROOT)
+        sections = parse_user_guide_sections(text)
+        titles = tuple(section.title for section in sections)
+        expected = (
+            "Research Panel",
+            "Clip Collection",
+            "Scratchpad",
+            "References",
+            "Reference Sets",
+            "Source Notes",
+            "Authoring Bridge",
+        )
+        positions = tuple(titles.index(title) for title in expected)
+        self.assertEqual(positions, tuple(sorted(positions)))
+        self.assertNotIn("Scratchpad Basic", titles)
+        self.assertNotIn("Tradition and memory {#tradition-and-memory}", titles)
+
+    def test_scratchpad_learning_path_is_progressive_and_example_driven(self):
+        text = load_user_guide(ROOT)
+        for required in (
+            "Start with the mental model, not with the buttons",
+            "First guided exercise: ten minutes from an empty document",
+            "capture → clarify → connect → retrieve → insert → resolve",
+            "Understand the four types through examples",
+            "Understand the four states as a simple lifecycle",
+            "Three ways to create an entry",
+            "Finding an entry without remembering where you put it",
+            "Three realistic working scenarios",
+            "Common mistakes and recovery",
+            "A five-minute end-of-session review",
+            "Quick reference after you have learned the workflow",
+            "Open with lived memory",
+            "Distinguish memory from nostalgia",
+        ):
+            self.assertIn(required, text)
+        scratchpad = next(
+            section for section in parse_user_guide_sections(text)
+            if section.title == "Scratchpad"
+        )
+        self.assertGreater(len(scratchpad.body), 10000)
+
+
+    def test_current_command_map_is_complete_and_follows_visible_menu_order(self):
+        text = load_user_guide(ROOT)
+        section = next(
+            item for item in parse_user_guide_sections(text)
+            if item.title == "Current command menu (W92 candidate)"
+        )
+        for menu in (
+            "### File",
+            "### Edit",
+            "### Research",
+            "### Navigate",
+            "### Revise",
+            "### View",
+            "### Options",
+            "### Tools",
+            "### Help",
+        ):
+            self.assertIn(menu, section.body)
+        positions = tuple(section.body.index(menu) for menu in (
+            "### File",
+            "### Edit",
+            "### Research",
+            "### Navigate",
+            "### Revise",
+            "### View",
+            "### Options",
+            "### Tools",
+            "### Help",
+        ))
+        self.assertEqual(positions, tuple(sorted(positions)))
+        for required in (
+            "New from Template",
+            "Writing Workspace",
+            "Recent Workspaces",
+            "Favorites",
+            "Find All…",
+            "Capture Selection in Scratchpad…",
+            "Export with Pandoc/citeproc…",
+            "Navigator Panel",
+            "Manage Bookmarks…",
+            "Opacity Selection…",
+            "System Info…",
+            "Keyboard Shortcuts",
+        ):
+            self.assertIn(required, section.body)
+
+    def test_final_command_target_preserves_entry_061_and_later_research_decisions(self):
+        text = load_user_guide(ROOT)
+        section = next(
+            item for item in parse_user_guide_sections(text)
+            if item.title == "Final command menu target"
+        )
+        for menu in (
+            "### Final File",
+            "### Final Edit",
+            "### Final Research",
+            "### Final Navigate",
+            "### Final Writing",
+            "### Final Revise",
+            "### Final View",
+            "### Final Tools",
+            "### Final Help",
+        ):
+            self.assertIn(menu, section.body)
+        for required in (
+            "Tags",
+            "Add Tag to Selection",
+            "Go to Next Tag",
+            "Go to Previous Tag",
+            "Add Reference Note",
+            "Insert Reference Marker",
+            "Clear Unused References",
+            "Insert Source Note Marker",
+            "Clear Scratchpad",
+            "Show Uses",
+            "Rename Tag…",
+            "Merge Tags…",
+            "Scratchpad Full is frozen until after W96",
+            "Options` menu disappears",
+            "About Calamus",
+            "Guide Navigator",
+            "A work item cannot be published",
+        ):
+            self.assertIn(required, section.body)
+
+    def test_hierarchical_help_topics_expose_menu_and_submenu_structure(self):
+        topics = parse_user_guide_topics(load_user_guide(ROOT))
+        titles = tuple(topic.title for topic in topics)
+        self.assertIn("Current command menu (W92 candidate)", titles)
+        self.assertIn("File", titles)
+        self.assertIn("Final Research", titles)
+        self.assertIn("Current boundaries", titles)
+        current_index = titles.index("Current command menu (W92 candidate)")
+        file_index = titles.index("File")
+        self.assertEqual(topics[file_index].parent_index, current_index)
+        final_index = titles.index("Final command menu target")
+        final_research_index = titles.index("Final Research")
+        self.assertEqual(topics[final_research_index].parent_index, final_index)
+        for bogus in (
+            "Tradition and Renewal in Parish Life",
+            "Introduction {#introduction}",
+            "Core sources",
+        ):
+            self.assertNotIn(bogus, titles)
 
     def test_parser_is_deterministic_and_exposes_topics(self):
         sections = parse_user_guide_sections(load_user_guide(ROOT))

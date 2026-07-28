@@ -5,6 +5,11 @@ from collections.abc import Callable
 import os
 from typing import Any
 
+from calamus_managed_sidecars import (
+    SCRATCHPAD_SIDECAR,
+    SOURCE_NOTES_SIDECAR,
+    sidecar_spec_for_suffix,
+)
 from calamus_workspace import (
     WorkspaceError, WorkspaceItem, is_managed_document_sidecar_name, path_is_within_root,
 )
@@ -89,7 +94,10 @@ class WorkspaceMutationController:
         candidate = document_path + suffix
         if not os.path.lexists(candidate):
             return None, None
-        label = "Scratchpad" if suffix == ".scratchpad.md" else "Source Notes"
+        spec = sidecar_spec_for_suffix(suffix)
+        if spec is None:
+            raise WorkspaceError(f"Unknown managed sidecar suffix: {suffix}")
+        label = spec.label
         if os.path.islink(candidate) or not os.path.isfile(candidate):
             raise WorkspaceError(f"The managed {label} sidecar is not a regular file.")
         token = self._content_token(candidate) if content else self._path_token(candidate)
@@ -115,10 +123,10 @@ class WorkspaceMutationController:
         except OSError as exc:
             raise WorkspaceError(f"The containing folder cannot be read: {exc}") from exc
         companion_path, companion_token = self._managed_sidecar(
-            current.path, ".source-notes.md", content=True
+            current.path, SOURCE_NOTES_SIDECAR.suffix, content=True
         )
         scratchpad_path, scratchpad_token = self._managed_sidecar(
-            current.path, ".scratchpad.md", content=True
+            current.path, SCRATCHPAD_SIDECAR.suffix, content=True
         )
         return plan_duplicate_text_file(
             self._workspace.root, current.path, occupied_names,
@@ -145,10 +153,10 @@ class WorkspaceMutationController:
         scratchpad_path = scratchpad_token = None
         if current.internal_text and not current.is_directory:
             companion_path, companion_token = self._managed_sidecar(
-                current.path, ".source-notes.md", content=False
+                current.path, SOURCE_NOTES_SIDECAR.suffix, content=False
             )
             scratchpad_path, scratchpad_token = self._managed_sidecar(
-                current.path, ".scratchpad.md", content=False
+                current.path, SCRATCHPAD_SIDECAR.suffix, content=False
             )
         return plan_move_to_trash(
             self._workspace.root, current.path,
@@ -176,10 +184,10 @@ class WorkspaceMutationController:
         scratchpad_path = scratchpad_token = None
         if current.internal_text and not current.is_directory:
             companion_path, companion_token = self._managed_sidecar(
-                current.path, ".source-notes.md", content=False
+                current.path, SOURCE_NOTES_SIDECAR.suffix, content=False
             )
             scratchpad_path, scratchpad_token = self._managed_sidecar(
-                current.path, ".scratchpad.md", content=False
+                current.path, SCRATCHPAD_SIDECAR.suffix, content=False
             )
         manage_sidecars = bool(current.internal_text and not current.is_directory)
         return plan_workspace_rename(

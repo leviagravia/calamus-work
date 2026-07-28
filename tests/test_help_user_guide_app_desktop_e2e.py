@@ -33,7 +33,7 @@ class UserGuideAppDesktopE2E(unittest.TestCase):
     def test_real_dialog_navigates_to_tag_integrity_example(self):
         if not _display_ready():
             self.skipTest("GTK display unavailable")
-        from calamus_help_dialogs import build_user_guide_dialog
+        from calamus_help_dialogs import build_user_guide_dialog, select_help_topic
 
         widgets = build_user_guide_dialog(None, load_user_guide())
         dialog = widgets.dialog
@@ -42,9 +42,9 @@ class UserGuideAppDesktopE2E(unittest.TestCase):
         def inspect_and_close():
             try:
                 self.assertTrue(dialog.get_visible())
-                self.assertGreaterEqual(len(widgets.topics.get_children()), 10)
-                index = next(i for i, section in enumerate(widgets.sections) if section.title == "Tag Integrity")
-                widgets.topics.select_row(widgets.topics.get_row_at_index(index))
+                self.assertTrue(widgets.navigator.get_visible())
+                self.assertGreaterEqual(len(widgets.help_topics), 20)
+                self.assertTrue(select_help_topic(widgets, "Tag Integrity"))
                 _pump()
                 start, end = widgets.text_view.get_buffer().get_bounds()
                 body = widgets.text_view.get_buffer().get_text(start, end, True)
