@@ -125,6 +125,7 @@ from calamus_research_integrity_controller import ResearchIntegrityController
 from calamus_research_integrity_runtime import ResearchIntegrityRuntime
 from calamus_tag_integrity_controller import TagIntegrityController
 from calamus_tag_integrity_runtime import TagIntegrityRuntime
+from calamus_tags_runtime import TagsRuntime
 from calamus_research_export_controller import ResearchExportController
 from calamus_research_export_runtime import ResearchExportRuntime
 from calamus_bibtex_controller import BibtexController
@@ -2174,44 +2175,38 @@ class App(Gtk.Window):
             insert_body=lambda body: scratchpad_insert_body(self, body),
             copy_body=lambda body: scratchpad_copy_body(self, body),
         )
+        self.tag_integrity_controller = TagIntegrityController(
+            reference_store=self.reference_store,
+            document_path_provider=lambda: self.document.file_path,
+            refresh_references=self.reference_panel_runtime.reload,
+            refresh_source_notes=lambda: self.source_note_panel_runtime.sync_document(force=True),
+            refresh_scratchpad=lambda: self.scratchpad_runtime.sync_document(force=True),
+        )
+        self.tags_runtime = TagsRuntime(
+            self,
+            self.tag_integrity_controller,
+            show_reference=self.show_reference_key,
+            show_source_note=self.show_source_note_id,
+            show_scratchpad_entry=self.show_scratchpad_entry_id,
+        )
+        self.tag_integrity_runtime = TagIntegrityRuntime(
+            self,
+            self.tag_integrity_controller,
+        )
         self.research_panel_view = ResearchPanelViewAdapter(
             lambda: self.research_panel_runtime.hide(),
         )
-        self.research_panel_view.register_client(
-            "clip-collection",
-            "Clips",
-            self.clip_collection.widget,
+        clients = (
+            ("clip-collection", "Clips", self.clip_collection.widget, None),
+            ("scratchpad", "Scratchpad", self.scratchpad_runtime.widget, self.scratchpad_runtime.activate),
+            ("references", "References", self.reference_panel_runtime.widget, self.reference_panel_runtime.activate),
+            ("tags", "Tags", self.tags_runtime.widget, self.tags_runtime.activate),
+            ("reference-sets", "Reference Sets", self.reference_set_runtime.widget, self.reference_set_runtime.activate),
+            ("source-notes", "Source Notes", self.source_note_panel_runtime.widget, self.source_note_panel_runtime.activate),
+            ("authoring-bridge", "Authoring Bridge", self.authoring_bridge_runtime.widget, self.authoring_bridge_runtime.activate),
         )
-        self.research_panel_view.register_client(
-            "scratchpad",
-            "Scratchpad",
-            self.scratchpad_runtime.widget,
-            self.scratchpad_runtime.activate,
-        )
-        self.research_panel_view.register_client(
-            "references",
-            "References",
-            self.reference_panel_runtime.widget,
-            self.reference_panel_runtime.activate,
-        )
-        self.research_panel_view.register_client(
-            "reference-sets",
-            "Reference Sets",
-            self.reference_set_runtime.widget,
-            self.reference_set_runtime.activate,
-        )
-        self.research_panel_view.register_client(
-            "source-notes",
-            "Source Notes",
-            self.source_note_panel_runtime.widget,
-            self.source_note_panel_runtime.activate,
-        )
-        self.research_panel_view.register_client(
-            "authoring-bridge",
-            "Authoring Bridge",
-            self.authoring_bridge_runtime.widget,
-            self.authoring_bridge_runtime.activate,
-        )
+        for client in clients:
+            self.research_panel_view.register_client(*client)
         self.right_panel_host.register("research", self.research_panel_view.widget)
         self.research_panel_runtime = ResearchPanelRuntime(
             self.right_panel_host,
@@ -2235,16 +2230,6 @@ class App(Gtk.Window):
             self.research_integrity_controller,
             records_provider=lambda: self.reference_panel_runtime.records,
             selected_key_provider=lambda: self.reference_panel_runtime.selected_key,
-        )
-        self.tag_integrity_controller = TagIntegrityController(
-            reference_store=self.reference_store,
-            document_path_provider=lambda: self.document.file_path,
-            refresh_references=self.reference_panel_runtime.reload,
-            refresh_source_notes=lambda: self.source_note_panel_runtime.sync_document(force=True),
-        )
-        self.tag_integrity_runtime = TagIntegrityRuntime(
-            self,
-            self.tag_integrity_controller,
         )
         self.research_export_controller = ResearchExportController(
             reference_store=self.reference_store,
@@ -2307,6 +2292,9 @@ class App(Gtk.Window):
     def show_references(self, *_):
         return self.research_panel_runtime.show("references")
 
+    def show_tags(self, *_):
+        return self.research_panel_runtime.show("tags")
+
     def show_source_notes(self, *_):
         return self.research_panel_runtime.show("source-notes")
 
@@ -2347,6 +2335,10 @@ class App(Gtk.Window):
     def show_source_note_id(self, note_id):
         self.research_panel_runtime.show("source-notes")
         return self.source_note_panel_runtime.show_note(note_id)
+
+    def show_scratchpad_entry_id(self, entry_id):
+        self.research_panel_runtime.show("scratchpad")
+        return self.scratchpad_runtime.show_entry(entry_id)
 
     def create_source_note_from_authoring_snapshot(
         self, snapshot, reference_key, target

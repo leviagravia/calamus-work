@@ -67,10 +67,10 @@ Key features:
 - Document statistics
 - Focus and distraction-free modes
 - Lightweight themes
-- Research Panel with Markdown References and document Source Notes
+- Research Panel with Markdown References, Tags, Source Notes and Scratchpad
 - Quick Cite, Research Check and citation navigation
 - Derived Research apparatus export
-- Tag Integrity with impact preview and safe cross-authority updates
+- Tags client with exact uses, navigation and previewed cross-authority maintenance
 - An offline User Guide with practical workflows
 
 What Calamus is not:

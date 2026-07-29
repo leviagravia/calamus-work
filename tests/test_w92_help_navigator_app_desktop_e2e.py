@@ -55,7 +55,7 @@ class W92HelpNavigatorGtkE2E(unittest.TestCase):
                 self.assertIsNotNone(selected)
                 self.assertEqual(
                     model.get_value(selected, 0),
-                    "Current command menu (W92 candidate)",
+                    "Current command menu (W94 candidate)",
                 )
                 current_path = model.get_path(selected)
                 self.assertTrue(widgets.navigator.row_expanded(current_path))

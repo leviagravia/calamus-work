@@ -64,9 +64,11 @@ class TagIntegrityCommandWiringTests(unittest.TestCase):
 
     def test_controller_uses_tokens_atomic_stores_and_compensating_rollback(self):
         controller = (ROOT / "calamus" / "calamus_tag_integrity_controller.py").read_text(encoding="utf-8")
-        self.assertIn("approved_reference_token", controller)
-        self.assertIn("approved_source_token", controller)
+        self.assertIn("reference_token", controller)
+        self.assertIn("source_note_token", controller)
+        self.assertIn("scratchpad_token", controller)
         self.assertIn("_rollback_references", controller)
+        self.assertIn("_rollback_after_scratchpad_failure", controller)
         self.assertNotIn("force=True", controller)
         self.assertIn("Nothing was written", controller)
 

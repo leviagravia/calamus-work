@@ -79,14 +79,14 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
         self.assertIn("self._host.hide()", runtime)
         self.assertNotIn(".remove(", view)
 
-    def test_real_clients_include_scratchpad_without_concepts_or_tags_placeholders(self):
+    def test_real_clients_include_scratchpad_and_w94_tags_without_concepts_placeholder(self):
         block = method_source("build_research_panel")
         self.assertIn('"clip-collection"', block)
         self.assertIn('"references"', block)
         self.assertIn('"source-notes"', block)
         self.assertIn('"scratchpad"', block)
-        for future in ("concepts", '"tags"'):
-            self.assertNotIn(future, block)
+        self.assertIn('"tags"', block)
+        self.assertNotIn("concepts", block)
 
     def test_reference_panel_keeps_crud_and_quick_cite_without_import_export_ownership(self):
         runtime = source(ROOT / "calamus" / "calamus_reference_runtime.py")

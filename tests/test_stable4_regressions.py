@@ -65,7 +65,7 @@ class Stable43GeometryChainTests(unittest.TestCase):
         with open(os.path.join(lib, "calamus_right_panel.py"), encoding="utf-8") as f:
             host = f.read()
         self.assertIn("self.body_paned.pack1(self.editor_box, True, True)", launcher)
-        self.assertIn("self._paned.pack2(widget, False, False)", host)
+        self.assertIn("self._paned.pack2(widget, False, True)", host)
         self.assertNotIn("self.body_paned.add1(self.editor_box)", launcher)
 
     def test_command_finalize_is_not_duplicated(self):

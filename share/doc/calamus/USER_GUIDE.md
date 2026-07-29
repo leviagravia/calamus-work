@@ -2,9 +2,9 @@
 
 Calamus is a lightweight, offline-first editor for plain-text and Markdown writing. This guide explains the visible commands and gives practical examples. The guide is part of the Calamus source and must be updated whenever a work item adds or changes a user-visible feature.
 
-## Current command menu (W92 candidate)
+## Current command menu (W94 candidate)
 
-This chapter is the authoritative map of the commands that are visible in the W92 candidate. It follows the menu bar from left to right and includes every static submenu. Dynamic lists such as recent files, templates, workspaces and favourites are described as lists because their rows depend on the user’s data.
+This chapter is the authoritative map of the commands that are visible in the W94 candidate. It follows the menu bar from left to right and includes every static submenu. Dynamic lists such as recent files, templates, workspaces and favourites are described as lists because their rows depend on the user’s data.
 
 Use this chapter when you know **where a command should be** but do not yet know what it does. Complex tools have separate tutorial chapters later in the guide. A command shown here is available now. The next chapter, **Final command menu target**, is explicitly a roadmap and must not be read as a list of already implemented functions.
 
@@ -68,6 +68,7 @@ Use this chapter when you know **where a command should be** but do not yet know
 - **Clip Collection**: activate the Clip Collection client.
 - **Scratchpad — `Ctrl+Alt+S`**: activate the document-local Scratchpad client.
 - **References**: activate the global Markdown bibliography.
+- **Tags**: open the derived tag inventory for References, current Source Notes and current Scratchpad.
 - **Reference Sets**: activate explicit named sets of Reference keys.
 - **Source Notes**: activate the current document’s source-note sidecar.
 - **Authoring Bridge**: activate derived backlinks, uses and broken-link views.
@@ -308,15 +309,17 @@ Research
 │   ├── Backlinks by Heading
 │   ├── Related References
 │   └── Broken Research Links
-├── Tags                                     [Planned final client from Entry 061]
-│   ├── Add Tag to Selection                 [Planned; exact authority still to be frozen]
-│   ├── Show Tags List
-│   ├── Go to Next Tag                       [Planned]
-│   ├── Go to Previous Tag                   [Planned]
-│   ├── Show Uses
-│   ├── Rename Tag…
-│   ├── Merge Tags…
-│   └── Manage Tags…
+├── Tags                                     [Available]
+│   ├── Add Tag to Selection                 [Deferred: no hidden document-tag authority]
+│   ├── Show Tags List                       [Available as Tags]
+│   ├── Go to Next Tag                       [Adapted as Open exact use]
+│   ├── Go to Previous Tag                   [Adapted as Open exact use]
+│   ├── Show Uses                            [Available in Tags]
+│   ├── Rename Tag…                          [Available as Rename / Merge…]
+│   ├── Merge Tags…                          [Available as Rename / Merge…]
+│   ├── Remove Tag…                          [Available]
+│   ├── Normalize All…                       [Available]
+│   └── Manage Tags…                         [Available as Tags]
 ├── Insert Link to Heading…                  [Available]
 ├── Research Check…                          [Available]
 ├── Tag Integrity…                           [Available]
@@ -327,7 +330,7 @@ Research
 └── Research Panel Settings…                 [Planned]
 ```
 
-The final Tags client is a projection over explicit tags already stored in Markdown authorities. It must not become a database, automatic taxonomy, knowledge graph or AI tagging system.
+The Tags client is a projection over explicit tags already stored in Markdown authorities. It does not create a database, automatic taxonomy, knowledge graph or AI tagging system. The original Entry 061 actions for next/previous document tag were adapted to exact-use navigation because Calamus has no hidden inline document-tag authority.
 
 ### Final Navigate
 
@@ -537,7 +540,7 @@ A Reference is not a citation. A Source Note preserves material grounded in a so
 | See every link and note connected to a section | `Research → Authoring Bridge → Backlinks by Heading` |
 | Find missing keys, missing targets or ambiguous heading IDs | `Research → Authoring Bridge → Broken Research Links` |
 | Audit the whole Research apparatus for consistency | `Research → Research Check…` |
-| Standardize Research tags | `Research → Tag Integrity…` |
+| Browse, navigate and standardize Research tags | `Research → Tags` |
 | Produce a bibliography, annotated bibliography or dossier | `Research → Export Research Apparatus…` |
 
 ## Start here: from a blank editor to a finished short academic article
@@ -1223,7 +1226,7 @@ The following pattern scales from an article to a monograph.
 1. Run Broken Research Links.
 2. Run Research Check.
 3. Resolve missing citation keys and heading targets.
-4. Review tag variants in Tag Integrity.
+4. Review tag variants in `Research → Tags` with **Variants only**.
 5. Export the appropriate Research Apparatus product.
 6. Use external Pandoc/citeproc later for final citation style and bibliography rendering.
 
@@ -1376,7 +1379,7 @@ Document Undo owns document mutations such as inserting a heading link or citati
 
 ### The same tag appears with different capitalization
 
-Use `Research → Tag Integrity…`. Calamus treats Unicode-normalized, whitespace-collapsed, case-insensitive variants as one logical identity and lets you review the impact before rewriting them.
+Use `Research → Tags`, activate **Variants only**, and inspect exact uses. Calamus treats Unicode-normalized, whitespace-collapsed, case-insensitive variants as one logical identity and lets you review the impact before rewriting them.
 
 ## Research habits that scale
 
@@ -1426,7 +1429,7 @@ A typical path is:
 8. Use **Related References…** in the References client when two works have an explicit scholarly relationship.
 9. Use `Research → Reference Sets` to assemble static working lists such as `Core sources` or `Check before submission`.
 10. Use `Research → Research Check…` before exporting to find missing citation keys, broken targets, asymmetric Related References, invalid set members, duplicate aliases and tag-identity collisions.
-11. Use `Research → Tag Integrity…` to inspect, rename, merge, remove or normalize Research tags without changing the document text.
+11. Use `Research → Tags` to inspect, navigate, rename, merge, remove or normalize Research tags without changing the document text.
 12. Use `Research → Import BibTeX/BibLaTeX…` when a trusted `.bib` library must be reviewed and merged into `references.md`.
 13. Use `Research → Export References as BibTeX/BibLaTeX…` to create a derived `.bib` file for another bibliographic tool.
 14. Use `Research → Export Research Apparatus…` to create a derived Markdown dossier or one of its component reports.
@@ -1728,9 +1731,11 @@ This small review is what turns Scratchpad from a pile of fragments into a depen
 
 ### Current boundaries
 
-Scratchpad Basic does not yet connect entries directly to References, Source Notes or other Scratchpad Entries. It does not provide multi-authority Show Uses, coordinated heading rename, advanced repair or cross-authority Tag Integrity. Those advanced functions are not silently simulated in the current version.
+Scratchpad Basic does not yet connect entries directly to References, Source Notes or other Scratchpad Entries. It does not provide relationship-oriented Show Uses, coordinated heading rename or advanced link repair. Those Scratchpad Full functions are not silently simulated in the current version.
 
-The dependable current contract is narrower: document-local entries, explicit tags, explicit section links, transparent Markdown storage, safe refresh and controlled insertion into the manuscript.
+W94 does, however, include Scratchpad tag fields in the derived Tags client. This permits exact-use navigation and controlled tag rename, merge, removal or normalization across References, current Source Notes and current Scratchpad without adding the richer relationships reserved for Scratchpad Full.
+
+The dependable Basic contract remains document-local entries, explicit tags, explicit section links, transparent Markdown storage, safe refresh and controlled insertion into the manuscript.
 
 ### Quick reference after you have learned the workflow
 
@@ -1758,6 +1763,347 @@ When `XDG_DATA_HOME` is not set, the usual location is:
 Use stable, readable keys such as `guardini1950` or `ratzinger1968`. These keys are inserted into Pandoc-style citations and linked from Source Notes.
 
 Practical example: add Joseph Ratzinger, *Introduction to Christianity*, key `ratzinger1968`, and tags `faith`, `theology`.
+
+
+## Tags
+
+`Research → Tags` opens a persistent client in the Research Panel. It answers three practical questions that the individual editors cannot answer on their own:
+
+1. Which explicit tags currently exist?
+2. Where is a selected tag actually used?
+3. What will change if that tag is renamed, merged, removed or normalized?
+
+Tags does **not** own a tag library. It derives a fresh inventory from the tag fields already stored in three readable Markdown authorities:
+
+- the global References library;
+- the current document Source Notes sidecar;
+- the current document Scratchpad sidecar.
+
+Closing the panel discards the projection. Opening it again or pressing **Refresh** rebuilds the list from those files. There is no `tags.db`, `tags.json`, background index, hidden taxonomy or cloud service.
+
+### Tutorial: build a useful tag vocabulary from one article
+
+This tutorial is a learning path, not a command reference. Work through it in order with a disposable article. The aim is to understand what Calamus is showing, make one safe correction, and finish with a small vocabulary that you could use every day.
+
+#### Step 1 — Start with the mental model
+
+A **tag** is an explicit label stored on a scholarly object. In W94, an object may be:
+
+- a global Reference;
+- a Source Note belonging to the current document;
+- a Scratchpad entry belonging to the current document.
+
+The manuscript itself is not a tag authority. If the word `tradition` appears twenty times in the prose, Tags does not count those twenty words. It counts only explicit `Tags:` fields. Use Find when you need occurrences in prose.
+
+Calamus distinguishes three things:
+
+1. **Logical tag** — the identity used for grouping, such as `tradition`.
+2. **Stored variant** — the exact spelling found in a file, such as `Tradition`, ` tradition ` or `TRADITION`.
+3. **Use** — one Reference, Source Note or Scratchpad entry that explicitly owns that tag.
+
+The upper list shows logical tags. The lower list shows their exact uses. Nothing is rewritten merely because Calamus groups several spellings together.
+
+#### Step 2 — Create one realistic research trail
+
+Imagine an article titled *Tradition and ecclesial memory*. Give the article these headings:
+
+```markdown
+# Tradition and ecclesial memory
+
+## Introduction {#introduction}
+## Historical witnesses {#historical-witnesses}
+## Theological synthesis {#theological-synthesis}
+## Conclusion {#conclusion}
+```
+
+Now create three related research objects:
+
+1. In **References**, create `ratzinger1968`, title it *Introduction to Christianity*, and add `tradition, ecclesiology`.
+2. In **Source Notes**, create a Comment linked to `ratzinger1968`, target `#theological-synthesis`, and add `Tradition, reception`.
+3. In **Scratchpad**, create an Idea titled `Tradition as living memory`, link it to `#conclusion`, and add ` tradition , ecclesiology`.
+
+You now have three authorities and four useful labels. One logical identity has three spellings. This is intentional: the example lets you see the difference between inventory and cleanup.
+
+#### Step 3 — Open the complete A–Z inventory
+
+Choose `Research → Tags`, then press **All tags A–Z**.
+
+That button is the safe way back to the complete vocabulary. It performs four presentation-only resets:
+
+- clears Search;
+- selects **All authorities**;
+- turns **Variants only** off;
+- selects **Name (A–Z)**.
+
+The status line explicitly says **All tags A–Z**. You should see `ecclesiology`, `reception` and `tradition` in alphabetical order. The list is derived; pressing the button never changes a Markdown file.
+
+Select `tradition`. Its count should combine all three authorities. The row reports:
+
+- **R** for References;
+- **N** for Source Notes;
+- **S** for Scratchpad.
+
+The warning mark means that at least two exact spellings in this logical group differ. It is a request for review, not an automatic diagnosis that one spelling is wrong.
+
+#### Step 4 — Read exact uses before changing anything
+
+With `tradition` selected, read the lower list. It should identify:
+
+- `ratzinger1968` and the Reference title;
+- the Source Note ID and its text summary;
+- the Scratchpad entry ID and title.
+
+Each use also states the exact stored spelling. Select the Reference use and press **Open**. Calamus opens References and selects the stable key. Return to Tags and repeat with the Source Note and Scratchpad entry.
+
+This round trip is important. Before changing a vocabulary, verify that the uses really express the same category. Two identical words can still mean different things in different contexts.
+
+#### Step 5 — Learn Search without losing the inventory
+
+Search for `ratzinger1968`. The result appears because owner identifiers are searchable. Search for `living memory`; the Scratchpad-owned tags appear because owner labels are searchable. Search for `trad` and the logical tag appears as a prefix match.
+
+Clear Search manually, or press **All tags A–Z**. Exact tag-name matches rank before prefix matches; prefix matches rank before ordinary substring and owner-only matches. This ranking changes presentation only.
+
+#### Step 6 — Learn scope with a question
+
+Ask three different questions:
+
+- “Which labels exist anywhere?” Choose **All authorities**.
+- “How have I classified my bibliography?” Choose **References**.
+- “Which labels belong only to the thinking work of this article?” Compare **Source Notes** and **Scratchpad**.
+
+Scope also limits mutations. If **Source Notes** is selected, Remove or Rename does not touch References or Scratchpad. Always read the scope immediately before approving a preview.
+
+#### Step 7 — Distinguish Normalize, Rename and Merge
+
+These operations answer different scholarly questions.
+
+**Normalize spelling** keeps one logical identity and chooses one display form. Example:
+
+```text
+Tradition
+tradition
+␠tradition␠
+        ↓
+tradition
+```
+
+**Rename** changes an identity to a new identity that does not yet exist. Example:
+
+```text
+reception → reception history
+```
+
+**Merge** combines a source identity with a target identity that already exists. Example:
+
+```text
+church tradition → tradition
+```
+
+A merge is not a spelling correction. It is an intellectual judgment that two categories should become one. Inspect all uses before approving it.
+
+#### Step 8 — Perform one safe normalization
+
+Press **All tags A–Z**, select `tradition`, then choose **Rename / Merge…**. Enter `tradition` as the target. Because the logical identity is unchanged, the dialog must say **Mode: Normalize spelling**.
+
+Read the preview. It should list the exact number of changed References, Source Notes and Scratchpad entries. Confirm only when those counts match the uses you inspected. After success, press **Refresh**. The warning mark for `tradition` should disappear, while all three uses remain.
+
+#### Step 9 — See stale detection protect your work
+
+Prepare another operation but leave its preview open. In a text editor, change one selected authority and save it. Then return to Calamus and confirm.
+
+Calamus should refuse the operation as stale. This is not a nuisance: the preview was calculated from an older snapshot. Press **Refresh**, inspect the new state and prepare the operation again. Calamus must never silently overwrite a change made after preview.
+
+#### Step 10 — Understand rollback without testing a failure on real work
+
+A mutation may involve three files. Calamus writes in a controlled order and compensates earlier writes if a later authority fails. The result dialog reports success, stale cancellation, controlled failure or manual recovery required. Do not repeat a failed operation blindly. Read the message, inspect the Markdown files and refresh.
+
+The manuscript remains byte-identical throughout these operations. Tags changes explicit metadata authorities, never article prose, headings or citations.
+
+#### Step 11 — Three daily workflows
+
+**Morning orientation**
+
+1. Open the article.
+2. Choose Tags.
+3. Press **All tags A–Z**.
+4. Scan the vocabulary before creating new labels.
+5. Search an existing term before inventing a synonym.
+
+**During source work**
+
+1. Add tags while creating a Reference or Source Note.
+2. Return to Tags.
+3. Search the new label.
+4. Open its uses to verify ownership and spelling.
+
+**End-of-session cleanup**
+
+1. Enable **Variants only**.
+2. Inspect one warning group at a time.
+3. Normalize spelling when identity is already the same.
+4. Merge only after reading every use.
+5. Finish with **All tags A–Z** and confirm that the vocabulary remains understandable.
+
+#### Step 12 — A good stopping rule
+
+Do not try to perfect the entire vocabulary in one session. Stop when:
+
+- every new label has a clear retrieval purpose;
+- accidental spelling variants are resolved;
+- distinct concepts remain distinct;
+- the article, References and sidecars still open normally;
+- the A–Z list is short enough to scan and specific enough to be useful.
+
+A useful tag system is not the one with the most labels. It is the one whose labels help you recover sources, notes and ideas without requiring you to remember where they were stored.
+
+### First guided exercise
+
+Use a disposable document while learning.
+
+1. Open `Research → References` and create or edit one Reference. Add the tags `tradition` and `ecclesiology`.
+2. Open `Research → Source Notes`, create a Comment and give it the tag `Tradition` with an uppercase `T`.
+3. Open `Research → Scratchpad`, create an Idea and give it the tag `tradition`.
+4. Choose `Research → Tags`.
+5. Select the logical tag `tradition` in the upper list.
+6. Read the lower **Uses** list. It should show the Reference, Source Note and Scratchpad entry separately, including the exact spelling stored by each authority.
+7. Double-click one use, or select it and press **Open**. Calamus opens the owning client and selects the exact record.
+8. Return to Tags and activate **Variants only**. The logical tag is shown because `tradition` and `Tradition` have different recorded display forms.
+
+This exercise demonstrates the central rule: Tags groups equivalent identities for inspection, but it preserves exact stored spellings until you approve a mutation.
+
+### Reading the tag list
+
+The upper list contains one row per logical identity.
+
+- **Tag** is the first-use canonical display spelling for the current scope.
+- **Uses** is the total number of explicit occurrences.
+- **R** counts Reference records.
+- **N** counts Source Notes.
+- **S** counts Scratchpad entries.
+- The warning mark identifies a logical group whose spellings or whitespace need review.
+
+Identity comparison uses Unicode NFC, collapsed whitespace and case-insensitive comparison. Therefore all of these belong to one logical group:
+
+```text
+Tradition
+tradition
+  TRADITION
+```
+
+This comparison never changes the authorities by itself.
+
+### Search, scope, sorting and Variants only
+
+The search field matches tag spellings and the labels of their exact owners. Searching for a Reference key, Source Note identifier or Scratchpad title can therefore reveal the tags used by that item.
+
+The scope selector offers:
+
+- **All authorities**;
+- **References**;
+- **Source Notes**;
+- **Scratchpad**.
+
+Scope affects both the inventory and any subsequent mutation. Before pressing Rename, Remove or Normalize, verify the selected scope. A Reference-only operation never writes the document sidecars; a Scratchpad-only operation never writes `references.md`.
+
+The sorting selector offers:
+
+- **Name (A–Z)** for the complete stable alphabetical vocabulary view;
+- **Most used** for review work, placing the highest explicit-use counts first.
+
+Press **All tags A–Z** whenever you want to clear Search and filters, return to all authorities, turn Variants only off and restore the complete alphabetical list.
+
+When a search is active, exact tag-name matches appear before prefix matches, which appear before ordinary substring and owner-label matches. Sorting remains derived presentation only: Calamus never writes a preferred order into a hidden tag authority.
+
+Use **Variants only** when cleaning spelling inconsistencies. Turn it off when browsing the full vocabulary.
+
+### Show Uses and Open
+
+Selecting a tag populates the lower list with exact uses. Each use contains:
+
+- authority type;
+- stable owner identifier;
+- human-readable owner label;
+- exact stored variant.
+
+**Open** navigates by the stable identifier. It does not search for similar prose and does not infer a relationship. Opening a Reference selects its key; opening a Source Note selects its note ID; opening a Scratchpad use selects its entry ID.
+
+### Rename or merge a tag
+
+Use **Rename / Merge…** when the vocabulary should have one deliberate display form.
+
+Example: `Tradition`, `tradition` and `traditions` should become `tradition`.
+
+1. Select `Tradition`.
+2. Verify the scope.
+3. Press **Rename / Merge…**.
+4. Enter `tradition`. The dialog states the operation mode before preview:
+   - **Mode: Rename** when the target logical identity does not exist;
+   - **Mode: Merge** when the target already exists;
+   - **Mode: Normalize spelling** when source and target have the same logical identity.
+5. Read the impact preview. Its title and confirmation button repeat the detected mode and list changed References, Source Notes, Scratchpad entries and total affected occurrences.
+6. Apply only when both the mode and counts are expected.
+
+Entering an already existing logical tag performs an explicit merge. Duplicate target tags inside the same record are removed. Only the logical variants of `Faith` become `doctrine` in a `Faith → doctrine` operation; unrelated tags and free text remain unchanged.
+
+### Remove a tag
+
+**Remove…** removes only the selected logical tag in the selected scope. It does not delete the owning Reference, Source Note or Scratchpad entry.
+
+Before confirming, distinguish between a genuinely obsolete tag and a tag that is merely unused in the current document. References are global, so a tag may remain useful in another project.
+
+### Normalize all variants
+
+**Normalize All…** rewrites inconsistent variants to the first-use canonical display for every logical group in the selected scope. This is useful after importing or manually editing Markdown authorities.
+
+Do not use Normalize All as a substitute for choosing good vocabulary. It fixes spelling identity and duplicate occurrences; it does not decide whether two different concepts are synonyms.
+
+### Transaction safety
+
+Every mutation follows the same controlled sequence:
+
+1. load fresh authority snapshots;
+2. prepare an immutable impact plan;
+3. obtain explicit confirmation;
+4. verify that selected files still match their preview tokens;
+5. write atomically;
+6. compensate earlier writes if a later authority fails;
+7. refresh all three clients after success.
+
+If any selected authority changes after preview, Calamus cancels the operation and writes nothing. If the final Scratchpad save fails after earlier writes, Calamus attempts to restore Source Notes and References in reverse order. A failed compensation is reported as manual recovery required rather than hidden.
+
+### Tags versus Tag Integrity
+
+`Research → Tags` is the normal W94 workspace: browse, filter, inspect exact uses, navigate and maintain tags across all three authorities.
+
+`Research → Tag Integrity…` remains as the earlier compatibility dialog focused on References and current Source Notes. Prefer the Tags client for ordinary work and whenever Scratchpad must be included.
+
+### What Tags deliberately does not do
+
+Tags does not:
+
+- create unused tags detached from records;
+- add hidden tags to arbitrary manuscript selections;
+- scan document prose for hashtags;
+- infer synonyms, concepts or themes;
+- build hierarchies or parent-child categories;
+- assign semantic meaning to colours;
+- rank or recommend tags;
+- run a filesystem watcher or background index.
+
+The Entry 061 idea **Add Tag to Selection** is therefore deferred until Calamus has an explicit, transparent document-level authority. W94 does not invent one merely to satisfy a menu label.
+
+### Common mistakes
+
+- **I expected text occurrences in the manuscript.** Tags shows explicit metadata fields, not word-search results. Use Find for document text.
+- **The same idea appears as two rows.** The spellings are not logically equivalent; decide whether an explicit merge is scientifically correct.
+- **One row has several spellings.** Use Variants only, inspect uses, then rename or normalize.
+- **A document-local tag disappeared when I changed documents.** Source Notes and Scratchpad are document-local by design; References remain global.
+- **A mutation was cancelled as stale.** Another process or manual edit changed an authority after preview. Refresh, inspect the new state and prepare a new plan.
+- **Open does nothing.** The owner may have been removed after the projection was built. Press Refresh and retry.
+
+### A small, sustainable tagging practice
+
+Use short noun phrases, keep capitalization consistent, and prefer a limited vocabulary that helps retrieval. Review Variants only at the end of a writing session. Merge tags only when you can explain why they represent the same category; otherwise retain the distinction.
 
 ## Related References
 
@@ -2000,6 +2346,10 @@ Scopes are `References and Source Notes`, `References only`, and `Current Source
 Practical example: the current Reference has tags `Faith`, `church history`, `temporary`; a Source Note has `FAITH`, `church history`, `temporary`. Select `Faith`, choose `Rename / Merge…`, enter `doctrine`, review the impact preview and confirm. Only the logical variants of `Faith` become `doctrine`; unrelated tags such as `church history` and `temporary` remain unchanged. The active document remains byte-identical.
 
 The colour swatch is deterministic and derived from tag identity. It is presentation only: it is not stored in References or Source Notes and cannot create a colour-only tag.
+
+### Relationship with the W94 Tags client
+
+`Research → Tags` is the persistent W94 client for everyday tag inspection and maintenance. It adds search, authority filters, exact-use navigation, Scratchpad coverage, derived sorting, and explicit Rename/Merge/Normalize modes. The older `Research → Tag Integrity…` workflow remains available for compatibility. Both use the same logical-identity and transaction rules; neither creates a tag database or rewrites document prose.
 
 ## Import BibTeX/BibLaTeX
 
@@ -2348,7 +2698,7 @@ A reliable References workflow is simple: register each source once, use stable 
 
 Questa è la guida operativa completa dell’apparato Research di Calamus. È pensata per chi scrive saggi, articoli, tesi, omelie documentate, libri o ricerche teologiche e desidera lavorare con fonti, citazioni e note senza affidare il proprio materiale a un database opaco.
 
-Lo **Scratchpad Basic** è ora parte del pannello Research. Tutto ciò che segue riguarda le funzioni Research disponibili: Clip Collection, Scratchpad, References, Related References, Reference Sets, Source Notes, Create Source Note from Selection, Insert Link to Heading, Authoring Bridge, Quick Cite, Open Citation in References, Rename Reference Key, Research Check, Tag Integrity, import/export BibTeX o BibLaTeX ed Export Research Apparatus.
+Lo **Scratchpad Basic** e il client **Tags** sono parte del pannello Research. Tutto ciò che segue riguarda le funzioni Research disponibili: Clip Collection, Scratchpad, References, Tags, Related References, Reference Sets, Source Notes, Create Source Note from Selection, Insert Link to Heading, Authoring Bridge, Quick Cite, Open Citation in References, Rename Reference Key, Research Check, Tag Integrity, import/export BibTeX o BibLaTeX ed Export Research Apparatus.
 
 Le etichette dei menu e dei pulsanti sono riportate in inglese perché corrispondono all’interfaccia reale. Le spiegazioni sono in italiano.
 
@@ -3246,9 +3596,9 @@ Workflow consigliato:
 4. leggi le advisories senza trattarle come guasti;
 5. riesegui il controllo finché il quadro è comprensibile.
 
-### 18. Tag Integrity: rinominare e unificare tag senza sostituzioni cieche
+### 18. Tags e Tag Integrity: rinominare e unificare tag senza sostituzioni cieche
 
-`Research → Tag Integrity…` analizza i tag di References e Source Notes.
+`Research → Tags` è il client ordinario: analizza References, Source Notes e Scratchpad, mostra gli usi esatti e permette la navigazione. `Research → Tag Integrity…` resta il dialogo compatibile limitato a References e Source Notes.
 
 Problemi tipici:
 
@@ -3590,7 +3940,7 @@ Riporta la correzione in References e rigenera l’export. Il file derivato non 
 2. Usa key stabili e leggibili.
 3. Compila soltanto metadati verificati.
 4. Usa Annotation per valutare l’opera, Source Notes per estratti e idee puntuali.
-5. Usa tag coerenti e periodicamente esegui Tag Integrity.
+5. Usa tag coerenti e periodicamente apri Tags con **Variants only**.
 6. Collega Related References soltanto quando sai spiegare il rapporto.
 7. Crea set con uno scopo operativo chiaro.
 8. Usa heading ID stabili nei documenti lunghi.
@@ -3641,7 +3991,7 @@ Integrity and export:
 
 - Research Check non presenta errori;
 - warning compresi e risolti o motivati;
-- Tag Integrity eseguita quando necessario;
+- Tags controllati con **Variants only** quando necessario;
 - `.bib` e dossier rigenerati dopo le ultime correzioni.
 
 ### 28. Glossario essenziale

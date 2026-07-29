@@ -48,6 +48,7 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("Research", "New Scratchpad Entry for Current Section", "menu"),
     ShortcutSpec("Research", "Show Scratchpad for Current Section", "menu"),
     ShortcutSpec("Research", "References", "menu"),
+    ShortcutSpec("Research", "Tags", "menu"),
     ShortcutSpec("Research", "Reference Sets", "menu"),
     ShortcutSpec("Research", "Source Notes", "menu"),
     ShortcutSpec("Research", "Authoring Bridge", "menu"),

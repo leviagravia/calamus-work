@@ -1,9 +1,10 @@
 """Pure, filesystem-free tag inventory and mutation planning for Calamus Research.
 
-Tags remain embedded in the canonical Markdown authorities (``references.md``
-and the active document Source Notes sidecar).  This module derives a transient
-logical inventory, deterministic presentation colours, exact uses and immutable
-mutation plans.  It never reads or writes files and never owns persistent state.
+Tags remain embedded in the canonical Markdown authorities: the global
+``references.md`` library and the active document Source Notes and Scratchpad
+sidecars.  This module derives a transient logical inventory, deterministic
+presentation colours, exact uses and immutable mutation plans.  It never reads
+or writes files and never owns persistent state.
 """
 from __future__ import annotations
 
@@ -13,20 +14,41 @@ import unicodedata
 from typing import Any, Iterable
 
 from calamus_references import ReferenceRecord
+from calamus_scratchpad import ScratchpadEntry
 from calamus_source_notes import SourceNote
 
+# ``both`` is retained for the published W86 contract: References + Source
+# Notes.  W94 adds ``all`` and ``scratchpad`` without silently changing the
+# meaning of historical callers.
+TAG_SCOPE_ALL = "all"
 TAG_SCOPE_BOTH = "both"
 TAG_SCOPE_REFERENCES = "references"
 TAG_SCOPE_SOURCE_NOTES = "source-notes"
-TAG_SCOPES = (TAG_SCOPE_BOTH, TAG_SCOPE_REFERENCES, TAG_SCOPE_SOURCE_NOTES)
+TAG_SCOPE_SCRATCHPAD = "scratchpad"
+TAG_SCOPES = (
+    TAG_SCOPE_ALL,
+    TAG_SCOPE_BOTH,
+    TAG_SCOPE_REFERENCES,
+    TAG_SCOPE_SOURCE_NOTES,
+    TAG_SCOPE_SCRATCHPAD,
+)
 
 TAG_ACTION_RENAME_MERGE = "rename-merge"
 TAG_ACTION_REMOVE = "remove"
 TAG_ACTION_NORMALIZE_ALL = "normalize-all"
 TAG_ACTIONS = (TAG_ACTION_RENAME_MERGE, TAG_ACTION_REMOVE, TAG_ACTION_NORMALIZE_ALL)
 
-# Fixed palette: deterministic, theme-independent presentation only.  Colours
-# are not persisted and do not become a third Research authority.
+TAG_RENAME_MODE_RENAME = "rename"
+TAG_RENAME_MODE_MERGE = "merge"
+TAG_RENAME_MODE_NORMALIZE = "normalize"
+TAG_RENAME_MODES = (
+    TAG_RENAME_MODE_RENAME,
+    TAG_RENAME_MODE_MERGE,
+    TAG_RENAME_MODE_NORMALIZE,
+)
+
+# Fixed palette: deterministic, theme-independent presentation only. Colours
+# are not persisted and do not become another Research authority.
 _TAG_PALETTE = (
     "#8B3A3A", "#9A5A16", "#6B6B18", "#2E6B3E",
     "#1D6B68", "#245F8F", "#4E4B8F", "#70458B",
@@ -42,7 +64,7 @@ def clean_tag_display(value: Any) -> str:
 
 
 def tag_identity(value: Any) -> str:
-    """Return the logical, case-insensitive identity used only by W86 tools."""
+    """Return the logical, case-insensitive identity used by tag tools."""
     return clean_tag_display(value).casefold()
 
 
@@ -61,8 +83,20 @@ def _validate_scope(scope: str) -> str:
     return scope
 
 
-def _authority_in_scope(authority: str, scope: str) -> bool:
-    return scope == TAG_SCOPE_BOTH or authority == scope
+def authority_in_scope(authority: str, scope: str) -> bool:
+    """Return whether one canonical tag authority participates in ``scope``."""
+    _validate_scope(scope)
+    if authority not in {
+        TAG_SCOPE_REFERENCES,
+        TAG_SCOPE_SOURCE_NOTES,
+        TAG_SCOPE_SCRATCHPAD,
+    }:
+        raise ValueError("tag authority is invalid")
+    if scope == TAG_SCOPE_ALL:
+        return True
+    if scope == TAG_SCOPE_BOTH:
+        return authority in {TAG_SCOPE_REFERENCES, TAG_SCOPE_SOURCE_NOTES}
+    return authority == scope
 
 
 @dataclass(frozen=True, order=True)
@@ -73,7 +107,11 @@ class TagUse:
     variant: str
 
     def __post_init__(self) -> None:
-        if self.authority not in {TAG_SCOPE_REFERENCES, TAG_SCOPE_SOURCE_NOTES}:
+        if self.authority not in {
+            TAG_SCOPE_REFERENCES,
+            TAG_SCOPE_SOURCE_NOTES,
+            TAG_SCOPE_SCRATCHPAD,
+        }:
             raise ValueError("tag use authority is invalid")
         if not all(isinstance(value, str) and value for value in (
             self.owner_id, self.owner_label, self.variant,
@@ -107,12 +145,20 @@ class TagInventoryItem:
         return tuple(use for use in self.uses if use.authority == TAG_SCOPE_SOURCE_NOTES)
 
     @property
+    def scratchpad_uses(self) -> tuple[TagUse, ...]:
+        return tuple(use for use in self.uses if use.authority == TAG_SCOPE_SCRATCHPAD)
+
+    @property
     def reference_count(self) -> int:
         return len(self.reference_uses)
 
     @property
     def source_note_count(self) -> int:
         return len(self.source_note_uses)
+
+    @property
+    def scratchpad_count(self) -> int:
+        return len(self.scratchpad_uses)
 
     @property
     def total_count(self) -> int:
@@ -150,14 +196,22 @@ class TagMutationImpact:
     source_notes_changed: int = 0
     occurrences_changed: int = 0
     variants_merged: int = 0
+    scratchpad_entries_changed: int = 0
+    rename_mode: str = ""
 
     def __post_init__(self) -> None:
         if self.action not in TAG_ACTIONS:
             raise ValueError("tag action is invalid")
         _validate_scope(self.scope)
+        if self.action == TAG_ACTION_RENAME_MERGE:
+            if self.rename_mode not in TAG_RENAME_MODES:
+                raise ValueError("rename/merge impact mode is invalid")
+        elif self.rename_mode:
+            raise ValueError("rename mode is only valid for rename/merge actions")
         for value in (
             self.reference_records_changed,
             self.source_notes_changed,
+            self.scratchpad_entries_changed,
             self.occurrences_changed,
             self.variants_merged,
         ):
@@ -173,6 +227,8 @@ class TagMutationPlan:
     source_notes_after: tuple[SourceNote, ...]
     impact: TagMutationImpact
     modified_stamp: str = ""
+    scratchpad_before: tuple[ScratchpadEntry, ...] = ()
+    scratchpad_after: tuple[ScratchpadEntry, ...] = ()
 
     @property
     def references_changed(self) -> bool:
@@ -183,8 +239,12 @@ class TagMutationPlan:
         return self.source_notes_before != self.source_notes_after
 
     @property
+    def scratchpad_changed(self) -> bool:
+        return self.scratchpad_before != self.scratchpad_after
+
+    @property
     def changed(self) -> bool:
-        return self.references_changed or self.source_notes_changed
+        return self.references_changed or self.source_notes_changed or self.scratchpad_changed
 
 
 def _append_variant(values: list[str], value: str) -> None:
@@ -195,17 +255,21 @@ def _append_variant(values: list[str], value: str) -> None:
 def build_tag_inventory(
     references: Iterable[ReferenceRecord],
     source_notes: Iterable[SourceNote],
+    scratchpad_entries: Iterable[ScratchpadEntry] = (),
     *,
     scope: str = TAG_SCOPE_BOTH,
 ) -> TagInventory:
-    """Build a deterministic first-use inventory from both Markdown authorities."""
+    """Build a deterministic first-use projection from Markdown authorities."""
     scope = _validate_scope(scope)
     records = tuple(references)
     notes = tuple(source_notes)
+    entries = tuple(scratchpad_entries)
     if any(not isinstance(record, ReferenceRecord) for record in records):
         raise TypeError("references must contain ReferenceRecord values")
     if any(not isinstance(note, SourceNote) for note in notes):
         raise TypeError("source_notes must contain SourceNote values")
+    if any(not isinstance(entry, ScratchpadEntry) for entry in entries):
+        raise TypeError("scratchpad_entries must contain ScratchpadEntry values")
 
     order: list[str] = []
     canonical: dict[str, str] = {}
@@ -214,7 +278,7 @@ def build_tag_inventory(
     dirty: dict[str, bool] = {}
 
     def add(authority: str, owner_id: str, owner_label: str, raw: str) -> None:
-        if not _authority_in_scope(authority, scope):
+        if not authority_in_scope(authority, scope):
             return
         cleaned = clean_tag_display(raw)
         logical = tag_identity(raw)
@@ -239,6 +303,10 @@ def build_tag_inventory(
         label = f"{note.id} — {note.excerpt}"
         for raw in note.tags:
             add(TAG_SCOPE_SOURCE_NOTES, note.id, label, raw)
+    for entry in entries:
+        label = f"{entry.id} — {entry.title}"
+        for raw in entry.tags:
+            add(TAG_SCOPE_SCRATCHPAD, entry.id, label, raw)
 
     items = tuple(
         TagInventoryItem(
@@ -289,9 +357,6 @@ def _transform_tags(
             changed += 1
             continue
 
-        # Rename/Merge deduplicates only the target identity created by the
-        # operation. Normalize All intentionally deduplicates every logical
-        # identity. Unrelated stored spellings remain byte-semantically intact.
         duplicate = replacement_identity in seen
         if duplicate and (
             action == TAG_ACTION_NORMALIZE_ALL
@@ -311,6 +376,7 @@ def _transform_tags(
 def plan_tag_mutation(
     references: Iterable[ReferenceRecord],
     source_notes: Iterable[SourceNote],
+    scratchpad_entries: Iterable[ScratchpadEntry] = (),
     *,
     action: str,
     scope: str = TAG_SCOPE_BOTH,
@@ -318,19 +384,19 @@ def plan_tag_mutation(
     target_tag: str = "",
     modified_stamp: str = "",
 ) -> TagMutationPlan:
-    """Return one immutable, previewable tag mutation plan.
-
-    ``rename-merge`` replaces every logical variant of ``source_tag`` with the
-    requested display form and merges collisions by logical identity.
-    ``remove`` removes the selected logical tag.  ``normalize-all`` rewrites all
-    variants to the first-use canonical display for their identity.
-    """
+    """Return one immutable, previewable mutation across selected authorities."""
     if action not in TAG_ACTIONS:
         raise ValueError("tag action is invalid")
     scope = _validate_scope(scope)
     records_before = tuple(references)
     notes_before = tuple(source_notes)
-    inventory = build_tag_inventory(records_before, notes_before, scope=scope)
+    scratch_before = tuple(scratchpad_entries)
+    inventory = build_tag_inventory(
+        records_before,
+        notes_before,
+        scratch_before,
+        scope=scope,
+    )
 
     source_identity = ""
     source_display = ""
@@ -349,7 +415,18 @@ def plan_tag_mutation(
             target_display = clean_tag_display(target_tag)
             if not target_display:
                 raise ValueError("target tag is required")
+            target_identity = tag_identity(target_display)
+            target_item = inventory.get(target_display)
+            if target_identity == source_identity:
+                rename_mode = TAG_RENAME_MODE_NORMALIZE
+            elif target_item is not None:
+                rename_mode = TAG_RENAME_MODE_MERGE
+            else:
+                rename_mode = TAG_RENAME_MODE_RENAME
+        else:
+            rename_mode = ""
     else:
+        rename_mode = ""
         normalize_map = {
             item.identity: item.canonical
             for item in inventory.items
@@ -361,12 +438,14 @@ def plan_tag_mutation(
 
     records_after: list[ReferenceRecord] = []
     notes_after: list[SourceNote] = []
+    scratch_after: list[ScratchpadEntry] = []
     record_changes = 0
     note_changes = 0
+    scratch_changes = 0
     occurrence_changes = 0
 
     for record in records_before:
-        if scope == TAG_SCOPE_SOURCE_NOTES:
+        if not authority_in_scope(TAG_SCOPE_REFERENCES, scope):
             records_after.append(record)
             continue
         tags, changed = _transform_tags(
@@ -384,7 +463,7 @@ def plan_tag_mutation(
             records_after.append(record)
 
     for note in notes_before:
-        if scope == TAG_SCOPE_REFERENCES:
+        if not authority_in_scope(TAG_SCOPE_SOURCE_NOTES, scope):
             notes_after.append(note)
             continue
         tags, changed = _transform_tags(
@@ -397,18 +476,41 @@ def plan_tag_mutation(
         if tags != note.tags:
             note_changes += 1
             occurrence_changes += changed
-            changes = {"tags": tags}
+            changes: dict[str, Any] = {"tags": tags}
             if modified_stamp:
                 changes["modified"] = modified_stamp
             notes_after.append(replace(note, **changes))
         else:
             notes_after.append(note)
 
+    for entry in scratch_before:
+        if not authority_in_scope(TAG_SCOPE_SCRATCHPAD, scope):
+            scratch_after.append(entry)
+            continue
+        tags, changed = _transform_tags(
+            entry.tags,
+            action=action,
+            source_identity=source_identity,
+            target_display=target_display,
+            normalize_map=normalize_map,
+        )
+        if tags != entry.tags:
+            scratch_changes += 1
+            occurrence_changes += changed
+            changes = {"tags": tags}
+            if modified_stamp:
+                changes["updated"] = modified_stamp
+            scratch_after.append(replace(entry, **changes))
+        else:
+            scratch_after.append(entry)
+
     plan = TagMutationPlan(
         references_before=records_before,
         references_after=tuple(records_after),
         source_notes_before=notes_before,
         source_notes_after=tuple(notes_after),
+        scratchpad_before=scratch_before,
+        scratchpad_after=tuple(scratch_after),
         impact=TagMutationImpact(
             action=action,
             scope=scope,
@@ -417,8 +519,10 @@ def plan_tag_mutation(
             target_display=target_display,
             reference_records_changed=record_changes,
             source_notes_changed=note_changes,
+            scratchpad_entries_changed=scratch_changes,
             occurrences_changed=occurrence_changes,
             variants_merged=affected_variants,
+            rename_mode=rename_mode,
         ),
         modified_stamp=modified_stamp,
     )

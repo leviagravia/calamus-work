@@ -63,6 +63,9 @@ class FakePaned:
     def set_position(self, position):
         self.position = position
 
+    def get_position(self):
+        return self.position or 0
+
 
 class RightPanelHostTests(unittest.TestCase):
     def test_width_is_bounded_for_generic_right_panel(self):
@@ -87,13 +90,40 @@ class RightPanelHostTests(unittest.TestCase):
         host.register("clips", widget)
         host.show("clips")
         self.assertIs(paned.child2, widget)
-        self.assertEqual(paned.pack_calls, [(widget, False, False)])
-        self.assertEqual(widget.size, (190, -1))
+        self.assertEqual(paned.pack_calls, [(widget, False, True)])
+        self.assertEqual(widget.size, (-1, -1))
         self.assertFalse(widget.hexpand)
         self.assertTrue(widget.vexpand)
         self.assertEqual(paned.position, 810)
         self.assertEqual(host.active_section, "clips")
         self.assertEqual(events, ["layout"])
+
+    def test_hide_show_preserves_user_width_without_positive_child_request(self):
+        paned = FakePaned(1000)
+        widget = FakeWidget()
+        host = RightPanelHost(paned, lambda: None)
+        host.register("research", widget)
+        host.show("research")
+        paned.set_position(680)  # user selected a 320px right panel
+        host.hide()
+        self.assertEqual(host.remembered_width, 320)
+        host.show("research")
+        self.assertEqual(paned.position, 680)
+        self.assertEqual(widget.size, (-1, -1))
+        self.assertEqual(paned.pack_calls[-1], (widget, False, True))
+
+    def test_remembered_width_is_bounded_when_window_becomes_smaller(self):
+        paned = FakePaned(1200)
+        widget = FakeWidget()
+        host = RightPanelHost(paned, lambda: None)
+        host.register("research", widget)
+        host.show("research")
+        paned.set_position(650)  # 550px panel
+        host.hide()
+        paned.allocation.width = 700
+        host.show("research")
+        # Keep the editor's 360px minimum viewport floor.
+        self.assertEqual(700 - paned.position, 340)
 
     def test_toggle_hides_by_detaching_the_single_slot(self):
         paned = FakePaned()

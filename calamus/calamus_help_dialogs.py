@@ -142,7 +142,11 @@ def build_user_guide_dialog(parent, text: str) -> UserGuideWidgets:
         help_topics=help_topics,
         topic_paths=tuple(topic_paths),
     )
-    if not select_help_topic(widgets, "Current command menu (W92 candidate)"):
+    current_title = next(
+        (topic.title for topic in help_topics if topic.title.startswith("Current command menu (")),
+        "",
+    )
+    if not current_title or not select_help_topic(widgets, current_title):
         navigator.get_selection().select_path(topic_paths[0])
     navigator.grab_focus()
     return widgets

@@ -14,6 +14,9 @@ from calamus_help import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+PUBLISHED_TAG_INTEGRITY_BODY = '`Research → Tag Integrity…` builds a transient inventory from References and the current document Source Notes. It does not scan or rewrite the document text.\n\nLogical identity uses Unicode NFC normalization, collapsed whitespace and case-insensitive comparison. Therefore `Faith`, `faith`, ` FAITH ` and Unicode-equivalent spellings are treated as variants of one logical tag.\n\nAvailable operations:\n\n- `Show Uses`: list the exact References and Source Notes that use the selected tag.\n- `Rename / Merge…`: rename all selected variants in the chosen scope; if the target already exists, duplicates are merged.\n- `Remove Everywhere…`: remove the selected logical tag in the chosen scope.\n- `Normalize All…`: rewrite variant spellings to the first canonical display spelling.\n\nScopes are `References and Source Notes`, `References only`, and `Current Source Notes only`.\n\nPractical example: the current Reference has tags `Faith`, `church history`, `temporary`; a Source Note has `FAITH`, `church history`, `temporary`. Select `Faith`, choose `Rename / Merge…`, enter `doctrine`, review the impact preview and confirm. Only the logical variants of `Faith` become `doctrine`; unrelated tags such as `church history` and `temporary` remain unchanged. The active document remains byte-identical.\n\nThe colour swatch is deterministic and derived from tag identity. It is presentation only: it is not stored in References or Source Notes and cannot create a colour-only tag.'
+
+
 class UserGuidePureTests(unittest.TestCase):
     def test_canonical_guide_contains_research_workflow_and_practical_examples(self):
         text = load_user_guide(ROOT)
@@ -27,8 +30,19 @@ class UserGuidePureTests(unittest.TestCase):
             "Research → Export Research Apparatus…",
             "Chapter-01.md.source-notes.md",
             "Only the logical variants of `Faith` become `doctrine`",
+            "unrelated tags such as `church history` and `temporary` remain unchanged",
+            "The active document remains byte-identical.",
         ):
             self.assertIn(required, text)
+
+    def test_published_tag_integrity_contract_is_preserved_verbatim(self):
+        sections = parse_user_guide_sections(load_user_guide(ROOT))
+        section = next(item for item in sections if item.title == "Tag Integrity")
+        self.assertTrue(
+            section.body.startswith(PUBLISHED_TAG_INTEGRITY_BODY),
+            "The published W92 Tag Integrity contract must remain verbatim at the start of the topic.",
+        )
+        self.assertIn("Relationship with the W94 Tags client", section.body)
 
     def test_research_learning_path_explains_authorities_and_recovery(self):
         text = load_user_guide(ROOT)
@@ -263,11 +277,45 @@ class UserGuidePureTests(unittest.TestCase):
         self.assertGreater(len(scratchpad.body), 10000)
 
 
+    def test_w94_tags_learning_path_is_complete_and_safe(self):
+        text = load_user_guide(ROOT)
+        for required in (
+            "## Tags",
+            "Tutorial: build a useful tag vocabulary from one article",
+            "Start with the mental model",
+            "Create one realistic research trail",
+            "Open the complete A–Z inventory",
+            "Three daily workflows",
+            "A good stopping rule",
+            "First guided exercise",
+            "Reading the tag list",
+            "Search, scope, sorting and Variants only",
+            "Show Uses and Open",
+            "All tags A–Z",
+            "Name (A–Z)",
+            "Most used",
+            "**Mode: Rename**",
+            "**Mode: Merge**",
+            "**Mode: Normalize spelling**",
+            "Rename or merge a tag",
+            "Transaction safety",
+            "Tags versus Tag Integrity",
+            "What Tags deliberately does not do",
+            "References, current Source Notes and current Scratchpad",
+            "Add Tag to Selection",
+        ):
+            self.assertIn(required, text)
+        tags = next(
+            section for section in parse_user_guide_sections(text)
+            if section.title == "Tags"
+        )
+        self.assertGreater(len(tags.body), 12000)
+
     def test_current_command_map_is_complete_and_follows_visible_menu_order(self):
         text = load_user_guide(ROOT)
         section = next(
             item for item in parse_user_guide_sections(text)
-            if item.title == "Current command menu (W92 candidate)"
+            if item.title == "Current command menu (W94 candidate)"
         )
         for menu in (
             "### File",
@@ -300,6 +348,7 @@ class UserGuidePureTests(unittest.TestCase):
             "Favorites",
             "Find All…",
             "Capture Selection in Scratchpad…",
+            "Tags",
             "Export with Pandoc/citeproc…",
             "Navigator Panel",
             "Manage Bookmarks…",
@@ -351,11 +400,11 @@ class UserGuidePureTests(unittest.TestCase):
     def test_hierarchical_help_topics_expose_menu_and_submenu_structure(self):
         topics = parse_user_guide_topics(load_user_guide(ROOT))
         titles = tuple(topic.title for topic in topics)
-        self.assertIn("Current command menu (W92 candidate)", titles)
+        self.assertIn("Current command menu (W94 candidate)", titles)
         self.assertIn("File", titles)
         self.assertIn("Final Research", titles)
         self.assertIn("Current boundaries", titles)
-        current_index = titles.index("Current command menu (W92 candidate)")
+        current_index = titles.index("Current command menu (W94 candidate)")
         file_index = titles.index("File")
         self.assertEqual(topics[file_index].parent_index, current_index)
         final_index = titles.index("Final command menu target")

@@ -94,6 +94,14 @@ class ScratchpadRuntime:
         self.sync_document(force=force)
         return self._controller.entries
 
+    def show_entry(self, entry_id: str) -> bool:
+        """Reload the current sidecar and reveal one explicit Scratchpad entry."""
+        self.sync_document(force=True)
+        selected = self._controller.select_id(entry_id)
+        if selected:
+            self._view.focus_search()
+        return selected
+
     def on_add(self, *_):
         return self.new_entry()
 

@@ -70,7 +70,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         lib = _lib_dir()
         with open(os.path.join(lib, "calamus_right_panel.py"), "r", encoding="utf-8") as handle:
             source = handle.read()
-        self.assertIn("self._paned.pack2(widget, False, False)", source)
+        self.assertIn("self._paned.pack2(widget, False, True)", source)
         self.assertIn("self._paned.remove(widget)", source)
         self.assertIn("self._active_section = None", source)
 
