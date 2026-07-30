@@ -20,3 +20,8 @@ Validation:
 Note:
 - Manual GTK interaction tests still require a desktop environment with PyGObject installed.
 - No tabs, split-view, workspace, command-palette, plugin, or Calamus Plus changes are included.
+
+W95 candidate correction:
+- Repaired the Research client selector so the GtkPopover child hierarchy is explicitly visible and allocated before popup mapping.
+- Strengthened the True GTK gate to require mapped, realized, positively allocated popup/list/row widgets and a real selector-to-stack activation effect.
+- Preserved the mature-source history, caret, selection and viewport correction unchanged.

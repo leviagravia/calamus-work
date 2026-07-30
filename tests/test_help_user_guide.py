@@ -389,7 +389,7 @@ class UserGuidePureTests(unittest.TestCase):
             "Show Uses",
             "Rename Tag…",
             "Merge Tags…",
-            "Scratchpad Full is frozen until after W96",
+            "Scratchpad Full is frozen until Calamus is complete",
             "Options` menu disappears",
             "About Calamus",
             "Guide Navigator",

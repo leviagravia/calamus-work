@@ -62,7 +62,8 @@ from calamus_workspace_identity import (
 from calamus_workspace_menu import populate_recent_workspaces_menu as workspace_populate_recent_menu
 from calamus_workspace_panel import WorkspacePanelView, WorkspacePanelRuntime
 from calamus_workspace_external import open_external_path, reveal_in_file_manager
-from calamus_history import TextHistory
+from calamus_history import HistoryState, TextHistory
+from calamus_history_runtime import SnapshotHistoryRuntime, restore_buffer_state
 from calamus_external import open_character_map as external_open_character_map
 from calamus_writing import (
     sort_lines, clean_pdf_text, remove_extra_spaces,
@@ -111,6 +112,8 @@ from calamus_help_dialogs import show_user_guide
 from calamus_editor import build_editor_widgets, apply_text_wrap_policy
 from calamus_clip_collection import ClipCollectionController
 from calamus_clip_panel import build_clip_collection_view
+from calamus_clip_runtime import ClipCollectionRuntime, copy_clip_body, insert_clip_expansion, selected_document_text
+from calamus_clips import MarkdownClipStore
 from calamus_right_panel import RightPanelHost
 from calamus_reference_runtime import ReferencePanelRuntime
 from calamus_reference_store import MarkdownReferenceStore
@@ -222,7 +225,7 @@ class App(Gtk.Window):
         self.spell_source = None
         self.word_count_source = None
         self.history = TextHistory(max_steps=100)
-        self.undo_snapshot_source = None
+        self.history_runtime = None
         self.restoring_undo = False
         self.print_pages = []
         line_number_preference = load_line_number_preference(self.settings)
@@ -272,8 +275,12 @@ class App(Gtk.Window):
         # topology; the line-number gutter stays outside the scroller.
         self.editor_box, self.line_gutter, self.scroller, self.text = build_editor_widgets(self.word_wrap)
         self.body_paned.pack1(self.editor_box, True, True)
-        self.text.get_buffer().connect("changed", self.on_changed)
-        self.text.get_buffer().connect("notify::cursor-position", self.on_cursor_position_notify)
+        buffer = self.text.get_buffer()
+        self.history_runtime = SnapshotHistoryRuntime(self.history, self.text, self.scroller, GLib, log_nonfatal)
+        buffer.connect("changed", self.on_changed)
+        buffer.connect("begin-user-action", lambda *_: self.history_runtime.begin_user_action(not self.loading and not self.restoring_undo))
+        buffer.connect("end-user-action", lambda *_: self.history_runtime.end_user_action(not self.loading and not self.restoring_undo))
+        buffer.connect("notify::cursor-position", self.on_cursor_position_notify)
         self.text.connect_after("key-release-event", self.on_text_key_release)
         self.text.connect_after("move-cursor", self.on_text_move_cursor)
         self.text.connect_after("motion-notify-event", self.on_text_motion_notify)
@@ -446,19 +453,17 @@ class App(Gtk.Window):
         self.queue_insert_scroll(margin=0.02)
         return False
 
-    def queue_insert_scroll(self, margin=0.02):
-        if not hasattr(self, "text"):
+    def queue_insert_scroll(self, margin=0.02, *, center_if_outside=False):
+        if self.history_runtime is None:
             return False
-        GLib.idle_add(lambda: self.ensure_insert_visible(margin))
-        return False
+        return self.history_runtime.queue_scroll_to_insert(
+            margin, center_if_outside=center_if_outside
+        )
 
-    def ensure_insert_visible(self, margin=0.02):
-        try:
-            buf = self.text.get_buffer()
-            self.text.scroll_to_mark(buf.get_insert(), margin, False, 0.0, 0.0)
-        except Exception as exc:
-            log_nonfatal("non-fatal GTK operation failed", exc)
-        return False
+    def ensure_insert_visible(self, margin=0.02, *, center_if_outside=False):
+        return self.queue_insert_scroll(
+            margin, center_if_outside=center_if_outside
+        )
 
     def on_text_motion_notify(self, widget, event):
         # Let Gtk.TextView perform native selection autoscroll. Forcing our own
@@ -561,43 +566,22 @@ class App(Gtk.Window):
         self.reset_undo_history()
 
     def reset_undo_history(self):
-        text = self.buffer_text()
-        self.history.reset(text)
-        if self.undo_snapshot_source:
-            try:
-                GLib.source_remove(self.undo_snapshot_source)
-            except Exception:
-                pass
-            self.undo_snapshot_source = None
+        self.history_runtime.reset()
 
     def schedule_undo_snapshot(self):
-        if self.loading or self.restoring_undo:
-            return
-        if self.undo_snapshot_source:
-            try:
-                GLib.source_remove(self.undo_snapshot_source)
-            except Exception:
-                pass
-        self.undo_snapshot_source = GLib.timeout_add(600, self.commit_undo_snapshot)
+        self.history_runtime.observe_changed(not self.loading and not self.restoring_undo)
 
     def commit_undo_snapshot(self):
-        self.undo_snapshot_source = None
-        self.history.commit(self.buffer_text())
+        self.history_runtime.flush()
         return False
 
     def commit_pending_undo(self):
-        if self.undo_snapshot_source:
-            try:
-                GLib.source_remove(self.undo_snapshot_source)
-            except Exception:
-                pass
-            self.undo_snapshot_source = None
-        self.commit_undo_snapshot()
+        self.history_runtime.flush()
 
     def finalize_command_edit(self, select_range=None, command_name="Edit"):
-        self.commit_pending_undo()
         if select_range:
             self.select_range(*select_range)
+        self.history_runtime.finalize_command()
         self.modified = True
         if hasattr(self, "document"):
             self.document.mark_modified(self.buffer_text())
@@ -608,13 +592,8 @@ class App(Gtk.Window):
         self.update_title()
 
     def execute_command(self, command_name, edit_func, select_range=None):
-        """Single mutation gateway for editor commands.
-
-        Every feature-level edit must pass through this handler so GTK sees a
-        grouped user action and Calamus records one coherent undo snapshot.
-        File/session loading intentionally bypasses this and resets history.
-        """
-        self.commit_pending_undo()
+        """Run one grouped edit and persist exact before/after caret state."""
+        self.history_runtime.prepare_command()
         before = self.buffer_text()
         b = self.text.get_buffer()
         b.begin_user_action()
@@ -622,66 +601,51 @@ class App(Gtk.Window):
             edit_func(b)
         finally:
             b.end_user_action()
-        after = self.buffer_text()
-        if after != before:
+        if self.buffer_text() != before:
             self.finalize_command_edit(select_range=select_range, command_name=command_name)
             return True
+        self.history_runtime.flush()
         return False
 
     def perform_buffer_edit(self, edit_func, select_range=None, command_name="Edit"):
-        # Compatibility wrapper: all callers still route through the unified command layer.
         return self.execute_command(command_name, edit_func, select_range=select_range)
 
-    @staticmethod
-    def estimate_history_cursor(before: str, after: str) -> int:
-        """Return a stable cursor offset near the edit changed by undo/redo."""
-        if before == after:
-            return min(len(after), 0)
-        prefix = 0
-        limit = min(len(before), len(after))
-        while prefix < limit and before[prefix] == after[prefix]:
-            prefix += 1
-        before_suffix = len(before)
-        after_suffix = len(after)
-        while before_suffix > prefix and after_suffix > prefix and before[before_suffix - 1] == after[after_suffix - 1]:
-            before_suffix -= 1
-            after_suffix -= 1
-        return max(0, min(prefix, len(after)))
-
-    def set_text_from_history(self, text, cursor_offset=None):
+    def set_text_from_history(self, state):
+        if not isinstance(state, HistoryState):
+            raise TypeError("Undo/Redo restoration requires HistoryState")
         self.restoring_undo = True
         self.loading = True
-        self.text.get_buffer().set_text(text)
-        self.loading = False
-        self.restoring_undo = False
-        if cursor_offset is not None:
-            self.set_cursor_offset(cursor_offset)
+        try:
+            restore_buffer_state(self.text, state)
+        finally:
+            self.loading = False
+            self.restoring_undo = False
+        self.queue_insert_scroll(margin=0.15, center_if_outside=True)
         self.modified = True
         if hasattr(self, "document"):
-            self.document.mark_modified(text)
+            self.document.mark_modified(state.text)
         self.schedule_status_update()
         self.schedule_search_highlight()
         self.update_line_numbers()
         self.update_title()
 
     def on_undo(self, *_):
-        self.commit_pending_undo()
-        current_text = self.buffer_text()
-        text = self.history.undo(current_text)
-        if text is None:
+        """UI callback: apply Undo when available; success is effect-based."""
+        state = self.history_runtime.undo_target()
+        if state is None:
             if self.history.disabled_reason:
                 self.status.set_text(self.history.disabled_reason)
             return
-        self.set_text_from_history(text, self.estimate_history_cursor(current_text, text))
+        self.set_text_from_history(state)
 
     def on_redo(self, *_):
-        current_text = self.buffer_text()
-        text = self.history.redo()
-        if text is None:
+        """UI callback: apply Redo when available; success is effect-based."""
+        state = self.history_runtime.redo_target()
+        if state is None:
             if self.history.disabled_reason:
                 self.status.set_text(self.history.disabled_reason)
             return
-        self.set_text_from_history(text, self.estimate_history_cursor(current_text, text))
+        self.set_text_from_history(state)
 
     def on_changed(self, *_):
         if hasattr(self, "navigation_controller"):
@@ -871,6 +835,9 @@ class App(Gtk.Window):
         return True
 
     def on_destroy(self, *_):
+        history_runtime = getattr(self, "history_runtime", None)
+        if history_runtime is not None:
+            history_runtime.shutdown()
         # Calamus currently has one top-level application window. While the
         # launcher still owns a raw Gtk.main() loop, destroying that final
         # window must terminate the loop exactly once.
@@ -1005,9 +972,12 @@ class App(Gtk.Window):
             buf = self.text.get_buffer()
             it = buf.get_iter_at_offset(max(0, int(offset)))
             buf.place_cursor(it)
-            self.text.scroll_to_iter(it, 0.15, False, 0, 0)
+            self.queue_insert_scroll(margin=0.15)
         except Exception as exc:
             log_nonfatal("non-fatal GTK operation failed", exc)
+
+    def sync_current_history_view_state(self):
+        return self.history_runtime.sync_current_view_state()
 
     def on_top(self, item):
         self.set_keep_above(item.get_active())
@@ -2107,17 +2077,37 @@ class App(Gtk.Window):
 
     def build_clip_collection(self):
         self.clip_collection_view = build_clip_collection_view(
-            self.on_clip_add_selection,
-            self.on_clip_insert,
-            self.on_clip_delete,
-            self.on_clip_insert,
+            on_search=lambda query: self.clip_collection_runtime.on_search(query),
+            on_new=lambda *_: self.clip_collection_runtime.on_new(),
+            on_capture=lambda *_: self.clip_collection_runtime.on_capture(),
+            on_insert=lambda *_: self.clip_collection_runtime.on_insert(),
+            on_copy=lambda *_: self.clip_collection_runtime.on_copy(),
+            on_edit=lambda *_: self.clip_collection_runtime.on_edit(),
+            on_duplicate=lambda *_: self.clip_collection_runtime.on_duplicate(),
+            on_delete=lambda *_: self.clip_collection_runtime.on_delete(),
+            on_refresh=lambda *_: self.clip_collection_runtime.on_refresh(),
+            on_open_file=lambda *_: self.clip_collection_runtime.on_open_file(),
+            on_activate=lambda: self.clip_collection_runtime.on_insert(),
             show_title=False,
         )
         self.clip_collection = ClipCollectionController(
-            self.state,
+            MarkdownClipStore(self.state.config_dir),
             self.clip_collection_view,
         )
-        self.clip_collection.load()
+        self.clip_collection_runtime = ClipCollectionRuntime(
+            self,
+            self.clip_collection,
+            selected_text_provider=lambda: selected_document_text(self),
+            insert_expansion=lambda text, offset: insert_clip_expansion(self, text, offset),
+            copy_text=copy_clip_body,
+            show_error=lambda message: show_error(self, message),
+            show_info=lambda message: show_info(self, message),
+        )
+        if not self.clip_collection.load():
+            log_nonfatal(
+                'clip-collection-load',
+                RuntimeError(self.clip_collection.last_error or 'Clip Collection could not be loaded.'),
+            )
 
     def build_research_panel(self):
         self.reference_store = MarkdownReferenceStore()
@@ -2197,7 +2187,7 @@ class App(Gtk.Window):
             lambda: self.research_panel_runtime.hide(),
         )
         clients = (
-            ("clip-collection", "Clips", self.clip_collection.widget, None),
+            ("clip-collection", "Clips", self.clip_collection.widget, self.clip_collection_runtime.activate),
             ("scratchpad", "Scratchpad", self.scratchpad_runtime.widget, self.scratchpad_runtime.activate),
             ("references", "References", self.reference_panel_runtime.widget, self.reference_panel_runtime.activate),
             ("tags", "Tags", self.tags_runtime.widget, self.tags_runtime.activate),
@@ -2265,7 +2255,7 @@ class App(Gtk.Window):
         )
 
     def refresh_clip_list(self):
-        self.clip_collection.refresh()
+        return self.clip_collection.refresh()
 
     def on_research_item_toggled(self, item):
         return self.research_panel_runtime.on_menu_toggled(item)
@@ -2471,33 +2461,21 @@ class App(Gtk.Window):
 
     def insert_clip_number(self, number):
         if self.clip_collection.select_number(number):
-            self.on_clip_insert()
+            return self.clip_collection_runtime.on_insert()
+        return False
 
+    def on_insert_clip(self, *_):
+        return self.clip_collection_runtime.on_quick_insert()
+
+    # Compatibility callbacks retained for tests and older menu wiring.
     def on_clip_add_selection(self, *_):
-        b = self.text.get_buffer()
-        if b.get_has_selection():
-            s, e = b.get_selection_bounds()
-            txt = b.get_text(s, e, True)
-        else:
-            txt = ""
-        if not self.clip_collection.add_text(txt):
-            show_error(self, "Could not save Clip Collection.")
+        return self.clip_collection_runtime.on_capture()
 
     def on_clip_insert(self, *_):
-        txt = self.clip_collection.selected_text()
-        if txt is None:
-            return
-        self.text.grab_focus()
-
-        def edit(buf):
-            buf.insert_at_cursor(txt)
-
-        self.execute_command("Insert Clip", edit)
+        return self.clip_collection_runtime.on_insert()
 
     def on_clip_delete(self, *_):
-        result = self.clip_collection.delete_selected()
-        if result is False:
-            show_error(self, "Could not save Clip Collection.")
+        return self.clip_collection_runtime.on_delete()
 
     def toggle_focus_mode(self, *_):
         self.focus_mode = not self.focus_mode

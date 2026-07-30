@@ -94,7 +94,7 @@ class ReleaseRegressionTests(unittest.TestCase):
         self.assertIn("def on_button_press", panel_source)
         self.assertIn("double_click_type=Gdk.EventType._2BUTTON_PRESS", panel_source)
         self.assertIn('clip_list.connect("button-press-event", adapter.on_button_press)', panel_source)
-        self.assertNotIn('row-activated', panel_source)
+        self.assertIn('clip_list.connect("row-activated"', panel_source)
 
 
 if __name__ == "__main__":

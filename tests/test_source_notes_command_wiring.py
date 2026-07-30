@@ -54,7 +54,10 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
         self.assertIn('"source-notes"', method_source("build_research_panel"))
         self.assertIn('"Source Notes"', method_source("build_research_panel"))
         self.assertIn("SourceNotePanelRuntime(", launcher)
-        self.assertIn("Gtk.ComboBoxText", research_view)
+        self.assertIn("ResearchClientSelector", research_view)
+        self.assertIn("Gtk.MenuButton", research_view)
+        self.assertIn("Gtk.Popover", research_view)
+        self.assertIn("Gtk.PositionType.BOTTOM", research_view)
         self.assertNotIn("Gtk.StackSwitcher", research_view)
 
     def test_sidecar_is_document_specific_markdown(self):

@@ -14,6 +14,7 @@ RESEARCH = ROOT / "calamus" / "calamus_research_panel.py"
 RESEARCH_VIEW = ROOT / "calamus" / "calamus_research_panel_view.py"
 UI = ROOT / "calamus" / "calamus_ui.py"
 PROVENANCE = ROOT / "scripts" / "prove-source-provenance.sh"
+CLIP_RUNTIME = ROOT / "calamus" / "calamus_clip_runtime.py"
 
 
 def source(path):
@@ -60,12 +61,13 @@ class RightPanelCommandWiringTests(unittest.TestCase):
 
     def test_clip_controller_owns_persist_first_mutations(self):
         controller = source(CONTROLLER)
-        self.assertIn("if not self._store.save_clips(candidate, self._limit):", controller)
-        self.assertIn("self._clips = candidate", controller)
+        self.assertIn("snapshot = self._store.save_snapshot", controller)
+        self.assertIn("self._clips = committed", controller)
         self.assertLess(
-            controller.index("if not self._store.save_clips(candidate, self._limit):"),
-            controller.index("self._clips = candidate"),
+            controller.index("snapshot = self._store.save_snapshot"),
+            controller.index("self._clips = committed"),
         )
+        self.assertIn("expected_revision=self._revision", controller)
 
     def test_view_adapter_owns_double_click_and_list_selection(self):
         panel = source(PANEL)
@@ -74,7 +76,8 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         self.assertIn("get_selected_row", panel)
         self.assertIn("get_row_at_index", panel)
         self.assertIn('clip_list.connect("button-press-event", adapter.on_button_press)', panel)
-        self.assertNotIn("row-activated", panel)
+        self.assertIn('clip_list.connect("row-activated"', panel)
+        self.assertIn("def selected_id", panel)
 
     def test_host_remains_generic_and_research_shell_owns_real_clients(self):
         host = source(HOST)
@@ -95,8 +98,10 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         clips = source(CLIPS)
         self.assertIn('return os.path.join(config_dir, "clips.md")', clips)
         self.assertIn('return os.path.join(config_dir, "clips.json")', clips)
-        self.assertIn("if os.path.exists(path):", clips)
-        self.assertIn("save_clips(config_dir, legacy, limit)", clips)
+        self.assertIn("class MarkdownClipStore", clips)
+        self.assertIn("def load_snapshot", clips)
+        self.assertIn("def save_snapshot", clips)
+        self.assertIn("legacy_clips_path", clips)
         self.assertNotIn("save_json_file", clips)
 
     def test_visible_command_moves_coherently_to_research_without_duplication(self):
@@ -111,17 +116,27 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Clip Collection", view_block)
 
     def test_app_preserves_document_mutation_gateway_for_insert(self):
-        method = method_source("on_clip_insert")
-        self.assertIn('self.execute_command("Insert Clip", edit)', method)
-        self.assertIn("self.clip_collection.selected_text()", method)
-        self.assertNotIn("save_clips", method)
+        adapter = method_source("on_clip_insert")
+        gateway = source(CLIP_RUNTIME)
+        self.assertIn("self.clip_collection_runtime.on_insert()", adapter)
+        self.assertIn("def insert_clip_expansion", gateway)
+        self.assertIn("app.execute_command(", gateway)
+        self.assertIn('"Insert Clip"', gateway)
+        self.assertIn("app.set_cursor_offset(caret)", gateway)
+        self.assertIn('queue_scroll(margin=0.15)', gateway)
+        self.assertNotIn("select_range=(caret, caret)", gateway)
+        self.assertNotIn("save_clips", gateway)
 
     def test_source_provenance_includes_new_boundaries(self):
         provenance = source(PROVENANCE)
         for module in (
             "calamus_clips",
             "calamus_clip_collection",
+            "calamus_clip_search",
+            "calamus_clip_expansion",
             "calamus_clip_panel",
+            "calamus_clip_dialogs",
+            "calamus_clip_runtime",
             "calamus_right_panel",
             "calamus_references",
             "calamus_reference_store",

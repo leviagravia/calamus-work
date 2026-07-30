@@ -45,8 +45,10 @@ Use this chapter when you know **where a command should be** but do not yet know
 
 `Edit` contains reversible editing, clipboard commands and the complete current search/replace surface.
 
-- **Undo — `Ctrl+Z`**: undo the most recent editor mutation.
+- **Undo — `Ctrl+Z`**: undo the most recent editor mutation and return the viewport to the restored caret position.
 - **Redo — `Ctrl+Y`**: reapply the most recently undone mutation.
+
+Undo and Redo preserve the **exact caret and selection** recorded at the edit boundary, including which end of a selection owns the insertion mark. Calamus does not guess the edit position from a text diff. After restoration, the viewport adapter waits for valid GTK scroll geometry and then projects the insertion mark through the vertical adjustment, centering it only when it is outside the safe visible area. This is one replaceable, event-driven reveal request—not a chain of timeouts—and cursor navigation by itself does not create an Undo step. Large-document history limits remain unchanged.
 - **Cut — `Ctrl+X`**: move the selection to the clipboard.
 - **Copy — `Ctrl+C`**: copy the selection.
 - **Paste — `Ctrl+V`**: paste clipboard text.
@@ -66,6 +68,7 @@ Use this chapter when you know **where a command should be** but do not yet know
 
 - **Research Panel — `Ctrl+Alt+C`**: show or hide the shared right-side Research Panel.
 - **Clip Collection**: activate the Clip Collection client.
+- **Insert Clip… — `Ctrl+Alt+K`**: search the shortcut list and insert the selected clip body into the editor.
 - **Scratchpad — `Ctrl+Alt+S`**: activate the document-local Scratchpad client.
 - **References**: activate the global Markdown bibliography.
 - **Tags**: open the derived tag inventory for References, current Source Notes and current Scratchpad.
@@ -174,7 +177,7 @@ Status words used below:
 
 - **Available**: already present in the current W92 candidate, although its final menu location may still change.
 - **Planned**: approved final target but not yet certified.
-- **Frozen**: approved scope deliberately postponed. Scratchpad Full is frozen until after W96.
+- **Frozen**: approved scope deliberately postponed. Scratchpad Full is frozen until Calamus is complete and the user gives a separate explicit authorization.
 - **Retired**: rejected or removed behavior that must not be presented as available.
 
 The final top-level order is:
@@ -270,7 +273,12 @@ Preferences belong under `Tools` in the final menu.
 Research
 ├── Show / Hide Research Panel               [Available]
 ├── Clip Collection                          [Available]
-├── Scratchpad                               [Basic available; Full frozen until after W96]
+│   ├── Insert Clip…                         [Available; Ctrl+Alt+K]
+│   ├── New / Capture / Edit / Duplicate     [Available in panel]
+│   ├── Delete with confirmation             [Available in panel]
+│   ├── Copy Body / Refresh / Open Clip File [Available in panel]
+│   └── Mnemonic shortcuts / {{cursor}}      [Available]
+├── Scratchpad                               [Basic available; Full frozen until Calamus completion and explicit authorization]
 │   ├── Show Scratchpad                      [Available]
 │   ├── Capture Selection in Scratchpad…     [Available]
 │   ├── New Entry for Current Section…       [Available]
@@ -1438,44 +1446,229 @@ The document, `references.md` and the document Source Notes sidecar remain separ
 
 ## Research Panel
 
-`Research → Research Panel` opens the right-side Research workspace. Its selector follows the same learning order as the Research menu: **Clip Collection**, **Scratchpad**, **References**, **Reference Sets**, **Source Notes** and **Authoring Bridge**. The User Guide presents these clients in the same order, so the path learned in Help is the path encountered in the application.
+`Research → Research Panel` opens the right-side Research workspace. Its selector follows the same learning order as the Research menu: **Clip Collection**, **Scratchpad**, **References**, **Reference Sets**, **Source Notes** and **Authoring Bridge**. The selector opens **below** the control as a visible, scrollable list and begins from the first client, so earlier choices remain visible even after a later client has been used. Selecting a row immediately changes the active Research client and closes the selector. The User Guide presents these clients in the same order, so the path learned in Help is the path encountered in the application.
 
 Practical example: while editing `Chapter-01.md`, open the Research Panel and move from Clip Collection to Scratchpad before entering the bibliographic workflow. Clip Collection answers “what reusable text do I keep globally?”, while Scratchpad answers “what provisional thinking belongs to this document?”. References and Source Notes come later because they introduce sources and source-grounded evidence.
 
 
 ## Clip Collection
 
-`Research → Clip Collection` is the first content client in the Research Panel. It stores short pieces of text that you expect to reuse in more than one document: a Markdown structure, a recurring formula, a standard paragraph, a checklist, a quotation template or a pastoral refrain written by you.
+`Research → Clip Collection` opens the global library of short text fragments that can be reused in different documents. Typical clips are a Markdown outline, a recurring formula, a standard reply, a checklist, a signature, a quotation layout or a pastoral refrain written by you.
 
-### The question Clip Collection answers
+Clip Collection is deliberately different from the other Research clients:
 
-Use Clip Collection when the question is:
+- it is **global**, not owned by the current document;
+- it stores reusable text, not unfinished project-specific thinking;
+- it has no bibliographic meaning;
+- it is not a second Scratchpad;
+- it does not monitor or remember the system clipboard;
+- it does not create tags, concepts, folders or automatic relations.
 
-> “Will I probably reuse this exact or nearly exact text in another document?”
+### Where clips are stored
 
-Do not use it merely because a passage is unfinished. Unfinished material tied to one document belongs in Scratchpad. Evidence taken from a book, article or archival source belongs in Source Notes. Bibliographic metadata belongs in References.
+The canonical authority is the readable UTF-8 Markdown file:
 
-Example:
+    ~/.config/calamus/clips.md
 
-- `## Introduzione {#introduzione}` as a reusable Markdown pattern → **Clip Collection**;
-- an idea for the introduction of the current article → **Scratchpad**;
-- a paraphrase of Ratzinger for that introduction → **Source Notes**;
-- the book by Ratzinger → **References**.
+W95 uses **Calamus Clip Collection v2**. Every clip has a stable technical ID, a title, an optional mnemonic shortcut, creation and update timestamps, and a Markdown body. Calamus can migrate the earlier v1 Markdown format and the legacy `clips.json` source. The old JSON file is retained as a read-only backup and is never used as a second authority.
 
-### A first two-minute exercise
+Use **Manage → Open Clip File** to open `clips.md` in the system’s default text editor. Use **Refresh** after editing it outside Calamus. Before every write, Calamus checks whether the file changed externally. A stale authority is never overwritten silently: refresh the external version, inspect it and repeat the intended operation.
+
+The collection has an explicit maximum of 200 records. Calamus does not silently discard older clips when the limit is reached.
+
+### Stable ID, title and mnemonic shortcut
+
+A clip has three different identifiers:
+
+- **Stable ID** — an internal value such as `clip-0123456789abcdef0123456789abcdef`. It remains the identity even when the title or shortcut changes.
+- **Title** — the readable description displayed in the list.
+- **Shortcut** — one optional mnemonic such as `firma`, `intro-articolo` or `risposta-ringraziamento`.
+
+A mnemonic shortcut is **not a tag**. A clip has at most one shortcut; the shortcut is globally unique; it does not classify clips or create a taxonomy. It is simply a short address used to retrieve the correct body quickly.
+
+Shortcut rules:
+
+- 1–32 characters;
+- lowercase letters, numbers, `-` and `_`;
+- the first character must be a letter or number;
+- comparison is case-insensitive;
+- two clips cannot share the same shortcut;
+- Duplicate deliberately leaves the new shortcut empty so that the original remains unambiguous.
+
+### Understand the list and detail view
+
+Each row shows:
+
+1. the shortcut, or `—` if none exists;
+2. the title;
+3. the first non-empty line of the body as an ellipsized preview.
+
+The lower detail area shows the complete selected body without editing it. Use **Edit** for changes. This separation prevents an accidental keystroke in the panel from rewriting the authority.
+
+The Search field checks shortcut, title and body. Matching is deliberately simple and deterministic:
+
+1. exact shortcut;
+2. shortcut beginning with the query;
+3. title beginning with the query;
+4. shortcut containing the query;
+5. title containing the query;
+6. body containing the query.
+
+The selected clip is tracked by stable ID, not by row number or displayed text. Refreshing or filtering therefore does not silently redirect an action to a different clip.
+
+### Create a new clip
+
+Press **New** and enter:
+
+- **Title** — a concise readable name;
+- **Shortcut** — optional and unique;
+- **Body** — the reusable text.
+
+The body cannot be empty. The dialog validates the shortcut and the special cursor marker before any file is changed. Cancel leaves both the authority and the document untouched.
+
+When the same body already exists, Calamus warns you and offers three explicit choices:
+
+- select the existing clip;
+- create another clip deliberately;
+- cancel.
+
+A duplicate body is therefore possible, but never created without your knowledge.
+
+### Capture selected document text
+
+Select non-empty text in the editor and press **Capture Selection**. Calamus opens the New Clip dialog with that selection copied into the Body. You can edit the title, add a shortcut and review the body before saving.
+
+Capture never deletes or changes the selected document text. With no selection, the command stops with an error instead of creating an empty clip.
+
+### Edit, duplicate and delete
+
+Use **Manage → Edit** to change the title, shortcut or body. The stable ID and creation timestamp remain unchanged; the update timestamp changes only after a successful atomic save.
+
+Use **Manage → Duplicate** when you intentionally need a second independent record. Calamus asks you to confirm the duplicate body, creates a new stable ID and leaves the shortcut empty.
+
+Use **Manage → Delete** to remove the selected clip permanently. Delete always asks for confirmation. Cancelling changes nothing. After deletion, the nearest remaining clip is selected by ID.
+
+### Insert a selected clip from the panel
+
+Place the editor cursor at the destination, select a clip and press **Insert**, press Enter on the selected row, or double-click it. The Body enters the real document through Calamus’s normal document-editing gateway:
+
+- the document becomes modified;
+- insertion is one coherent Undo step;
+- the clip remains in the collection;
+- `clips.md` is not rewritten merely because the body was inserted.
+
+If `clips.md` changed after the panel loaded it, insertion stops rather than using an obsolete body. Refresh and choose the clip again.
+
+### Insert Clip quickly with Ctrl+Alt+K
+
+Choose `Research → Insert Clip…` or press `Ctrl+Alt+K` from the editor. A compact keyboard-first selector opens with Search focused.
+
+At an empty query it is also the complete **list of clip shortcuts**. Rows show shortcut, title and body preview. Clips with shortcuts appear first in shortcut order; clips without shortcuts follow in title order.
+
+Keyboard operation:
+
+- type a shortcut, title word or body fragment;
+- use Up and Down to change selection;
+- press Enter to insert;
+- double-click a row to insert;
+- press Escape to cancel.
+
+Even an exact shortcut match requires Enter or an explicit activation. Merely typing a shortcut never changes the document. After insertion, focus returns to the editor and one Undo removes the complete inserted body.
+
+### Position the caret with {{cursor}}
+
+A clip body may contain the literal marker `{{cursor}}` once:
+
+```text
+Gentile {{cursor}},
+
+la ringrazio per la sua comunicazione.
+```
+
+When the clip is inserted, the marker is removed and the caret is placed at that position. If the marker is absent, the caret is placed after the inserted text. More than one marker is invalid and must be corrected before insertion.
+
+`{{cursor}}` is only a deterministic position marker. It does not execute code, read the clipboard, insert another clip or evaluate an expression. The insertion mark is placed explicitly at that position after the grouped edit; if the marker is first, last or in the middle, the caret must remain there rather than falling back to the end of the inserted body.
+
+### Copy Body without changing the document
+
+Press **Copy Body** to place the selected body on the system clipboard. This is an explicit one-time copy. Calamus does not watch the clipboard, build clipboard history or capture later clipboard changes.
+
+### Numeric quick slots 1–9
+
+The compatibility shortcuts `Ctrl+Alt+1` through `Ctrl+Alt+9` insert the first nine records in the canonical order of `clips.md`. These are **numeric quick slots**, not stable identities and not mnemonic shortcuts.
+
+Use them only for a small, deliberately ordered group of clips. Reordering or deleting records can change a numeric slot. For dependable retrieval by name, use `Ctrl+Alt+K` and the clip’s mnemonic shortcut.
+
+### Refresh and external changes
+
+**Manage → Refresh** performs a real disk reload. It does not merely redraw cached rows. Calamus attempts to preserve the selection by stable ID.
+
+Every mutation follows a persist-first transaction:
+
+1. validate the complete candidate collection;
+2. verify the authority revision;
+3. write a unique temporary file in the same directory;
+4. flush and `fsync` it;
+5. verify the revision again;
+6. atomically replace `clips.md`;
+7. update the panel only after disk success.
+
+If parsing, validation, writing or replacement fails, the previous file, the runtime list and the active document remain unchanged.
+
+### A first five-minute exercise
 
 1. Open `Research → Clip Collection`.
-2. Create a clip named `Three-part outline`.
-3. Enter a small reusable outline in its body.
-4. Save it.
-5. Place the cursor in a disposable test document and insert the clip.
-6. Undo the insertion once, so you see that insertion participates in the document’s normal editing history.
+2. Press **New**.
+3. Title the clip `Three-part outline`.
+4. Give it the shortcut `outline3`.
+5. Enter:
 
-After this exercise, leave Clip Collection and open Scratchpad. The difference should be visible immediately: a clip is reusable across documents; a Scratchpad Entry belongs to the current saved document.
+```text
+## First part
 
-### Keep the collection small enough to remember
+## Second part
 
-Clip Collection works best as a deliberate shelf, not as a dumping ground. Use clear titles, remove obsolete duplicates and prefer one reliable clip over several nearly identical variants. When an item begins to contain project-specific reasoning, move that reasoning into the appropriate document’s Scratchpad rather than turning the global clip library into an unstructured notebook.
+## Third part
+
+{{cursor}}
+```
+
+6. Save it.
+7. Place the cursor in a disposable document.
+8. Press `Ctrl+Alt+K`, type `outline3`, then press Enter.
+9. Verify that the outline appears and the caret is at the marker position.
+10. Press `Ctrl+Z` once and verify that the complete insertion is undone.
+11. Return to Clip Collection, use **Copy Body**, then use **Refresh**.
+
+### Common mistakes and recovery
+
+#### “I used several words as shortcuts to classify a clip”
+
+Use one concise mnemonic address. Clip shortcuts are not tags. W95 intentionally has no clip taxonomy.
+
+#### “Ctrl+Alt+1 inserted a different clip than before”
+
+Numeric quick slots follow file order. Use `Ctrl+Alt+K` and a stable mnemonic shortcut when identity matters.
+
+#### “Capture created nothing”
+
+Select non-empty document text first. Capture refuses an empty selection.
+
+#### “Insert says the collection changed outside Calamus”
+
+Press Refresh, inspect the current external version, select the clip again and repeat the insertion. Calamus does not guess which version should win.
+
+#### “A clip cannot be inserted because of {{cursor}}”
+
+Edit it and retain zero or one marker. Two or more markers are invalid.
+
+#### “I need notes tied to one section of this document”
+
+Use Scratchpad. Clip Collection is global reusable text and must not become a second document notebook.
+
+### Keep the collection deliberate
+
+Use clear titles and memorable shortcuts, remove obsolete duplicates and prefer one reliable clip over many nearly identical variants. When material becomes project-specific reasoning, move it into the appropriate document’s Scratchpad. When it represents evidence from a source, create a Source Note instead.
 
 ## Scratchpad
 
@@ -2846,33 +3039,17 @@ Buona abitudine: tieni aperto un solo client alla volta e usa il menu Research p
 
 ### 5. Clip Collection: frammenti riutilizzabili, non fonti
 
-`Research → Clip Collection` gestisce piccoli frammenti testuali da conservare e reinserire. È utile per formule ricorrenti, schemi, clausole, richiami pastorali, abbreviazioni o strutture Markdown.
+`Research → Clip Collection` gestisce una biblioteca globale di testi riutilizzabili. Ogni record possiede uno stable ID, un titolo, una shortcut mnemonica opzionale e un corpo Markdown. La shortcut è un indirizzo univoco come `firma` o `intro-articolo`: non è un tag e non classifica il contenuto.
 
-Esempi di clip:
+Nel client puoi usare **New**, **Capture Selection**, **Insert**, **Copy Body** e il menu **Manage** con Edit, Duplicate, Delete, Refresh e Open Clip File. Search controlla shortcut, titolo e corpo; la riga mostra shortcut, titolo e anteprima; il dettaglio mostra il corpo completo senza modificarlo.
 
-```text
-Titolo: Citazione lunga
-Testo:
-> Testo della citazione.
->
-> — Autore, Opera, pagina
-```
+`Research → Insert Clip…` o `Ctrl+Alt+K` apre il selettore rapido. A query vuota mostra la lista completa delle shortcut. Digita una shortcut o una parola, usa Su/Giù e premi Enter. L’inserimento passa dal gateway del documento ed è un solo Undo. Il marcatore `{{cursor}}`, ammesso una sola volta, stabilisce dove deve trovarsi il cursore dopo l’inserimento.
 
-```text
-Titolo: Schema conclusione
-Testo:
-In sintesi, il percorso svolto consente di affermare tre risultati:
-1.
-2.
-3.
-```
+`Ctrl+Alt+1…9` resta disponibile come insieme di **numeric quick slots** collegati ai primi nove record nell’ordine canonico del file. Non è una forma di identità stabile: per richiamare una clip per nome usa `Ctrl+Alt+K`.
 
-Usa Clip Collection per testo riutilizzabile. Non usarla per sostituire References o Source Notes:
+L’autorità è `~/.config/calamus/clips.md`. Refresh rilegge realmente il file. Le scritture sono atomiche e protette da stale detection; una modifica esterna non viene sovrascritta in modo silenzioso. Clip Collection non è uno Scratchpad, non è una cronologia degli appunti e non controlla il clipboard.
 
-- una clip non possiede identità bibliografica;
-- non viene controllata da Research Check come fonte;
-- non genera backlink;
-- non deve diventare un deposito indistinto di appunti di lettura.
+Usa Clip Collection per formule, schemi, clausole, firme o strutture Markdown indipendenti dal documento corrente. Usa Scratchpad per idee e bozze legate a un documento; Source Notes per materiale tratto da una fonte; References per la sua identità bibliografica.
 
 ### 6. References: la biblioteca globale
 

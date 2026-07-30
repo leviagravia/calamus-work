@@ -45,11 +45,12 @@ class Stable4RegressionTests(unittest.TestCase):
         self.assertNotIn("Gdk.WindowHints.MAX_SIZE", source)
         self.assertNotIn("on_window_size_allocate", source)
 
-    def test_undo_redo_caret_estimation_exists(self):
+    def test_undo_redo_uses_exact_caret_state_not_text_diff_estimation(self):
         with open(_launcher(), encoding="utf-8") as f:
             source = f.read()
-        self.assertIn("estimate_history_cursor", source)
-        self.assertIn("set_text_from_history(text, self.estimate_history_cursor", source)
+        self.assertNotIn("estimate_history_cursor", source)
+        self.assertIn("restore_buffer_state(self.text, state)", source)
+        self.assertIn("self.history_runtime.undo_target()", source)
 
 
 if __name__ == "__main__":

@@ -128,7 +128,8 @@ COMMANDS: tuple[CommandSpec, ...] = (
     CommandSpec("Clean Selected Text from PDF", "<Control><Alt><Shift>V", True),
     CommandSpec("Sort A-Z", "<Control><Alt>Up", True),
     CommandSpec("Sort Z-A", "<Control><Alt>Down", True),
-    CommandSpec("Clip Collection", "<Control><Alt>C"),
+    CommandSpec("Research Panel", "<Control><Alt>C"),
+    CommandSpec("Insert Clip", "<Control><Alt>K", True),
     CommandSpec("Character Map", "<Control><Alt>F10"),
 )
 

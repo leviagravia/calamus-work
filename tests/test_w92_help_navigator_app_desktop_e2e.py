@@ -73,7 +73,11 @@ class W92HelpNavigatorGtkE2E(unittest.TestCase):
                 body = widgets.text_view.get_buffer().get_text(start, end, True)
                 self.assertIn("Tags", body)
                 self.assertIn("Scratchpad Full", body)
-                self.assertIn("after W96", body)
+                self.assertIn(
+                    "until Calamus completion and explicit authorization",
+                    body,
+                )
+                self.assertNotIn("after W96", body)
             except Exception as error:
                 failures.append(error)
             widgets.dialog.response(Gtk.ResponseType.CLOSE)

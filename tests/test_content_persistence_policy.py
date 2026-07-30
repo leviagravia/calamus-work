@@ -21,11 +21,14 @@ class ContentPersistencePolicyTests(unittest.TestCase):
         clips = source(CLIPS)
         self.assertIn('return os.path.join(config_dir, "clips.md")', clips)
         self.assertIn('return os.path.join(config_dir, "clips.json")', clips)
-        self.assertIn("if os.path.exists(path):", clips)
-        self.assertIn("save_clips(config_dir, legacy, limit)", clips)
+        self.assertIn("class MarkdownClipStore", clips)
+        self.assertIn("def load_snapshot", clips)
+        self.assertIn("def save_snapshot", clips)
+        self.assertIn("legacy_clips_path", clips)
+        self.assertIn("json.load", clips)
+        self.assertIn("_write_text_atomic", clips)
         self.assertNotIn("save_json_file", clips)
-        self.assertIn("read-only backup", clips)
-        self.assertIn("never synchronized or rewritten", clips)
+        self.assertNotIn("json.dump", clips)
 
     def test_json_remains_allowed_for_technical_application_state(self):
         state = source(STATE)

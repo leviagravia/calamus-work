@@ -158,6 +158,7 @@ def build_menu(app) -> None:
     researchm.append(app.research_item)
     add_separator(researchm)
     add_item(researchm, "Clip Collection", app.show_clip_collection)
+    add_item(researchm, "Insert Clip…\tCtrl+Alt+K", app.on_insert_clip)
     add_item(researchm, "Scratchpad\tCtrl+Alt+S", app.show_scratchpad)
     add_item(researchm, "References", app.show_references)
     add_item(researchm, "Tags", app.show_tags)
@@ -343,6 +344,7 @@ def shortcut_bindings(app):
         ("<Control><Alt>R", app.on_reload_favourites),
         ("<Control><Alt>F10", app.on_character_map),
         ("<Control><Alt>C", app.toggle_research_panel),
+        ("<Control><Alt>K", app.on_insert_clip),
         ("<Control><Alt>S", app.show_scratchpad),
         ("<Control><Alt><Shift>S", app.on_capture_selection_in_scratchpad),
         ("<Control><Alt>Q", app.on_quick_cite),
