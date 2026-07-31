@@ -28,7 +28,7 @@ class W94TagsCommandWiringTests(unittest.TestCase):
 
     def test_help_has_current_menu_entry_and_learning_topic(self):
         guide = (ROOT / "share/doc/calamus/USER_GUIDE.md").read_text(encoding="utf-8")
-        self.assertIn("## Current command menu (W94 candidate)", guide)
+        self.assertIn("## Current command menu (W95extra mature-source rebuilt candidate)", guide)
         self.assertIn("## Tags", guide)
         self.assertIn("### Tutorial: build a useful tag vocabulary from one article", guide)
         self.assertIn("### First guided exercise", guide)

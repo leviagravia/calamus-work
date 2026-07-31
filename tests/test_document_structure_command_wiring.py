@@ -80,13 +80,13 @@ class DocumentStructureCommandWiringTests(unittest.TestCase):
         self.assertIn('Next Heading\\tCtrl+PageDown', navigate_block)
         self.assertIn('Previous Heading\\tCtrl+PageUp', navigate_block)
 
-    def test_bookmarks_are_not_recomposed_in_w70(self):
+    def test_bookmarks_are_navigation_commands_in_w95extra(self):
         source = function_source(UI, "build_menu")
-        navigate_block = source[source.index('navigatem = top_menu(app, "Navigate")'):source.index('revisem = top_menu(app, "Revise")')]
+        navigate_block = source[source.index('navigatem = top_menu(app, "Navigate")'):source.index('writingm = top_menu(app, "Writing")')]
         revise_block = source[source.index('revisem = top_menu(app, "Revise")'):source.index('viewm = top_menu(app, "View")')]
-        self.assertNotIn("Bookmark", navigate_block)
-        self.assertIn("Insert Bookmark Here", revise_block)
-        self.assertIn("Manage Bookmarks", revise_block)
+        self.assertIn("Insert Bookmark Here", navigate_block)
+        self.assertIn("Manage Bookmarks", navigate_block)
+        self.assertNotIn("Bookmark", revise_block)
 
     def test_shortcuts_use_canonical_navigate_identity(self):
         source = SHORTCUTS.read_text(encoding="utf-8")

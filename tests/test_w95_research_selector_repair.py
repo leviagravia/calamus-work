@@ -43,16 +43,16 @@ class W95ResearchSelectorRepairTests(unittest.TestCase):
         desktop = function_source(GATE, "require_desktop_widget")
 
         self.assertIn("selector.widget.set_active(True)", exercise)
-        self.assertIn("selector.popover.get_mapped()", exercise)
-        self.assertIn("selector._scroll.get_mapped()", exercise)
-        self.assertIn("selector.listbox.get_mapped()", exercise)
+        self.assertIn("desktop_widget_ready(selector.popover)", exercise)
+        self.assertIn("desktop_widget_ready(selector._scroll)", exercise)
+        self.assertIn("desktop_widget_ready(selector.listbox)", exercise)
         self.assertIn("require_desktop_widget(selector.popover", exercise)
         self.assertIn("require_desktop_widget(selector._scroll", exercise)
         self.assertIn("require_desktop_widget(selector.listbox", exercise)
         self.assertIn('selector.listbox.emit("row-activated", target)', exercise)
         self.assertIn("app.research_panel_runtime.active_client == target_id", exercise)
         self.assertIn("not selector.popover.get_mapped()", exercise)
-        self.assertIn("allocation.width > 1 and allocation.height > 1", desktop)
+        self.assertIn("desktop_widget_ready(widget)", desktop)
         self.assertIn("W95_TRUE_RESEARCH_SELECTOR_VISIBLE_ACTIVATION=PASS", gate)
 
 

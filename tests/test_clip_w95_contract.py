@@ -75,10 +75,14 @@ class ClipW95ContractTests(unittest.TestCase):
         self.assertIn('emit("row-activated", row)', gate_text)
         self.assertIn("app.on_undo()", gate_text)
 
-    def test_candidate_identity_points_to_w95_from_published_w94(self):
+    def test_w95extra_identity_points_to_published_w95(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W95"', version)
-        self.assertIn('PUBLISHED_BASELINE = "541804f8ff361b3afacb58f18e1e429c70b3a2f9"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W95EXTRA"', version)
+        self.assertIn(
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Typewriter Mode + Writing menu"',
+            version,
+        )
+        self.assertIn('PUBLISHED_BASELINE = "3fbbc8fc6107d7c8771933da41eb1e429972f0ff"', version)
 
 
 if __name__ == "__main__":

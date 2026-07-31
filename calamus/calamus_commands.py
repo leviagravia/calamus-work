@@ -123,7 +123,7 @@ COMMANDS: tuple[CommandSpec, ...] = (
     CommandSpec("Open", "<Control>O"),
     CommandSpec("Save", "<Control>S"),
     CommandSpec("Save As", "<Control><Shift>S"),
-    CommandSpec("Insert Date/Time", "<Control><Alt>D", True),
+    CommandSpec("Insert Date and Time", "<Control><Alt>D", True),
     CommandSpec("Paste Clean from PDF", "<Control><Alt>V", True),
     CommandSpec("Clean Selected Text from PDF", "<Control><Alt><Shift>V", True),
     CommandSpec("Sort A-Z", "<Control><Alt>Up", True),

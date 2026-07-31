@@ -1,15 +1,44 @@
 """GtkTextBuffer boundary for Calamus' caret-aware snapshot history.
 
-The data model remains GTK-free in :mod:`calamus_history`.  This adapter reads
-and restores the standard insert/selection-bound marks.  Viewport projection is
-separate from history state: one owned reveal request computes the vertical
-adjustment from the restored insert mark after GTK geometry is available.
+The history model remains GTK-free.  Viewport projection is delegated to the
+single :class:`EditorViewportRuntime`, so Undo/Redo, navigation and Typewriter
+Mode cannot race independent vertical-adjustment writers.
 """
 from __future__ import annotations
 
 from typing import Any, Callable
 
 from calamus_history import HistoryState, TextHistory
+from calamus_viewport import compute_vertical_reveal as _compute_vertical_reveal
+from calamus_viewport_runtime import EditorViewportRuntime
+
+
+def compute_vertical_reveal(
+    *,
+    caret_y: float,
+    caret_height: float,
+    visible_y: float,
+    visible_height: float,
+    lower: float,
+    upper: float,
+    page_size: float,
+    top_margin: float = 0.0,
+    within_margin: float = 0.15,
+    center_if_outside: bool = True,
+) -> float | None:
+    """W95-compatible public projection function, now GTK-free."""
+    return _compute_vertical_reveal(
+        caret_y=caret_y,
+        caret_height=caret_height,
+        visible_y=visible_y,
+        visible_height=visible_height,
+        lower=lower,
+        upper=upper,
+        page_size=page_size,
+        top_margin=top_margin,
+        within_margin=within_margin,
+        center_if_outside=center_if_outside,
+    )
 
 
 def capture_buffer_state(text_view: Any) -> HistoryState:
@@ -31,56 +60,8 @@ def restore_buffer_state(text_view: Any, state: HistoryState) -> None:
     buffer.select_range(insert, bound)
 
 
-def compute_vertical_reveal(
-    *,
-    caret_y: float,
-    caret_height: float,
-    visible_y: float,
-    visible_height: float,
-    lower: float,
-    upper: float,
-    page_size: float,
-    top_margin: float = 0.0,
-    within_margin: float = 0.15,
-    center_if_outside: bool = True,
-) -> float | None:
-    """Return a clamped adjustment value, or ``None`` when already visible.
-
-    This is the GTK-free projection rule used by the runtime.  It follows the
-    mature-editor ordering used by VS Code, Pulsar and GNOME Text Editor:
-    restore semantic cursor state first, then reveal it through the view's own
-    scroll model.  No text diff and no guessed timeout participate.
-    """
-    if not 0.0 <= within_margin <= 0.5:
-        raise ValueError("within_margin must be between 0.0 and 0.5")
-    if visible_height <= 0 or page_size <= 0:
-        return None
-
-    caret_height = max(1.0, float(caret_height))
-    visible_height = float(visible_height)
-    margin_px = visible_height * within_margin
-    safe_top = float(visible_y) + margin_px
-    safe_bottom = float(visible_y) + visible_height - margin_px
-    caret_top = float(caret_y)
-    caret_bottom = caret_top + caret_height
-    if caret_top >= safe_top and caret_bottom <= safe_bottom:
-        return None
-
-    if center_if_outside:
-        desired = caret_top + (caret_height / 2.0) - (float(page_size) / 2.0)
-    elif caret_top < safe_top:
-        desired = caret_top - margin_px
-    else:
-        desired = caret_bottom - float(page_size) + margin_px
-    desired += max(0.0, float(top_margin))
-
-    minimum = float(lower)
-    maximum = max(minimum, float(upper) - float(page_size))
-    return max(minimum, min(desired, maximum))
-
-
 class SnapshotHistoryRuntime:
-    """Coordinate snapshots and one geometry-aware viewport reveal request."""
+    """Coordinate exact snapshots and delegate presentation to one viewport."""
 
     def __init__(
         self,
@@ -91,6 +72,7 @@ class SnapshotHistoryRuntime:
         log_nonfatal: Callable[[str, BaseException], None],
         *,
         debounce_ms: int = 600,
+        viewport_runtime: EditorViewportRuntime | None = None,
     ) -> None:
         self.history = history
         self.text_view = text_view
@@ -99,23 +81,30 @@ class SnapshotHistoryRuntime:
         self.log_nonfatal = log_nonfatal
         self.debounce_ms = debounce_ms
         self.snapshot_source: int | None = None
-        self.scroll_source: int | None = None
-        self.reveal_pending = False
-        self.reveal_margin = 0.15
-        self.reveal_center = False
         self.before_state: HistoryState | None = None
         self.after_state: HistoryState | None = None
-        self._adjustment = self.scroller.get_vadjustment()
-        self._adjustment_handler = None
-        self._allocation_handler = None
-        if hasattr(self._adjustment, "connect"):
-            self._adjustment_handler = self._adjustment.connect(
-                "changed", self._on_view_geometry_changed
-            )
-        if hasattr(self.text_view, "connect"):
-            self._allocation_handler = self.text_view.connect(
-                "size-allocate", self._on_view_geometry_changed
-            )
+        self.reveal_margin = 0.15
+        self.center_if_outside = False
+        self._owns_viewport = viewport_runtime is None
+        self.viewport_runtime = viewport_runtime or EditorViewportRuntime(
+            text_view,
+            scroller,
+            glib,
+            log_nonfatal,
+        )
+
+    # Compatibility properties retained for the published W95 gates and tests.
+    @property
+    def scroll_source(self) -> int | None:
+        return self.viewport_runtime.scroll_source
+
+    @property
+    def reveal_pending(self) -> bool:
+        return self.viewport_runtime.reveal_pending
+
+    @property
+    def applying_adjustment(self) -> bool:
+        return self.viewport_runtime.applying_adjustment
 
     def capture(self) -> HistoryState:
         return capture_buffer_state(self.text_view)
@@ -127,9 +116,7 @@ class SnapshotHistoryRuntime:
         self.history.reset(self.capture())
 
     def begin_user_action(self, enabled: bool = True) -> None:
-        if not enabled:
-            return
-        if self.before_state is None:
+        if enabled and self.before_state is None:
             self.before_state = self.capture()
 
     def end_user_action(self, enabled: bool = True) -> None:
@@ -152,7 +139,8 @@ class SnapshotHistoryRuntime:
     def _schedule_snapshot(self) -> None:
         self.cancel_snapshot()
         self.snapshot_source = self.glib.timeout_add(
-            self.debounce_ms, self._commit_scheduled
+            self.debounce_ms,
+            self._commit_scheduled,
         )
 
     def _commit_scheduled(self) -> bool:
@@ -200,101 +188,30 @@ class SnapshotHistoryRuntime:
                 self.log_nonfatal("history snapshot source removal failed", error)
             self.snapshot_source = None
 
+
     def _on_view_geometry_changed(self, *_args: Any) -> None:
-        if self.reveal_pending and self.scroll_source is None:
-            self._schedule_reveal_idle()
-
-    def _schedule_reveal_idle(self) -> None:
-        try:
-            self.scroll_source = self.glib.idle_add(
-                self._reveal_insert_once, priority=self.glib.PRIORITY_LOW
-            )
-        except TypeError:
-            self.scroll_source = self.glib.idle_add(self._reveal_insert_once)
-
-    def _reveal_geometry_ready(self, caret_bottom: float, page_size: float) -> bool:
-        upper = float(self._adjustment.get_upper())
-        return page_size > 1.0 and upper + 1.0 >= caret_bottom
-
-    def _reveal_insert_once(self) -> bool:
-        self.scroll_source = None
-        if not self.reveal_pending:
-            return False
-        try:
-            buffer = self.text_view.get_buffer()
-            iterator = buffer.get_iter_at_mark(buffer.get_insert())
-            location = self.text_view.get_iter_location(iterator)
-            visible = self.text_view.get_visible_rect()
-            page_size = float(self._adjustment.get_page_size())
-            caret_bottom = float(location.y) + max(1.0, float(location.height))
-            if not self._reveal_geometry_ready(caret_bottom, page_size):
-                # Keep the request pending. GtkAdjustment::changed or the next
-                # size allocation will schedule the same owned request again.
-                return False
-            top_margin = (
-                float(self.text_view.get_top_margin())
-                if hasattr(self.text_view, "get_top_margin")
-                else 0.0
-            )
-            target = compute_vertical_reveal(
-                caret_y=location.y,
-                caret_height=location.height,
-                visible_y=visible.y,
-                visible_height=visible.height,
-                lower=self._adjustment.get_lower(),
-                upper=self._adjustment.get_upper(),
-                page_size=page_size,
-                top_margin=top_margin,
-                within_margin=self.reveal_margin,
-                center_if_outside=self.reveal_center,
-            )
-            if target is not None:
-                self._adjustment.set_value(target)
-            self.reveal_pending = False
-        except Exception as error:
-            self.reveal_pending = False
-            self.log_nonfatal("history viewport restoration failed", error)
-        return False
+        """Compatibility gateway retained for the published W95 contract."""
+        if self.viewport_runtime.reveal_pending:
+            self.viewport_runtime._schedule_idle()
 
     def queue_scroll_to_insert(
-        self, margin: float = 0.15, *, center_if_outside: bool = False
+        self,
+        margin: float = 0.15,
+        *,
+        center_if_outside: bool = False,
     ) -> bool:
-        """Reveal the insert mark through one replaceable view request.
-
-        The request is resolved only when the vertical adjustment can represent
-        the restored caret.  Geometry notifications, not elapsed time, trigger a
-        retry if the TextView has not finished relayout after a bulk restore.
-        """
-        if not 0.0 <= float(margin) <= 0.5:
-            raise ValueError("margin must be between 0.0 and 0.5")
-        self.cancel_scroll()
-        self.reveal_pending = True
         self.reveal_margin = float(margin)
-        self.reveal_center = bool(center_if_outside)
-        self._schedule_reveal_idle()
-        return False
+        self.center_if_outside = bool(center_if_outside)
+        return self.viewport_runtime.queue_visible_to_insert(
+            margin,
+            center_if_outside=center_if_outside,
+        )
 
     def cancel_scroll(self) -> None:
-        if self.scroll_source is not None:
-            try:
-                self.glib.source_remove(self.scroll_source)
-            except Exception as error:
-                self.log_nonfatal("history scroll source removal failed", error)
-            self.scroll_source = None
-        self.reveal_pending = False
+        self.viewport_runtime.cancel()
 
     def shutdown(self) -> None:
         self.cancel_snapshot()
         self.cancel_scroll()
-        if self._adjustment_handler is not None and hasattr(self._adjustment, "disconnect"):
-            try:
-                self._adjustment.disconnect(self._adjustment_handler)
-            except Exception as error:
-                self.log_nonfatal("history adjustment disconnect failed", error)
-            self._adjustment_handler = None
-        if self._allocation_handler is not None and hasattr(self.text_view, "disconnect"):
-            try:
-                self.text_view.disconnect(self._allocation_handler)
-            except Exception as error:
-                self.log_nonfatal("history allocation disconnect failed", error)
-            self._allocation_handler = None
+        if self._owns_viewport:
+            self.viewport_runtime.shutdown()

@@ -13,6 +13,7 @@ class RuntimeIdentity:
     build_label: str
     work_item: str
     published_baseline: str
+    work_item_description: str = ""
 
 
 @dataclass(frozen=True)
@@ -32,12 +33,15 @@ def build_runtime_identity(
     build_label: str,
     work_item: str,
     published_baseline: str,
+    *,
+    work_item_description: str = "",
 ) -> RuntimeIdentity:
     return RuntimeIdentity(
         product_name=PRODUCT_NAME,
         build_label=build_label,
         work_item=work_item,
         published_baseline=published_baseline,
+        work_item_description=work_item_description,
     )
 
 
@@ -90,10 +94,14 @@ Author: leviagravia@zohomail.eu"""
 
 def render_system_info(snapshot: SystemInfoSnapshot) -> str:
     identity = snapshot.identity
-    return "\n".join(
+    lines = [
+        f"{identity.product_name}: {identity.build_label}",
+        f"Work item: {identity.work_item}",
+    ]
+    if identity.work_item_description:
+        lines.append(f"Work item description: {identity.work_item_description}")
+    lines.extend(
         (
-            f"{identity.product_name}: {identity.build_label}",
-            f"Work item: {identity.work_item}",
             f"Published baseline: {identity.published_baseline}",
             f"Python: {snapshot.python_version}",
             f"PyGObject: {snapshot.pygobject_version}",
@@ -105,3 +113,4 @@ def render_system_info(snapshot: SystemInfoSnapshot) -> str:
             f"Hunspell dictionaries: {snapshot.hunspell_dictionaries}",
         )
     )
+    return "\n".join(lines)

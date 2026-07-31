@@ -19,10 +19,10 @@ class Stable4RegressionTests(unittest.TestCase):
     def test_stable4_shortcuts_are_conflict_free(self):
         self.assertEqual(conflicts(), {})
 
-    def test_revise_menu_and_bookmark_ui_are_exposed(self):
+    def test_revise_and_navigate_command_ui_are_exposed(self):
         rows = shortcut_rows()
-        self.assertIn(("Revise", "Insert Bookmark Here", "Ctrl+F2"), rows)
-        self.assertIn(("Revise", "Manage Bookmarks", "menu"), rows)
+        self.assertIn(("Navigate", "Insert Bookmark Here", "Ctrl+F2"), rows)
+        self.assertIn(("Navigate", "Manage Bookmarks", "menu"), rows)
         self.assertIn(("Revise", "Title Case", "Ctrl+Alt+Y"), rows)
         self.assertNotIn(("Revise", "Title Case", "Ctrl+Alt+T"), rows)
 

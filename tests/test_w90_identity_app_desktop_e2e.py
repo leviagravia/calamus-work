@@ -14,6 +14,7 @@ from unittest.mock import patch
 from calamus_version import (
     DEVELOPMENT_BUILD_LABEL,
     DEVELOPMENT_WORK_ITEM,
+    DEVELOPMENT_WORK_ITEM_DESCRIPTION,
     PUBLISHED_BASELINE,
 )
 
@@ -125,6 +126,10 @@ class W90IdentityRealAppE2E(unittest.TestCase):
                         body = _text(view)
                         self.assertIn(f"Calamus: {DEVELOPMENT_BUILD_LABEL}", body)
                         self.assertIn(f"Work item: {DEVELOPMENT_WORK_ITEM}", body)
+                        self.assertIn(
+                            f"Work item description: {DEVELOPMENT_WORK_ITEM_DESCRIPTION}",
+                            body,
+                        )
                         self.assertIn(
                             f"Published baseline: {PUBLISHED_BASELINE}",
                             body,

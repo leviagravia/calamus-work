@@ -12,6 +12,7 @@ from calamus_version import (
     APP_VERSION,
     DEVELOPMENT_BUILD_LABEL,
     DEVELOPMENT_WORK_ITEM,
+    DEVELOPMENT_WORK_ITEM_DESCRIPTION,
     PUBLISHED_BASELINE,
 )
 
@@ -25,6 +26,7 @@ class RuntimeIdentityWorkingCopyTests(unittest.TestCase):
             DEVELOPMENT_BUILD_LABEL,
             DEVELOPMENT_WORK_ITEM,
             PUBLISHED_BASELINE,
+            work_item_description=DEVELOPMENT_WORK_ITEM_DESCRIPTION,
         )
 
     def test_working_copy_window_title_identity_remains_distinct(self):
@@ -54,12 +56,23 @@ class RuntimeIdentityWorkingCopyTests(unittest.TestCase):
         )
         rendered = render_system_info(snapshot)
         self.assertEqual(
-            rendered.splitlines()[:3],
+            rendered.splitlines()[:4],
             [
                 f"Calamus: {DEVELOPMENT_BUILD_LABEL}",
                 f"Work item: {DEVELOPMENT_WORK_ITEM}",
+                f"Work item description: {DEVELOPMENT_WORK_ITEM_DESCRIPTION}",
                 f"Published baseline: {PUBLISHED_BASELINE}",
             ],
+        )
+        self.assertRegex(
+            rendered.splitlines()[1],
+            r"^Work item: W[0-9A-Z-]+$",
+        )
+        self.assertEqual(
+            rendered.splitlines().count(
+                f"Work item description: {DEVELOPMENT_WORK_ITEM_DESCRIPTION}"
+            ),
+            1,
         )
         for token in (
             "Python: 3.12.3",
@@ -76,10 +89,14 @@ class RuntimeIdentityWorkingCopyTests(unittest.TestCase):
 
     def test_development_identity_constants_are_exact(self):
         self.assertEqual(DEVELOPMENT_BUILD_LABEL, "Development build")
-        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W95")
+        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W95EXTRA")
+        self.assertEqual(
+            DEVELOPMENT_WORK_ITEM_DESCRIPTION,
+            "Typewriter Mode + Writing menu",
+        )
         self.assertEqual(
             PUBLISHED_BASELINE,
-            "541804f8ff361b3afacb58f18e1e429c70b3a2f9",
+            "3fbbc8fc6107d7c8771933da41eb1e429972f0ff",
         )
 
     def test_historical_package_version_is_preserved_but_not_runtime_label(self):

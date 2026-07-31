@@ -38,12 +38,13 @@ class FavoritesFileMenuInvariantTests(unittest.TestCase):
             self.assertNotIn("menubar", source)
             self.assertNotIn("top_menu", source)
 
-    def test_bookmarks_are_not_moved_or_rewired_by_w57(self):
+    def test_bookmarks_keep_callbacks_but_move_to_navigate_in_w95extra(self):
         source = _function_source(UI, "build_menu")
-        self.assertIn('add_item(revisem, "Insert Bookmark Here\\tCtrl+F2", app.toggle_bookmark)', source)
-        self.assertIn('add_item(revisem, "Next Bookmark\\tF2", app.next_bookmark)', source)
-        self.assertIn('add_item(revisem, "Previous Bookmark\\tShift+F2", app.previous_bookmark)', source)
-        self.assertIn('add_item(revisem, "Manage Bookmarks…", app.on_manage_bookmarks)', source)
+        self.assertIn('add_item(navigatem, "Insert Bookmark Here\\tCtrl+F2", app.toggle_bookmark)', source)
+        self.assertIn('add_item(navigatem, "Next Bookmark\\tF2", app.next_bookmark)', source)
+        self.assertIn('add_item(navigatem, "Previous Bookmark\\tShift+F2", app.previous_bookmark)', source)
+        self.assertIn('add_item(navigatem, "Manage Bookmarks…", app.on_manage_bookmarks)', source)
+        self.assertNotIn('add_item(revisem, "Insert Bookmark Here', source)
 
     def test_recent_files_remains_a_separate_file_submenu(self):
         source = _function_source(UI, "build_menu")

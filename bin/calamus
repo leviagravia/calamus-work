@@ -5,7 +5,6 @@ import shutil
 import subprocess
 import re
 import sys
-from datetime import datetime
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -64,6 +63,10 @@ from calamus_workspace_panel import WorkspacePanelView, WorkspacePanelRuntime
 from calamus_workspace_external import open_external_path, reveal_in_file_manager
 from calamus_history import HistoryState, TextHistory
 from calamus_history_runtime import SnapshotHistoryRuntime, restore_buffer_state
+from calamus_viewport_runtime import EditorViewportRuntime
+from calamus_typewriter_runtime import TypewriterRuntime
+import calamus_typewriter_app as typewriter_app
+import calamus_writing_app as writing_app
 from calamus_external import open_character_map as external_open_character_map
 from calamus_writing import (
     sort_lines, clean_pdf_text, remove_extra_spaces,
@@ -95,6 +98,7 @@ from calamus_version import (
     APP_VERSION as VERSION,
     DEVELOPMENT_BUILD_LABEL,
     DEVELOPMENT_WORK_ITEM,
+    DEVELOPMENT_WORK_ITEM_DESCRIPTION,
     PUBLISHED_BASELINE,
 )
 from calamus_runtime_identity import (
@@ -232,6 +236,8 @@ class App(Gtk.Window):
         self.line_numbers_enabled = line_number_preference.enabled
         self._syncing_line_number_item = False
         self.focus_mode = False
+        self.typewriter_mode = False
+        self._syncing_typewriter_item = False
         self.current_line_highlight = False
         self.distraction_free = False
         self.bookmarks = []
@@ -276,15 +282,35 @@ class App(Gtk.Window):
         self.editor_box, self.line_gutter, self.scroller, self.text = build_editor_widgets(self.word_wrap)
         self.body_paned.pack1(self.editor_box, True, True)
         buffer = self.text.get_buffer()
-        self.history_runtime = SnapshotHistoryRuntime(self.history, self.text, self.scroller, GLib, log_nonfatal)
+        self.viewport_runtime = EditorViewportRuntime(
+            self.text, self.scroller, GLib, log_nonfatal
+        )
+        self.history_runtime = SnapshotHistoryRuntime(
+            self.history,
+            self.text,
+            self.scroller,
+            GLib,
+            log_nonfatal,
+            viewport_runtime=self.viewport_runtime,
+        )
+        self.typewriter_runtime = TypewriterRuntime(
+            self.text,
+            self.viewport_runtime,
+            on_state_changed=self.on_typewriter_state_changed,
+            log_nonfatal=log_nonfatal,
+        )
         buffer.connect("changed", self.on_changed)
-        buffer.connect("begin-user-action", lambda *_: self.history_runtime.begin_user_action(not self.loading and not self.restoring_undo))
-        buffer.connect("end-user-action", lambda *_: self.history_runtime.end_user_action(not self.loading and not self.restoring_undo))
+        buffer.connect("begin-user-action", self.on_buffer_begin_user_action)
+        buffer.connect("end-user-action", self.on_buffer_end_user_action)
         buffer.connect("notify::cursor-position", self.on_cursor_position_notify)
+        self.text.connect("key-press-event", self.on_text_key_press)
         self.text.connect_after("key-release-event", self.on_text_key_release)
         self.text.connect_after("move-cursor", self.on_text_move_cursor)
+        self.text.connect("button-press-event", self.on_text_button_press)
         self.text.connect_after("motion-notify-event", self.on_text_motion_notify)
         self.text.connect_after("button-release-event", self.on_text_button_release)
+        self.text.connect("scroll-event", self.on_text_scroll)
+        self.text.connect("focus-out-event", self.on_text_focus_out)
         self.apply_wrap_policy()
 
         self.navigation_controller = NavigationController(
@@ -443,20 +469,33 @@ class App(Gtk.Window):
         if hasattr(self, "navigator_panel_view"):
             self.navigator_panel_view.schedule_cursor_sync()
 
-    def on_text_key_release(self, *_):
-        # Keep keyboard-driven typing/navigation visible, but defer one idle tick
-        # and use a tiny margin so visible clicks do not get re-centered.
-        self.queue_insert_scroll(margin=0.02)
-        return False
+    on_text_key_press = typewriter_app.on_text_key_press
+    on_text_key_release = typewriter_app.on_text_key_release
+    on_text_move_cursor = typewriter_app.on_text_move_cursor
+    on_text_button_press = typewriter_app.on_text_button_press
+    on_text_motion_notify = typewriter_app.on_text_motion_notify
+    on_text_button_release = typewriter_app.on_text_button_release
+    on_text_scroll = typewriter_app.on_text_scroll
+    on_text_focus_out = typewriter_app.on_text_focus_out
 
-    def on_text_move_cursor(self, *_):
-        self.queue_insert_scroll(margin=0.02)
-        return False
+    def on_buffer_begin_user_action(self, *_):
+        enabled = not self.loading and not self.restoring_undo
+        self.history_runtime.begin_user_action(enabled)
+        if enabled:
+            self.typewriter_runtime.on_begin_user_action()
+
+    def on_buffer_end_user_action(self, *_):
+        enabled = not self.loading and not self.restoring_undo
+        self.history_runtime.end_user_action(enabled)
+        if enabled:
+            self.typewriter_runtime.on_end_user_action()
 
     def queue_insert_scroll(self, margin=0.02, *, center_if_outside=False):
-        if self.history_runtime is None:
+        if self.viewport_runtime is None:
             return False
-        return self.history_runtime.queue_scroll_to_insert(
+        if self.typewriter_runtime.enabled:
+            return self.typewriter_runtime.on_structural_navigation()
+        return self.viewport_runtime.queue_visible_to_insert(
             margin, center_if_outside=center_if_outside
         )
 
@@ -464,15 +503,6 @@ class App(Gtk.Window):
         return self.queue_insert_scroll(
             margin, center_if_outside=center_if_outside
         )
-
-    def on_text_motion_notify(self, widget, event):
-        # Let Gtk.TextView perform native selection autoscroll. Forcing our own
-        # scroll on every pointer-motion event caused unstable jumps.
-        return False
-
-    def on_text_button_release(self, widget, event):
-        return False
-
 
     def setup_file_drop_target(self):
         targets = [Gtk.TargetEntry.new("text/uri-list", 0, 0)]
@@ -567,6 +597,9 @@ class App(Gtk.Window):
 
     def reset_undo_history(self):
         self.history_runtime.reset()
+        typewriter_runtime = getattr(self, "typewriter_runtime", None)
+        if typewriter_runtime is not None:
+            typewriter_runtime.on_document_replaced()
 
     def schedule_undo_snapshot(self):
         self.history_runtime.observe_changed(not self.loading and not self.restoring_undo)
@@ -620,7 +653,12 @@ class App(Gtk.Window):
         finally:
             self.loading = False
             self.restoring_undo = False
-        self.queue_insert_scroll(margin=0.15, center_if_outside=True)
+        if self.typewriter_runtime.enabled:
+            self.typewriter_runtime.on_history()
+        else:
+            self.viewport_runtime.queue_visible_to_insert(
+                0.15, center_if_outside=True
+            )
         self.modified = True
         if hasattr(self, "document"):
             self.document.mark_modified(state.text)
@@ -663,7 +701,10 @@ class App(Gtk.Window):
             self.schedule_status_update()
             self.schedule_search_highlight()
             self.update_current_line_highlight()
-            self.queue_insert_scroll()
+            if self.typewriter_runtime.enabled:
+                self.typewriter_runtime.on_edit()
+            else:
+                self.viewport_runtime.queue_visible_to_insert(0.02)
             self.update_title()
 
     def on_opacity_selection(self, *_):
@@ -733,6 +774,7 @@ class App(Gtk.Window):
             DEVELOPMENT_BUILD_LABEL,
             DEVELOPMENT_WORK_ITEM,
             PUBLISHED_BASELINE,
+            work_item_description=DEVELOPMENT_WORK_ITEM_DESCRIPTION,
         )
 
     def system_info_snapshot(self):
@@ -774,9 +816,10 @@ class App(Gtk.Window):
         bg = {APPEARANCE_DARK: "dark bg", APPEARANCE_LIGHT: "white bg"}.get(self.appearance_mode, "default bg")
         words, chars, lines = self.text_stats()
         ln = "lines ON" if self.line_numbers_enabled else "lines OFF"
+        tw = "typewriter ON" if self.typewriter_mode else "typewriter OFF"
         undo_note = " | undo limited" if getattr(self.history, "disabled_reason", None) else ""
-        visible_status = f"{visible_name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln}{undo_note}"
-        full_status = f"{name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln}{undo_note}"
+        visible_status = f"{visible_name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln} | {tw}{undo_note}"
+        full_status = f"{name}{mark} | words {words} | chars {chars} | lines {lines} | font {self.font_size}pt | {lang} | {top} | {bg} | {ln} | {tw}{undo_note}"
         self.status.set_text(visible_status)
         self.status.set_tooltip_text(full_status)
 
@@ -835,9 +878,15 @@ class App(Gtk.Window):
         return True
 
     def on_destroy(self, *_):
+        typewriter_runtime = getattr(self, "typewriter_runtime", None)
+        if typewriter_runtime is not None:
+            typewriter_runtime.shutdown()
         history_runtime = getattr(self, "history_runtime", None)
         if history_runtime is not None:
             history_runtime.shutdown()
+        viewport_runtime = getattr(self, "viewport_runtime", None)
+        if viewport_runtime is not None:
+            viewport_runtime.shutdown()
         # Calamus currently has one top-level application window. While the
         # launcher still owns a raw Gtk.main() loop, destroying that final
         # window must terminate the loop exactly once.
@@ -1051,7 +1100,6 @@ class App(Gtk.Window):
         s, e = b.get_bounds()
         return s.get_offset(), e.get_offset()
 
-
     def command_layer_uppercase_text(self, text):
         # Compute uppercase text through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
@@ -1179,7 +1227,6 @@ class App(Gtk.Window):
             return text, False
         return transformed, transformed != text
 
-
     def command_layer_title_case_text(self, text):
         # Compute Title Case through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
@@ -1212,7 +1259,6 @@ class App(Gtk.Window):
             return text, False
         return transformed, transformed != text
 
-
     def command_layer_sentence_case_text(self, text):
         # Compute Sentence Case through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
@@ -1228,7 +1274,6 @@ class App(Gtk.Window):
         if not isinstance(transformed, str):
             return text, False
         return transformed, transformed != text
-
 
     def apply_text_transform(self, transform, command_name="Text Transform"):
         b = self.text.get_buffer()
@@ -1574,8 +1619,6 @@ class App(Gtk.Window):
         self.update_title()
         return True
 
-
-
     def on_save_as_template(self, *_):
         """Copy the active buffer into the template store without saving the document."""
         try:
@@ -1732,31 +1775,14 @@ class App(Gtk.Window):
             dialog.destroy()
 
     def command_layer_insert_date_time_text(self, now, fmt="%Y-%m-%d %H:%M"):
-        # Format an explicit moment through CommandLayer without touching the editor buffer.
-        result = self.command_layer.dispatch(
-            "writing.insert-date-time",
-            CommandContext(
-                app=self,
-                source="gui",
-                data={"now": now, "format": fmt},
-            ),
-        )
-        if not result.success or not isinstance(result.value, dict):
-            return "", False
-        insertion = result.value.get("text", "")
-        if not isinstance(insertion, str):
-            return "", False
-        return insertion, bool(insertion)
+        result = self.command_layer.dispatch("writing.insert-date-time", CommandContext(app=self, source="gui", data={"now": now, "format": fmt}))
+        insertion = result.value.get("text", "") if result.success and isinstance(result.value, dict) else ""
+        return (insertion, bool(insertion)) if isinstance(insertion, str) else ("", False)
 
-    def on_insert_datetime(self, *_):
-        txt, changed = self.command_layer_insert_date_time_text(datetime.now())
-        if not changed:
-            return False
-        cursor = self.get_cursor_offset()
-        _, select = command_insert_at(self.buffer_text(), cursor, txt)
-        def edit(buf):
-            buf.insert_at_cursor(txt)
-        return self.execute_command("Insert Date/Time", edit, select_range=select)
+    insert_current_moment = writing_app.insert_current_moment
+    on_insert_date = writing_app.on_insert_date
+    on_insert_time = writing_app.on_insert_time
+    on_insert_datetime = writing_app.on_insert_datetime
 
     def on_replace_all_dialog(self, *_):
         self.on_find_replace()
@@ -2073,7 +2099,6 @@ class App(Gtk.Window):
         d.show_all()
         d.run()
         d.destroy()
-
 
     def build_clip_collection(self):
         self.clip_collection_view = build_clip_collection_view(
@@ -2476,6 +2501,10 @@ class App(Gtk.Window):
 
     def on_clip_delete(self, *_):
         return self.clip_collection_runtime.on_delete()
+
+    on_typewriter_state_changed = typewriter_app.on_typewriter_state_changed
+    on_typewriter_item_toggled = typewriter_app.on_typewriter_item_toggled
+    toggle_typewriter_mode = typewriter_app.toggle_typewriter_mode
 
     def toggle_focus_mode(self, *_):
         self.focus_mode = not self.focus_mode
@@ -3049,13 +3078,11 @@ class App(Gtk.Window):
     def error(self, msg):
         show_error(self, msg)
 
-
 def _refresh_line_numbers_after_map(win, _event):
     # The first mapped allocation is the earliest reliable point for applying
     # the viewport-aligned drawing gutter on the real GTK desktop.
     win.update_line_numbers(force=True)
     return False
-
 
 if __name__ == "__main__":
     win = App()

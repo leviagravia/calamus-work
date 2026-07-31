@@ -7,6 +7,7 @@ LAUNCHER = ROOT / "bin" / "calamus"
 HISTORY = ROOT / "calamus" / "calamus_history.py"
 RUNTIME = ROOT / "calamus" / "calamus_history_runtime.py"
 CLIP_RUNTIME = ROOT / "calamus" / "calamus_clip_runtime.py"
+VIEWPORT_RUNTIME = ROOT / "calamus" / "calamus_viewport_runtime.py"
 GATE = ROOT / "scripts" / "w95-true-gtk-app-gate.py"
 GUIDE = ROOT / "share" / "doc" / "calamus" / "USER_GUIDE.md"
 
@@ -34,22 +35,21 @@ class W95MatureHistoryRebuildTests(unittest.TestCase):
         self.assertNotIn("undo_stack: list[str]", source)
 
     def test_runtime_preserves_mark_direction_and_geometry_owned_reveal(self):
-        source = text(RUNTIME)
+        history_source = text(RUNTIME)
+        owner_source = text(VIEWPORT_RUNTIME)
         restore = method(RUNTIME, "restore_buffer_state")
         self.assertIn("buffer.select_range(insert, bound)", restore)
         self.assertNotIn("buffer.get_selection_bounds", restore)
-        queue = method(RUNTIME, "queue_scroll_to_insert")
-        schedule = method(RUNTIME, "_schedule_reveal_idle")
-        attempt = method(RUNTIME, "_reveal_insert_once")
-        self.assertIn("self.cancel_scroll()", queue)
-        self.assertIn("self.reveal_pending = True", queue)
+        queue = method(VIEWPORT_RUNTIME, "queue_visible_to_insert")
+        schedule = method(VIEWPORT_RUNTIME, "_schedule_idle")
+        attempt = method(VIEWPORT_RUNTIME, "_apply_once")
+        self.assertIn("self._replace_request", queue)
         self.assertIn("priority=self.glib.PRIORITY_LOW", schedule)
-        self.assertEqual(schedule.count("idle_add("), 2)
         self.assertIn("compute_vertical_reveal", attempt)
         self.assertIn("self._adjustment.set_value(target)", attempt)
-        self.assertIn("_reveal_geometry_ready", attempt)
-        self.assertNotIn("scroll_to_mark", source)
-        self.assertNotIn("GLib.usleep", source)
+        self.assertIn("self._measure()", attempt)
+        self.assertNotIn("scroll_to_mark", history_source + owner_source)
+        self.assertNotIn("GLib.usleep", history_source + owner_source)
 
     def test_launcher_eliminates_diff_estimation_and_uses_real_undo_state(self):
         source = text(LAUNCHER)

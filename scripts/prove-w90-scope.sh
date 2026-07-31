@@ -151,6 +151,7 @@ current_identity = (
 for required in (
     "DEVELOPMENT_BUILD_LABEL",
     "DEVELOPMENT_WORK_ITEM",
+    "DEVELOPMENT_WORK_ITEM_DESCRIPTION",
     "PUBLISHED_BASELINE",
 ):
     if required not in current_identity:

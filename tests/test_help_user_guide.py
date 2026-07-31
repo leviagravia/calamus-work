@@ -315,7 +315,7 @@ class UserGuidePureTests(unittest.TestCase):
         text = load_user_guide(ROOT)
         section = next(
             item for item in parse_user_guide_sections(text)
-            if item.title == "Current command menu (W94 candidate)"
+            if item.title == "Current command menu (W95extra mature-source rebuilt candidate)"
         )
         for menu in (
             "### File",
@@ -400,11 +400,11 @@ class UserGuidePureTests(unittest.TestCase):
     def test_hierarchical_help_topics_expose_menu_and_submenu_structure(self):
         topics = parse_user_guide_topics(load_user_guide(ROOT))
         titles = tuple(topic.title for topic in topics)
-        self.assertIn("Current command menu (W94 candidate)", titles)
+        self.assertIn("Current command menu (W95extra mature-source rebuilt candidate)", titles)
         self.assertIn("File", titles)
         self.assertIn("Final Research", titles)
         self.assertIn("Current boundaries", titles)
-        current_index = titles.index("Current command menu (W94 candidate)")
+        current_index = titles.index("Current command menu (W95extra mature-source rebuilt candidate)")
         file_index = titles.index("File")
         self.assertEqual(topics[file_index].parent_index, current_index)
         final_index = titles.index("Final command menu target")

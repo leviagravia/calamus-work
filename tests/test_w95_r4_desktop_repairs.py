@@ -38,7 +38,9 @@ class W95R4DesktopRepairTests(unittest.TestCase):
         self.assertIn("self.queue_insert_scroll(margin=0.15)", method)
         history = method_source(LAUNCHER, "set_text_from_history")
         self.assertIn("restore_buffer_state(self.text, state)", history)
-        self.assertIn("self.queue_insert_scroll(margin=0.15, center_if_outside=True)", history)
+        self.assertIn("self.typewriter_runtime.on_history()", history)
+        self.assertIn("self.viewport_runtime.queue_visible_to_insert", history)
+        self.assertIn("center_if_outside=True", history)
 
     def test_research_selector_is_downward_popover_not_aligning_combo(self):
         view = source(RESEARCH_VIEW)

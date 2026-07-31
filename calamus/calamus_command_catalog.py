@@ -26,7 +26,7 @@ LOW_RISK_COMMANDS: tuple[CommandSpec, ...] = (
     ),
     CommandSpec(
         "writing.insert-date-time",
-        "Insert Date/Time",
+        "Insert Date and Time",
         menu_path="Writing",
         shortcut="",
         risk_class="low",

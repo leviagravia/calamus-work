@@ -210,21 +210,29 @@ def build_menu(app) -> None:
     add_item(navigatem, "Go to Line…\tCtrl+L", app.on_go_to_line)
     add_item(navigatem, "Go to Section…\tCtrl+Shift+L", app.on_go_to_section)
     add_separator(navigatem)
+    add_item(navigatem, "Insert Bookmark Here\tCtrl+F2", app.toggle_bookmark)
+    add_item(navigatem, "Next Bookmark\tF2", app.next_bookmark)
+    add_item(navigatem, "Previous Bookmark\tShift+F2", app.previous_bookmark)
+    add_item(navigatem, "Manage Bookmarks…", app.on_manage_bookmarks)
+    add_separator(navigatem)
     add_item(navigatem, "Next Heading\tCtrl+PageDown", app.on_next_heading)
     add_item(navigatem, "Previous Heading\tCtrl+PageUp", app.on_previous_heading)
+
+    writingm = top_menu(app, "Writing")
+    app.typewriter_item = Gtk.CheckMenuItem(label="Typewriter Mode\tShift+F9")
+    app.typewriter_item.set_active(False)
+    app.typewriter_item.connect("toggled", app.on_typewriter_item_toggled)
+    writingm.append(app.typewriter_item)
+    add_separator(writingm)
+    add_item(writingm, "Insert Date", app.on_insert_date)
+    add_item(writingm, "Insert Time", app.on_insert_time)
+    add_item(writingm, "Insert Date and Time\tCtrl+Alt+D", app.on_insert_datetime)
 
     revisem = top_menu(app, "Revise")
     add_item(revisem, "UPPERCASE (convert selected)\tCtrl+Alt+U", app.on_uppercase)
     add_item(revisem, "Lowercase (convert selected)\tCtrl+Alt+Shift+U", app.on_lowercase)
     add_item(revisem, "Title Case\tCtrl+Alt+Y", app.on_title_case)
     add_item(revisem, "Sentence case\tCtrl+Alt+Shift+Y", app.on_sentence_case)
-    add_separator(revisem)
-    add_item(revisem, "Insert Date/Time\tCtrl+Alt+D", app.on_insert_datetime)
-    add_separator(revisem)
-    add_item(revisem, "Insert Bookmark Here\tCtrl+F2", app.toggle_bookmark)
-    add_item(revisem, "Next Bookmark\tF2", app.next_bookmark)
-    add_item(revisem, "Previous Bookmark\tShift+F2", app.previous_bookmark)
-    add_item(revisem, "Manage Bookmarks…", app.on_manage_bookmarks)
     add_separator(revisem)
     add_item(revisem, "Paste Clean from PDF\tCtrl+Alt+V", app.on_paste_clean_pdf)
     add_item(revisem, "Clean Selected Text from PDF\tCtrl+Alt+Shift+V", app.on_clean_selected_pdf)
@@ -350,6 +358,7 @@ def shortcut_bindings(app):
         ("<Control><Alt>Q", app.on_quick_cite),
         ("<Control><Alt><Shift>Q", app.on_open_citation_in_references),
         ("F9", app.toggle_focus_mode),
+        ("<Shift>F9", app.toggle_typewriter_mode),
         ("F11", app.toggle_distraction_free),
         ("<Control><Alt>I", app.toggle_current_line_highlight),
         *( (f"<Control><Alt>{i}", (lambda *_args, n=i: app.insert_clip_number(n))) for i in range(1, 10) ),

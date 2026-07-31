@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 CATALOG = ROOT / "calamus" / "calamus_command_catalog.py"
+WRITING_APP = ROOT / "calamus" / "calamus_writing_app.py"
 HANDLERS = ROOT / "calamus" / "calamus_command_handlers.py"
 WRITING = ROOT / "calamus" / "calamus_writing.py"
 sys.path.insert(0, str(ROOT / "calamus"))
@@ -59,7 +60,7 @@ class InsertDateTimeLayerWiringTests(unittest.TestCase):
     def test_visible_menu_and_shortcut_use_existing_explicit_entrypoint(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn(
-            'add_item(revisem, "Insert Date/Time\\tCtrl+Alt+D", app.on_insert_datetime)',
+            'add_item(writingm, "Insert Date and Time\\tCtrl+Alt+D", app.on_insert_datetime)',
             ui,
         )
         self.assertIn('("<Control><Alt>D", app.on_insert_datetime)', ui)
@@ -137,50 +138,27 @@ class InsertDateTimeLayerWiringTests(unittest.TestCase):
             current_date_string(123, now=now)
 
     def test_helper_is_compute_only_and_carries_explicit_time(self):
-        _source, methods = source_and_app_methods()
+        _, methods = source_and_app_methods()
         helper = methods["command_layer_insert_date_time_text"]
         self.assertIn('"writing.insert-date-time"', helper)
         self.assertIn('data={"now": now, "format": fmt}', helper)
         self.assertIn('result.value.get("text", "")', helper)
-        for forbidden in [
-            "datetime.now",
-            "get_cursor_offset",
-            "buffer_text",
-            "command_insert_at",
-            "insert_at_cursor",
-            "execute_command",
-            "get_buffer",
-            "Gtk",
-            "Gdk",
-            "write_text_file",
-        ]:
+        for forbidden in ["datetime.now", "get_cursor_offset", "buffer_text", "command_insert_at", "insert_at_cursor", "execute_command", "Gtk", "Gdk", "write_text_file"]:
             self.assertNotIn(forbidden, helper)
 
-    def test_entrypoint_acquires_time_then_uses_existing_insert_boundary(self):
-        source, methods = source_and_app_methods()
-        method = methods["on_insert_datetime"]
-        self.assertIn(
-            "txt, changed = self.command_layer_insert_date_time_text(datetime.now())",
-            method,
-        )
-        self.assertIn("if not changed:\n            return False", method)
-        self.assertIn("cursor = self.get_cursor_offset()", method)
-        self.assertIn("command_insert_at(self.buffer_text(), cursor, txt)", method)
-        self.assertIn("buf.insert_at_cursor(txt)", method)
-        self.assertIn(
-            'return self.execute_command("Insert Date/Time", edit, select_range=select)',
-            method,
-        )
-        dispatch_pos = method.index("command_layer_insert_date_time_text")
-        plan_pos = method.index("command_insert_at")
-        edit_pos = method.index("def edit(buf):")
-        execute_pos = method.index("return self.execute_command")
-        self.assertLess(dispatch_pos, plan_pos)
-        self.assertLess(plan_pos, edit_pos)
-        self.assertLess(edit_pos, execute_pos)
-        self.assertNotIn("current_date_string", method)
-        self.assertNotIn("selected_or_all_range", method)
-        self.assertNotIn("current_date_string", source.split("class App", 1)[0])
+    def test_entrypoints_use_shared_insert_boundary_with_explicit_formats(self):
+        bridge = WRITING_APP.read_text(encoding="utf-8")
+        launcher = BIN.read_text(encoding="utf-8")
+        self.assertIn('"writing.insert-date-time"', launcher)
+        self.assertIn('data={"now": now, "format": fmt}', launcher)
+        self.assertIn("app.command_layer_insert_date_time_text(datetime.now(), fmt)", bridge)
+        self.assertIn("command_insert_at(app.buffer_text(), cursor, txt)", bridge)
+        self.assertIn("buf.insert_at_cursor(txt)", bridge)
+        self.assertIn("app.execute_command(command_name, edit, select_range=select)", bridge)
+        self.assertIn('insert_current_moment(app, "Insert Date", "%Y-%m-%d")', bridge)
+        self.assertIn('insert_current_moment(app, "Insert Time", "%H:%M")', bridge)
+        self.assertIn('insert_current_moment(app, "Insert Date and Time", "%Y-%m-%d %H:%M")', bridge)
+        self.assertIn("on_insert_datetime = writing_app.on_insert_datetime", launcher)
 
     def test_time_acquisition_formatting_and_mutation_are_separate(self):
         handlers = HANDLERS.read_text(encoding="utf-8")

@@ -1,3 +1,12 @@
+calamus (1.7.0~rc3+w95extra1) unstable; urgency=low
+
+  * Rebuild Typewriter Mode from the published W95 baseline.
+  * Add the initial Writing menu and complete User Guide coverage.
+  * Keep one geometry-owned editor viewport runtime for History and Typewriter.
+  * Separate the W95EXTRA technical identity token from its descriptive label.
+
+ -- Calamus Maintainer <maintainer@example.invalid>  Fri, 31 Jul 2026 09:19:00 +0200
+
 calamus (1.7.0~rc3+stable2) unstable; urgency=low
 
   * Stable2 conservative architecture cleanup release.
@@ -5,3 +14,4 @@ calamus (1.7.0~rc3+stable2) unstable; urgency=low
   * Preserve stable1 user-facing behavior.
 
  -- Calamus Maintainer <maintainer@example.invalid>  Fri, 08 May 2026 00:00:00 +0200
+W95extra Mature-Source Rebuilt R2: Bookmarks are under Navigate; date/time commands exist only under Writing; PDF cleanup remains under Revise. The real GTK Help gate now validates the semantic wording instead of one brittle substring.

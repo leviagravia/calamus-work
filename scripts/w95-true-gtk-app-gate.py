@@ -27,9 +27,13 @@ from gi.repository import GLib, Gtk
 from calamus_clip_dialogs import run_clip_editor_dialog, run_clip_selector_dialog
 from calamus_clip_expansion import expand_clip_text
 from calamus_clip_runtime import insert_clip_expansion
-from calamus_version import DEVELOPMENT_WORK_ITEM, PUBLISHED_BASELINE
+from calamus_version import (
+    DEVELOPMENT_WORK_ITEM,
+    DEVELOPMENT_WORK_ITEM_DESCRIPTION,
+    PUBLISHED_BASELINE,
+)
 
-EXPECTED_BASELINE = "541804f8ff361b3afacb58f18e1e429c70b3a2f9"
+EXPECTED_BASELINE = "3fbbc8fc6107d7c8771933da41eb1e429972f0ff"
 
 
 def require(condition: bool, message: str) -> None:
@@ -327,15 +331,22 @@ def exercise_undo_selection_state(app) -> None:
     drain_history_scroll(app)
 
 
+def desktop_widget_ready(widget) -> bool:
+    """Return True only after GTK has mapped and allocated a real widget."""
+    if not (widget.get_visible() and widget.get_realized() and widget.get_mapped()):
+        return False
+    allocation = widget.get_allocation()
+    return allocation.width > 1 and allocation.height > 1
+
+
 def require_desktop_widget(widget, label: str) -> None:
     """Require a widget to be genuinely present in the mapped desktop tree."""
-    require(widget.get_visible(), f"{label} is not visible")
-    require(widget.get_realized(), f"{label} is not realized")
-    require(widget.get_mapped(), f"{label} is not mapped")
     allocation = widget.get_allocation()
     require(
-        allocation.width > 1 and allocation.height > 1,
-        f"{label} has no usable allocation: {allocation.width}x{allocation.height}",
+        desktop_widget_ready(widget),
+        f"{label} is not ready: visible={widget.get_visible()} "
+        f"realized={widget.get_realized()} mapped={widget.get_mapped()} "
+        f"allocation={allocation.width}x{allocation.height}",
     )
 
 
@@ -352,11 +363,12 @@ def exercise_research_selector(app) -> None:
     selector.widget.set_active(True)
     drain_until(
         lambda: (
-            selector.popover.get_mapped()
-            and selector._scroll.get_mapped()
-            and selector.listbox.get_mapped()
+            desktop_widget_ready(selector.popover)
+            and desktop_widget_ready(selector._scroll)
+            and desktop_widget_ready(selector.listbox)
+            and all(desktop_widget_ready(row) for row in selector.listbox.get_children())
         ),
-        "Research selector child hierarchy did not map",
+        "Research selector child hierarchy did not receive usable allocation",
     )
     require(
         selector.popup_position() == Gtk.PositionType.BOTTOM,
@@ -418,7 +430,11 @@ def exercise_research_selector(app) -> None:
 def main() -> int:
     ok, _argv = Gtk.init_check([])
     require(ok, "GTK display unavailable")
-    require(DEVELOPMENT_WORK_ITEM == "W95", "development identity is not W95")
+    require(DEVELOPMENT_WORK_ITEM == "W95EXTRA", "development work-item token is not W95EXTRA")
+    require(
+        DEVELOPMENT_WORK_ITEM_DESCRIPTION == "Typewriter Mode + Writing menu",
+        "development work-item description mismatch",
+    )
     require(PUBLISHED_BASELINE == EXPECTED_BASELINE, "published baseline identity mismatch")
 
     launcher = load_launcher()

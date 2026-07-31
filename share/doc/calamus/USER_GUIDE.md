@@ -2,9 +2,9 @@
 
 Calamus is a lightweight, offline-first editor for plain-text and Markdown writing. This guide explains the visible commands and gives practical examples. The guide is part of the Calamus source and must be updated whenever a work item adds or changes a user-visible feature.
 
-## Current command menu (W94 candidate)
+## Current command menu (W95extra mature-source rebuilt candidate)
 
-This chapter is the authoritative map of the commands that are visible in the W94 candidate. It follows the menu bar from left to right and includes every static submenu. Dynamic lists such as recent files, templates, workspaces and favourites are described as lists because their rows depend on the user’s data.
+This chapter is the authoritative map of the commands that are visible in the W95extra mature-source rebuilt candidate. It follows the menu bar from left to right and includes every static submenu. Dynamic lists such as recent files, templates, workspaces and favourites are described as lists because their rows depend on the user’s data.
 
 Use this chapter when you know **where a command should be** but do not yet know what it does. Complex tools have separate tutorial chapters later in the guide. A command shown here is available now. The next chapter, **Final command menu target**, is explicitly a roadmap and must not be read as a list of already implemented functions.
 
@@ -98,22 +98,30 @@ Undo and Redo preserve the **exact caret and selection** recorded at the edit bo
 - **Writing Workspace**: show or hide the folder Workspace in the same left-panel host.
 - **Go to Line… — `Ctrl+L`**: move to an exact logical line.
 - **Go to Section… — `Ctrl+Shift+L`**: choose a parsed Markdown section and move to it.
+- **Insert Bookmark Here — `Ctrl+F2`**: add or remove a named navigation position at the current caret.
+- **Manage Bookmarks…**: inspect and navigate bookmark positions in the current document.
 - **Next Heading — `Ctrl+PageDown`**: move to the next heading.
 - **Previous Heading — `Ctrl+PageUp`**: move to the previous heading.
 
+### Writing
+
+`Writing` is the bounded initial writing-assistance menu introduced by W95extra. It contains only the four commands authorized for this work item.
+
+- **Typewriter Mode — `Shift+F9`**: keep the active visual line near the vertical midpoint once that position is naturally attainable. Pointer selection and manual scrolling temporarily take control; typing, keyboard movement, Undo/Redo or explicit navigation resume the mode. Typewriter Mode changes only the viewport and never inserts text or creates an Undo step.
+- **Insert Date**: insert the current local date as `YYYY-MM-DD` through the normal grouped editor command boundary.
+- **Insert Time**: insert the current local time as `HH:MM` through the same boundary.
+- **Insert Date and Time — `Ctrl+Alt+D`**: insert `YYYY-MM-DD HH:MM`.
+
 ### Revise
 
-`Revise` changes text deliberately. Selection-sensitive commands act on the selection and must remain undoable through the editor mutation gateway.
+`Revise` transforms or cleans existing text deliberately. Selection-sensitive commands act on the selection and must remain undoable through the editor mutation gateway.
 
 - **UPPERCASE (convert selected) — `Ctrl+Alt+U`**: convert the selection to uppercase.
 - **Lowercase (convert selected) — `Ctrl+Alt+Shift+U`**: convert the selection to lowercase.
 - **Title Case — `Ctrl+Alt+Y`**: apply title capitalization.
 - **Sentence case — `Ctrl+Alt+Shift+Y`**: normalize the selection as sentence case.
-- **Insert Date/Time — `Ctrl+Alt+D`**: insert the current date and time.
-- **Insert Bookmark Here — `Ctrl+F2`**: add or remove a bookmark at the current position.
 - **Next Bookmark — `F2`**: move to the next bookmark.
 - **Previous Bookmark — `Shift+F2`**: move to the previous bookmark.
-- **Manage Bookmarks…**: inspect and manage bookmark positions.
 - **Paste Clean from PDF — `Ctrl+Alt+V`**: clean clipboard text copied from a PDF before insertion.
 - **Clean Selected Text from PDF — `Ctrl+Alt+Shift+V`**: clean selected PDF-derived text already in the document.
 - **Smart Typography — `Ctrl+Alt+M`**: normalize common typographic forms.
@@ -167,7 +175,7 @@ Undo and Redo preserve the **exact caret and selection** recorded at the edit bo
 
 ### What is not a current top-level menu
 
-W92 does **not** yet expose a top-level `Writing` menu. `Options` is still present even though it is excluded from the approved final menu. The final target below records the intended destination and must not be used to infer that an unfinished command already exists.
+W95extra exposes the bounded top-level `Writing` menu documented above. `Options` is still present even though it is excluded from the approved final menu. The final target below records later destinations and must not be used to infer that an unfinished command already exists.
 
 ## Final command menu target
 
@@ -383,7 +391,7 @@ Writing
 ├── Show Word Goal                           [Planned]
 ├── Clear Word Goal                          [Planned]
 ├── Focus Mode                               [Available under View today]
-├── Typewriter Mode                          [Retired until a safe redesign exists]
+├── Typewriter Mode                          [Available under Writing]
 ├── Distraction-Free Mode                    [Available under View today]
 ├── Insert Heading                           [Planned]
 ├── Insert Subheading                        [Planned]
@@ -391,12 +399,12 @@ Writing
 ├── Insert Footnote                          [Planned]
 ├── Insert Citation Placeholder              [Planned]
 ├── Insert Comment / Note                    [Planned]
-├── Insert Date                              [Planned separate command]
-├── Insert Time                              [Planned separate command]
-└── Insert Date and Time                     [Available under Revise today]
+├── Insert Date                              [Available under Writing]
+├── Insert Time                              [Available under Writing]
+└── Insert Date and Time                     [Available under Writing]
 ```
 
-Typewriter Mode must not return merely because it appears in the target. It remains unavailable until its GTK scrolling and cursor lifecycle can be certified.
+W95extra restores Typewriter Mode through a new geometry-owned viewport runtime. The previous retired implementation remains forbidden; publication still requires the dedicated True GTK and manual desktop gates.
 
 ### Final Revise
 
@@ -508,6 +516,47 @@ Whenever a work item adds, removes, renames or relocates a visible command, that
 4. the Help Navigator tests that verify menu and submenu visibility.
 
 A work item cannot be published as user-visible functionality while Help still describes an earlier menu.
+
+## Typewriter Mode
+
+Typewriter Mode is a **view policy**, not a text transformation. Turn it on with `Writing → Typewriter Mode` or `Shift+F9`. The menu row is checked while the mode is active. The setting is session-only in W95extra and is not silently persisted.
+
+### What it does
+
+Calamus measures the real GTK insertion-mark rectangle, the visible editor rectangle and the vertical adjustment. After the working line can naturally reach the middle of the editor, the mode keeps that visual line near 50% of the viewport. A temporary bottom runway, derived from the current viewport height, lets the last visual line reach the same position. The runway is presentation-only and is removed exactly when the mode is turned off or Calamus closes.
+
+The first lines of a short or newly opened document remain at the natural top. Calamus does not create an empty half-screen above the beginning merely to force immediate centering.
+
+### When Calamus temporarily yields control
+
+Typewriter Mode does not fight deliberate pointer or viewport actions. It suspends projection while:
+
+- the mouse button is down or text is being selected with the pointer;
+- a non-empty selection is active;
+- the wheel, touchpad or scrollbar is used manually;
+- the editor loses focus.
+
+The next edit, keyboard caret movement, Undo/Redo or explicit structural navigation resumes the mode. Merely releasing the mouse does not snap the document back.
+
+### Undo, Redo and navigation
+
+Undo and Redo first restore the exact text, insertion mark and selection bound recorded by W95. Only after that semantic restoration does the single viewport runtime project the restored caret. Search and navigation submit the same kind of semantic viewport intent. No second object writes the vertical adjustment independently.
+
+### What Typewriter Mode never does
+
+It never:
+
+- changes document text, line endings or Markdown;
+- inserts padding characters or blank lines;
+- creates an Undo step;
+- changes the horizontal scroll position;
+- uses repeated timeouts, polling or guessed line heights;
+- recentres during pointer drag;
+- merge itself with Focus Mode or Distraction-Free Mode.
+
+### Practical validation
+
+Use a long wrapped document. Enable the mode near the beginning and type until the caret naturally reaches the midpoint. Continue typing for several paragraphs: the active visual line should remain stable without block jumps, oscillation or drift. Then test pointer selection, wheel scrolling, keyboard resumption, Undo/Redo, the final line and disabling the mode. Turning it off must restore the normal bottom margin immediately.
 
 ## Learning the Research apparatus
 

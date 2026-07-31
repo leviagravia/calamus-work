@@ -5,6 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 RUNTIME = ROOT / "calamus" / "calamus_history_runtime.py"
+VIEWPORT_RUNTIME = ROOT / "calamus" / "calamus_viewport_runtime.py"
+VIEWPORT_POLICY = ROOT / "calamus" / "calamus_viewport.py"
 GATE = ROOT / "scripts" / "w95-true-gtk-app-gate.py"
 GUIDE = ROOT / "share" / "doc" / "calamus" / "USER_GUIDE.md"
 AUDIT = ROOT / "docs" / "canonical" / "CALAMUS_W95_EDITOR_HISTORY_MATURE_SOURCE_AUDIT.md"
@@ -26,34 +28,31 @@ def method(path, name):
 class W95VSCodePulsarViewportRebuildTests(unittest.TestCase):
     def test_app_passes_the_real_scroller_to_history_runtime(self):
         launcher = source(LAUNCHER)
-        self.assertIn(
-            "SnapshotHistoryRuntime(self.history, self.text, self.scroller, GLib, log_nonfatal)",
-            launcher,
-        )
+        self.assertIn("EditorViewportRuntime(", launcher)
+        self.assertIn("self.text, self.scroller, GLib, log_nonfatal", launcher)
+        self.assertIn("viewport_runtime=self.viewport_runtime", launcher)
 
     def test_viewport_projection_is_direct_geometry_not_scroll_to_mark(self):
-        runtime = source(RUNTIME)
-        projection = method(RUNTIME, "compute_vertical_reveal")
-        attempt = method(RUNTIME, "_reveal_insert_once")
-        self.assertIn("center_if_outside", projection)
-        self.assertIn("upper", projection)
-        self.assertIn("page_size", projection)
-        self.assertIn("self._adjustment.set_value(target)", attempt)
-        self.assertIn("self._reveal_geometry_ready", attempt)
-        self.assertNotIn("scroll_to_mark", runtime)
-        self.assertNotIn("scroll_to_iter", runtime)
+        policy = source(VIEWPORT_POLICY)
+        owner = source(VIEWPORT_RUNTIME)
+        self.assertIn("def compute_vertical_reveal", policy)
+        self.assertIn("get_iter_location", owner)
+        self.assertIn("get_visible_rect", owner)
+        self.assertIn("self._adjustment.set_value", owner)
+        self.assertNotIn("scroll_to_mark", owner)
+        self.assertNotIn("scroll_to_iter", owner)
 
     def test_viewport_retry_is_geometry_event_driven_not_timeout_driven(self):
-        runtime = source(RUNTIME)
-        constructor = method(RUNTIME, "__init__")
-        queue = method(RUNTIME, "queue_scroll_to_insert")
-        geometry = method(RUNTIME, "_on_view_geometry_changed")
-        self.assertIn('"changed", self._on_view_geometry_changed', constructor)
-        self.assertIn('"size-allocate", self._on_view_geometry_changed', constructor)
+        owner = source(VIEWPORT_RUNTIME)
+        constructor = method(VIEWPORT_RUNTIME, "__init__")
+        geometry = method(VIEWPORT_RUNTIME, "_on_geometry_changed")
+        queue = method(VIEWPORT_RUNTIME, "_replace_request")
+        self.assertIn('"changed", self._on_geometry_changed', constructor)
+        self.assertIn('"size-allocate", self._on_geometry_changed', constructor)
         self.assertIn("self.reveal_pending = True", queue)
-        self.assertIn("self._schedule_reveal_idle()", geometry)
-        self.assertNotIn("timeout_add", queue)
-        self.assertNotIn("usleep", runtime)
+        self.assertIn("self._schedule_idle()", geometry)
+        self.assertNotIn("timeout_add", owner)
+        self.assertNotIn("usleep", owner)
 
     def test_gate_waits_for_full_reveal_state_not_only_idle_exit(self):
         gate = method(GATE, "drain_history_scroll")
