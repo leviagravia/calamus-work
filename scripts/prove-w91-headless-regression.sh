@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/calamus-test-env.sh"
 TMP_CACHE="$(mktemp -d)"
 LOG="${CALAMUS_W91_HEADLESS_LOG:-$(mktemp)}"
 trap 'rm -rf "$TMP_CACHE"' EXIT
@@ -18,7 +19,6 @@ CALAMUS_W89_RUN_IDENTITY_GTK=0 \
 G_DEBUG=fatal-criticals \
 PYTHONDONTWRITEBYTECODE=1 \
 PYTHONPYCACHEPREFIX="$TMP_CACHE" \
-PYTHONPATH="$ROOT/calamus:$ROOT/tests:$ROOT" \
 timeout 600s python3 -u -B -m unittest discover -s tests -p 'test_*.py' >"$LOG" 2>&1
 status=$?
 set -e

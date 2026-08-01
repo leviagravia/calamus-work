@@ -46,6 +46,7 @@ from calamus_search_gateway import SearchController
 from calamus_search_view import SearchViewAdapter
 from calamus_search_dialogs import run_find_all_dialog, run_find_replace_dialog
 from calamus_navigation_gateway import NavigationController
+import calamus_document_dossier_app as document_dossier_app
 from calamus_navigation_view import NavigationViewAdapter
 from calamus_navigation_dialogs import run_go_to_line_dialog, run_go_to_section_dialog
 from calamus_navigator_panel import NavigatorPanelRuntime
@@ -383,6 +384,7 @@ class App(Gtk.Window):
         self.right_panel_host = RightPanelHost(self.body_paned, self.queue_wrap_reflow)
         self.build_clip_collection()
         self.build_research_panel()
+        document_dossier_app.build_document_overview(self)
         # Both side panels start detached. The editor remains the only visible
         # workspace client until the user explicitly requests a panel.
         self.workspace_paned.set_position(0)
@@ -686,6 +688,8 @@ class App(Gtk.Window):
         self.set_text_from_history(state)
 
     def on_changed(self, *_):
+        if hasattr(self, "document_overview_runtime"):
+            self.document_overview_runtime.mark_stale()
         if hasattr(self, "navigation_controller"):
             self.navigation_controller.invalidate()
         if hasattr(self, "navigator_panel_view"):
@@ -878,6 +882,9 @@ class App(Gtk.Window):
         return True
 
     def on_destroy(self, *_):
+        document_overview_runtime = getattr(self, "document_overview_runtime", None)
+        if document_overview_runtime is not None:
+            document_overview_runtime.shutdown()
         typewriter_runtime = getattr(self, "typewriter_runtime", None)
         if typewriter_runtime is not None:
             typewriter_runtime.shutdown()
@@ -919,6 +926,7 @@ class App(Gtk.Window):
         self.modified = self.document.modified
         self.reset_undo_history()
         getattr(self, "sync_source_notes_document", lambda: None)()
+        getattr(self, "refresh_document_overview_if_open", lambda: False)()
         if hasattr(self, "workspace_panel_view") and self.current_file:
             self.workspace_panel_view.select_path(self.current_file)
         self.update_title()
@@ -958,6 +966,7 @@ class App(Gtk.Window):
         self.reset_undo_history()
         self.add_recent_file(self.current_file)
         getattr(self, "sync_source_notes_document", lambda: None)()
+        getattr(self, "refresh_document_overview_if_open", lambda: False)()
         if hasattr(self, "workspace_panel_view") and self.current_file:
             self.workspace_panel_view.select_path(self.current_file)
         self.update_title()
@@ -995,6 +1004,7 @@ class App(Gtk.Window):
             getattr(self, "sync_source_notes_document", lambda: None)()
             self.update_title()
             self.save_settings()
+            getattr(self, "refresh_document_overview_if_open", lambda: False)()
             return True
         except (OSError, ValueError) as e:
             self.error(str(e))
@@ -1617,6 +1627,7 @@ class App(Gtk.Window):
         self.reset_undo_history()
         getattr(self, "sync_source_notes_document", lambda: None)()
         self.update_title()
+        getattr(self, "refresh_document_overview_if_open", lambda: False)()
         return True
 
     def on_save_as_template(self, *_):
@@ -2279,6 +2290,9 @@ class App(Gtk.Window):
             ),
         )
 
+    on_document_overview = document_dossier_app.on_document_overview
+    refresh_document_overview_if_open = document_dossier_app.refresh_document_overview_if_open
+
     def refresh_clip_list(self):
         return self.clip_collection.refresh()
 
@@ -2682,6 +2696,7 @@ class App(Gtk.Window):
             self.current_file = identity.current_file_after
             self.sync_source_notes_document(force=True)
             self.update_title()
+            getattr(self, "refresh_document_overview_if_open", lambda: False)()
         recent_saved = self.state.save_recent_files(list(identity.recent_files_after), limit=10)
         favourites_saved = self.state.save_favourites(list(identity.favourites_after), limit=50)
         settings_saved = self.save_settings()
@@ -2700,6 +2715,7 @@ class App(Gtk.Window):
             self.modified = True
             self.sync_source_notes_document(force=True)
             self.update_title()
+            getattr(self, "refresh_document_overview_if_open", lambda: False)()
         recent_saved = self.state.save_recent_files(
             list(identity.recent_files_after), limit=10
         )

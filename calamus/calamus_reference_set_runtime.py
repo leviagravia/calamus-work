@@ -74,6 +74,10 @@ class ReferenceSetRuntime:
     def reload(self) -> None:
         self._controller.load()
 
+    def show_set(self, name: str) -> bool:
+        self._controller.ensure_loaded()
+        return self._controller.select_set(name)
+
     def activate(self) -> None:
         self._controller.ensure_loaded()
         self._controller.refresh()

@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export CALAMUS_LIB_DIR="$ROOT/calamus"
-export CALAMUS_TEST_DIR="$ROOT/tests"
-export CALAMUS_SOURCE_ROOT="$ROOT"
-export PYTHONPATH="$ROOT/calamus"
-export PYTHONDONTWRITEBYTECODE=1
+source "$ROOT/scripts/calamus-test-env.sh"
 python3 -B - "$ROOT" <<'PY'
 import os
 import sys
@@ -14,7 +10,6 @@ from pathlib import Path
 root = Path(sys.argv[1]).resolve()
 expected_lib = root / "calamus"
 
-sys.path.insert(0, str(expected_lib))
 
 modules = [
     "calamus_document",
@@ -48,6 +43,12 @@ modules = [
     "calamus_clip_runtime",
     "calamus_right_panel",
     "calamus_document_structure",
+    "calamus_document_dossier",
+    "calamus_document_dossier_controller",
+    "calamus_document_dossier_app",
+    "calamus_document_overview_model",
+    "calamus_document_overview_view",
+    "calamus_document_overview_runtime",
     "calamus_navigation_gateway",
     "calamus_navigation_view",
     "calamus_navigation_dialogs",

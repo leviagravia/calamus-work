@@ -23,9 +23,9 @@ import unittest
 import uuid
 from unittest.mock import patch
 
-from calamus_pandoc_artifact_assertions import contains_semantic_text
+from tests.calamus_pandoc_artifact_assertions import contains_semantic_text
 
-from calamus_gtk_test_driver import (
+from tests.calamus_gtk_test_driver import (
     HAVE_GTK,
     close_visible_dialogs,
     display_ready,

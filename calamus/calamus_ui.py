@@ -206,6 +206,7 @@ def build_menu(app) -> None:
     app.workspace_item.set_active(False)
     app.workspace_item.connect("toggled", app.on_workspace_item_toggled)
     navigatem.append(app.workspace_item)
+    add_item(navigatem, "Document Overview", app.on_document_overview)
     add_separator(navigatem)
     add_item(navigatem, "Go to Line…\tCtrl+L", app.on_go_to_line)
     add_item(navigatem, "Go to Section…\tCtrl+Shift+L", app.on_go_to_section)

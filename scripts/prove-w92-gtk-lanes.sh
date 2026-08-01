@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/calamus-test-env.sh"
 LOG_ROOT="${CALAMUS_W92_GTK_LOG_ROOT:-$(mktemp -d)}"
 PY_CACHE="$(mktemp -d)"
 TEMP_ROOT="$(mktemp -d)"
@@ -11,7 +12,6 @@ trap cleanup EXIT
 
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPYCACHEPREFIX="$PY_CACHE"
-export PYTHONPATH="$ROOT/calamus:$ROOT/tests:$ROOT"
 
 scan_blocking() {
     local log="$1"

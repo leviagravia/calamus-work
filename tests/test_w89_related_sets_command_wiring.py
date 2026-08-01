@@ -92,7 +92,7 @@ class W89RelatedSetsCommandWiringTests(unittest.TestCase):
 
     def test_bloat_and_forbidden_infrastructure_gate(self):
         ceilings = {
-            "bin/calamus": 3100,
+            "bin/calamus": 3120,
             "calamus/calamus_related_references.py": 380,
             "calamus/calamus_related_reference_dialogs.py": 230,
             "calamus/calamus_reference_sets.py": 320,

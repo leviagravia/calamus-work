@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-from calamus_gtk_test_driver import HAVE_GTK, Gtk, display_ready
+from tests.calamus_gtk_test_driver import HAVE_GTK, Gtk, display_ready
 
 if HAVE_GTK:
     from calamus_identity_dialogs import (

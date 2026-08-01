@@ -21,7 +21,7 @@ from calamus_pandoc import (
     PandocExportRequest,
 )
 from calamus_pandoc_controller import PandocExportController
-from calamus_pandoc_artifact_assertions import contains_semantic_text
+from tests.calamus_pandoc_artifact_assertions import contains_semantic_text
 from calamus_reference_set_store import MarkdownReferenceSetStore
 from calamus_reference_sets import ReferenceSet, serialize_reference_sets_markdown
 from calamus_reference_store import MarkdownReferenceStore, serialize_references_markdown

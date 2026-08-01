@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export PYTHONPATH="$ROOT/calamus:$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+source "$ROOT/scripts/calamus-test-env.sh"
 python3 -B - "$ROOT" <<'PY'
 from __future__ import annotations
 import ast

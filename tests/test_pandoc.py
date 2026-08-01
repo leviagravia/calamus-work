@@ -23,7 +23,7 @@ from calamus_pandoc import (
     suggested_output_name,
 )
 from calamus_reference_sets import ReferenceSet
-from calamus_pandoc_artifact_assertions import (
+from tests.calamus_pandoc_artifact_assertions import (
     contains_semantic_text,
     normalize_rendered_text,
 )

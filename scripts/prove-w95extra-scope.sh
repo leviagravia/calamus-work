@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export CALAMUS_SOURCE_ROOT="$ROOT"
-export CALAMUS_LIB_DIR="$ROOT/calamus"
-export CALAMUS_TEST_DIR="$ROOT/tests"
-export PYTHONPATH="$ROOT/calamus"
+source "$ROOT/scripts/calamus-test-env.sh"
 export PYTHONDONTWRITEBYTECODE=1
 python3 -B -m unittest -v \
   tests.test_w95extra_viewport_policy \

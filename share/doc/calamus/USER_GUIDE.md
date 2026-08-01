@@ -96,6 +96,7 @@ Undo and Redo preserve the **exact caret and selection** recorded at the edit bo
 
 - **Navigator Panel — `Ctrl+Alt+N`**: show or hide the document-structure Navigator.
 - **Writing Workspace**: show or hide the folder Workspace in the same left-panel host.
+- **Document Overview**: open the read-only current-document dossier with Overview, Structure, Research, Integrity and Statistics.
 - **Go to Line… — `Ctrl+L`**: move to an exact logical line.
 - **Go to Section… — `Ctrl+Shift+L`**: choose a parsed Markdown section and move to it.
 - **Insert Bookmark Here — `Ctrl+F2`**: add or remove a named navigation position at the current caret.
@@ -4934,6 +4935,57 @@ Prima di confermare:
 - semantic preview controllata;
 - warning compresi;
 - formato finale appropriato.
+
+
+## Document Overview
+
+Open **Navigate → Document Overview** to inspect a read-only projection of the
+current document. The window is non-modal and single-instance: activating the
+command again refreshes and presents the same window rather than creating a
+second copy.
+
+Document Overview contains five categories: **Overview, Structure, Research,
+Integrity and Statistics**.
+
+- **Overview** summarizes path, saved/modified state, words, sections,
+  citations, Source Notes, references in context, Related References,
+  collected-but-unused references, pertinent Reference Sets and issues.
+- **Structure** lists headings, bookmarks and explicit internal links. Use the
+  action buttons to return to the exact location in the editor.
+- **Research** combines citations, Source Notes, cited/linked references,
+  Related References and pertinent Reference Sets. It does not show unrelated
+  records from the global library.
+- **Integrity** presents the existing Research Check results without silently
+  repairing or reclassifying them.
+- **Statistics** shows the existing document statistics and descriptive counts
+  by section. Sections without citations or notes are observations, not quality
+  judgments.
+
+The overview never stores a second dossier and never edits the manuscript.
+It reads the live editor buffer plus the existing Markdown authorities. Press
+**Refresh** after an edit when the window reports that the document changed.
+Opening a new document, saving, Save As, or a Calamus-controlled rename also
+refreshes an already open overview. No watcher, timer, database, AI or hidden
+index is used.
+
+For an untitled document, structure, citations, links and statistics remain
+available. Source Notes and other path-dependent data become available after
+the document is saved.
+
+Document Overview revalidates the live buffer and the References, Source Notes
+and Reference Sets authorities before every action. If one of them changed,
+the overview refreshes, clears the old selection and asks you to **select the
+item again**. In that situation **no action is executed from a stale
+selection**. This fail-closed rule also applies when a heading, citation, Source
+Note, Reference or Reference Set was removed or renamed outside the overview.
+
+Core actions are deliberately limited to navigation and opening the certified
+owner of an item: Go to Section/Bookmark/Link/Citation, Show Reference, Open
+Source Note, Open Reference Set and Run Research Check. Document Overview does
+not edit a Reference, Source Note or set, does not rename keys, and does not
+export or write coordinated changes. Related References, pertinent Reference
+Sets and collected-but-unused references are calculated from the existing
+Markdown authorities and are never stored in a dossier file.
 
 ## Keyboard Shortcuts and About
 

@@ -12,7 +12,6 @@ env = os.environ.copy()
 env["CALAMUS_SOURCE_ROOT"] = str(ROOT)
 env["CALAMUS_LIB_DIR"] = str(ROOT / "calamus")
 env["CALAMUS_W95EXTRA_RUN_REAL_GTK"] = "1"
-env["PYTHONPATH"] = str(ROOT / "calamus")
 env["PYTHONDONTWRITEBYTECODE"] = "1"
 
 completed = subprocess.run(

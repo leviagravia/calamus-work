@@ -10,7 +10,7 @@ import inspect
 from pathlib import Path
 import unittest
 
-from calamus_gtk_test_driver import named_widget
+from tests.calamus_gtk_test_driver import named_widget
 
 
 ROOT = Path(__file__).resolve().parents[1]

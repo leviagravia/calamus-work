@@ -18,7 +18,7 @@ from calamus_version import (
     PUBLISHED_BASELINE,
 )
 
-from calamus_gtk_test_driver import (
+from tests.calamus_gtk_test_driver import (
     HAVE_GTK,
     Gtk,
     ModalDriver,

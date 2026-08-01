@@ -11,7 +11,7 @@ import unittest
 import uuid
 from unittest.mock import patch
 
-from calamus_gtk_test_driver import (
+from tests.calamus_gtk_test_driver import (
     HAVE_GTK,
     Gtk,
     ModalDriver,

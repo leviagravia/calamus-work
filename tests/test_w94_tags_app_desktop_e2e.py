@@ -12,7 +12,7 @@ import unittest
 import uuid
 from unittest.mock import patch
 
-from calamus_gtk_test_driver import HAVE_GTK, Gtk, close_visible_dialogs, display_ready, named_widget, pump
+from tests.calamus_gtk_test_driver import HAVE_GTK, Gtk, close_visible_dialogs, display_ready, named_widget, pump
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN_REAL_GTK = os.environ.get("CALAMUS_W94_RUN_REAL_GTK") == "1"
