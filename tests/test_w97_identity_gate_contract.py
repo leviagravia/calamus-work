@@ -7,7 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class W96IdentityGateContractTests(unittest.TestCase):
+class W97IdentityGateContractTests(unittest.TestCase):
     def test_w95_historical_gate_is_not_bound_to_current_identity(self):
         text = (ROOT / "scripts/w95-true-gtk-app-gate.py").read_text(encoding="utf-8")
         self.assertNotIn("DEVELOPMENT_WORK_ITEM", text)
@@ -15,26 +15,27 @@ class W96IdentityGateContractTests(unittest.TestCase):
         self.assertNotIn("PUBLISHED_BASELINE", text)
         self.assertIn("W95_HISTORICAL_IDENTITY_INDEPENDENT=PASS", text)
 
-    def test_w96_current_identity_gate_is_exact(self):
-        text = (ROOT / "tests/test_w96_identity_app_desktop_e2e.py").read_text(encoding="utf-8")
-        self.assertIn('EXPECTED_WORK_ITEM = "W96"', text)
+    def test_w97_current_identity_gate_is_exact(self):
+        text = (ROOT / "tests/test_w97_identity_app_desktop_e2e.py").read_text(encoding="utf-8")
+        self.assertIn('EXPECTED_WORK_ITEM = "W97"', text)
         self.assertIn(
-            'EXPECTED_DESCRIPTION = "Document Overview Core — Gate C"', text
+            'EXPECTED_DESCRIPTION = "Bibliography Manager Core"', text
         )
         self.assertIn(
-            'EXPECTED_BASELINE = "792ca0f76db39525a9052bd61e43fe929988af2e"',
+            'EXPECTED_BASELINE = "199459fb023e4862407f7eb60318192f276d3239"',
             text,
         )
-        self.assertIn("W96_CURRENT_SYSTEM_INFO_EXACT_IDENTITY=PASS", text)
+        self.assertIn("W97_CURRENT_SYSTEM_INFO_EXACT_IDENTITY=PASS", text)
 
-    def test_w96_identity_runs_before_w96_product_gate(self):
-        text = (ROOT / "scripts/prove-w96-core-gate-c-gtk-lanes.sh").read_text(
+    def test_w97_identity_runs_before_w97_product_gate(self):
+        text = (ROOT / "scripts/prove-w97-bibliography-core-gtk-lanes.sh").read_text(
             encoding="utf-8"
         )
-        identity = text.index("tests.test_w96_identity_app_desktop_e2e")
-        product = text.index("tests.test_w96_document_overview_app_desktop_e2e")
+        identity = text.index("tests.test_w97_identity_app_desktop_e2e")
+        product = text.index("tests.test_w97_bibliography_app_desktop_e2e")
         self.assertLess(identity, product)
-        self.assertIn("W96_CURRENT_IDENTITY_TRUE_APP=PASS", text)
+        self.assertIn("W97_CURRENT_IDENTITY_TRUE_APP=PASS", text)
+        self.assertIn("W97_BIBLIOGRAPHY_MANAGER_CORE_GTK_LANES=PASS", text)
 
     def test_w95extra_functional_gate_remains_present(self):
         text = (ROOT / "scripts/prove-w95extra-gtk-lanes.sh").read_text(

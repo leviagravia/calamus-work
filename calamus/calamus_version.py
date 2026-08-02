@@ -3,6 +3,6 @@ APP_VERSION = "1.7.0-rc3-stable4.3"
 
 # Truthful runtime identity for the active, unpublished development line.
 DEVELOPMENT_BUILD_LABEL = "Development build"
-DEVELOPMENT_WORK_ITEM = "W96"
-DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Document Overview Core — Gate C"
-PUBLISHED_BASELINE = "792ca0f76db39525a9052bd61e43fe929988af2e"
+DEVELOPMENT_WORK_ITEM = "W97"
+DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Bibliography Manager Core"
+PUBLISHED_BASELINE = "199459fb023e4862407f7eb60318192f276d3239"

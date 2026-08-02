@@ -77,12 +77,12 @@ class ClipW95ContractTests(unittest.TestCase):
 
     def test_w95extra_identity_points_to_published_w95(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W96"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W97"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Document Overview Core — Gate C"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Bibliography Manager Core"',
             version,
         )
-        self.assertIn('PUBLISHED_BASELINE = "792ca0f76db39525a9052bd61e43fe929988af2e"', version)
+        self.assertIn('PUBLISHED_BASELINE = "199459fb023e4862407f7eb60318192f276d3239"', version)
 
 
 if __name__ == "__main__":

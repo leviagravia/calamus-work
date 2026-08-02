@@ -2152,6 +2152,11 @@ class App(Gtk.Window):
             self,
             store=self.reference_store,
             quick_cite=self.quick_cite_key,
+            document_text_provider=self.buffer_text,
+            source_notes_provider=lambda: self.source_notes_snapshot(),
+            reference_sets_provider=lambda: self.reference_set_runtime.sets_snapshot(force=True),
+            open_external=open_external_path,
+            reveal_external=reveal_in_file_manager,
         )
         self.reference_set_runtime = ReferenceSetRuntime(
             self,
@@ -2225,7 +2230,7 @@ class App(Gtk.Window):
         clients = (
             ("clip-collection", "Clips", self.clip_collection.widget, self.clip_collection_runtime.activate),
             ("scratchpad", "Scratchpad", self.scratchpad_runtime.widget, self.scratchpad_runtime.activate),
-            ("references", "References", self.reference_panel_runtime.widget, self.reference_panel_runtime.activate),
+            ("references", "Bibliography", self.reference_panel_runtime.widget, self.reference_panel_runtime.activate),
             ("tags", "Tags", self.tags_runtime.widget, self.tags_runtime.activate),
             ("reference-sets", "Reference Sets", self.reference_set_runtime.widget, self.reference_set_runtime.activate),
             ("source-notes", "Source Notes", self.source_note_panel_runtime.widget, self.source_note_panel_runtime.activate),
@@ -2320,6 +2325,18 @@ class App(Gtk.Window):
 
     def show_references(self, *_):
         return self.research_panel_runtime.show("references")
+
+    def on_open_bibliography_file(self, *_):
+        if self.reference_panel_runtime.open_bibliography_file():
+            return True
+        show_error(self, "The bibliography file is not available.")
+        return False
+
+    def on_export_bibliography_markdown(self, *_):
+        return self.reference_panel_runtime.export_visible_bibliography(markdown=True)
+
+    def on_export_bibliography_text(self, *_):
+        return self.reference_panel_runtime.export_visible_bibliography(markdown=False)
 
     def show_tags(self, *_):
         return self.research_panel_runtime.show("tags")

@@ -41,13 +41,13 @@ class CitationCommandWiringTests(unittest.TestCase):
         shortcuts = source(SHORTCUTS)
         self.assertIn("Quick Cite…", ui)
         self.assertIn("Ctrl+Alt+Q", ui)
-        self.assertIn("Open Citation in References", ui)
+        self.assertIn("Open Citation in Bibliography", ui)
         self.assertIn("Ctrl+Alt+Shift+Q", ui)
         self.assertIn('("<Control><Alt>Q", app.on_quick_cite)', ui)
         self.assertIn('("<Control><Alt><Shift>Q", app.on_open_citation_in_references)', ui)
         self.assertIn('ShortcutSpec("Research", "Quick Cite", "Ctrl+Alt+Q")', shortcuts)
         self.assertIn(
-            'ShortcutSpec("Research", "Open Citation in References", "Ctrl+Alt+Shift+Q")',
+            'ShortcutSpec("Research", "Open Citation in Bibliography", "Ctrl+Alt+Shift+Q")',
             shortcuts,
         )
 

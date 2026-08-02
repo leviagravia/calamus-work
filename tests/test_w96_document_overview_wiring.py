@@ -63,11 +63,11 @@ class W96DocumentOverviewWiringTests(unittest.TestCase):
         self.assertNotIn("Gtk.StackSwitcher", source)
         self.assertNotIn("Gtk.TextView", source)
 
-    def test_identity_and_help_are_current_and_truthful(self):
+    def test_w96_help_is_preserved_and_current_identity_is_w97(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W96"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Document Overview Core — Gate C"', version)
-        self.assertIn('PUBLISHED_BASELINE = "792ca0f76db39525a9052bd61e43fe929988af2e"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W97"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Bibliography Manager Core"', version)
+        self.assertIn('PUBLISHED_BASELINE = "199459fb023e4862407f7eb60318192f276d3239"', version)
         guide = (ROOT / "share/doc/calamus/USER_GUIDE.md").read_text(encoding="utf-8")
         for token in (
             "## Document Overview",

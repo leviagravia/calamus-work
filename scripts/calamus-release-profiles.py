@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import faulthandler
 import io
 import json
 import os
@@ -25,6 +26,7 @@ TEST_DIR = ROOT / "tests"
 MANIFEST = TEST_DIR / "calamus_release_test_profiles.json"
 
 sys.dont_write_bytecode = True
+faulthandler.enable(all_threads=True)
 for path in (ROOT / "calamus", ROOT):
     value = str(path)
     if value not in sys.path:
@@ -44,6 +46,7 @@ LANE_FLAG_PREFIXES = (
     "CALAMUS_W95_",
     "CALAMUS_W95EXTRA_",
     "CALAMUS_W96_",
+    "CALAMUS_W97_",
 )
 
 
@@ -72,7 +75,7 @@ def load_manifest() -> dict:
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
     if data.get("schema") != 1:
         raise RuntimeError("unsupported release-profile manifest schema")
-    if data.get("published_baseline") != "792ca0f76db39525a9052bd61e43fe929988af2e":
+    if data.get("published_baseline") != "199459fb023e4862407f7eb60318192f276d3239":
         raise RuntimeError("manifest baseline identity mismatch")
     if not isinstance(data.get("profiles"), dict) or not data["profiles"]:
         raise RuntimeError("manifest has no profiles")
@@ -106,7 +109,8 @@ def validate_inventory(data: dict) -> tuple[int, int]:
     print(
         "CALAMUS_RELEASE_PROFILE_INVENTORY=PASS "
         f"tests={len(discovered)} assigned={len(assigned)} "
-        f"multi_profile={len(duplicates)} profiles={len(data['profiles'])}"
+        f"multi_profile={len(duplicates)} profiles={len(data['profiles'])}",
+        flush=True,
     )
     return len(discovered), len(assigned)
 
@@ -120,6 +124,8 @@ def clean_environment(profile: dict) -> dict[str, str]:
     env["PYTHONNOUSERSITE"] = "1"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONHASHSEED"] = "0"
+    env["PYTHONUNBUFFERED"] = "1"
+    env["PYTHONFAULTHANDLER"] = "1"
     env.setdefault("TERM", "dumb")
     for key in list(env):
         if any(key.startswith(prefix) for prefix in LANE_FLAG_PREFIXES):
@@ -213,7 +219,9 @@ print('GTK_DISPLAY=PASS')
 
 
 def _run_suite(test_ids: list[str], verbosity: int = 2) -> unittest.TestResult:
+    print(f"CALAMUS_RELEASE_PROFILE_TEST_LOAD_BEGIN count={len(test_ids)}", file=sys.stderr, flush=True)
     suite = unittest.defaultTestLoader.loadTestsFromNames(test_ids)
+    print("CALAMUS_RELEASE_PROFILE_TEST_LOAD_COMPLETE=PASS", file=sys.stderr, flush=True)
     loaded = list(_flatten(suite))
     if len(loaded) != len(test_ids):
         raise RuntimeError(
@@ -222,7 +230,10 @@ def _run_suite(test_ids: list[str], verbosity: int = 2) -> unittest.TestResult:
     failed_loads = [test.id() for test in loaded if "_FailedTest" in test.id()]
     if failed_loads:
         raise RuntimeError(f"selected profile contains _FailedTest: {failed_loads}")
-    return unittest.TextTestRunner(verbosity=verbosity).run(suite)
+    print("CALAMUS_RELEASE_PROFILE_TEST_RUN_BEGIN", file=sys.stderr, flush=True)
+    result = unittest.TextTestRunner(stream=sys.stderr, verbosity=verbosity).run(suite)
+    print("CALAMUS_RELEASE_PROFILE_TEST_RUN_COMPLETE", file=sys.stderr, flush=True)
+    return result
 
 
 def validate_result(profile_name: str, result: unittest.TestResult, expected: int) -> None:
@@ -268,6 +279,13 @@ def run_script_profile(name: str, profile: dict) -> None:
     if not isinstance(command, list) or not command:
         raise RuntimeError(f"script profile {name} has no command")
     env = clean_environment(profile)
+    # Historical script profiles merge unittest's verbose stderr with marker
+    # stdout and then validate exact marker lines. Forced unbuffered child stdout
+    # can splice the first marker into unittest's unfinished status line. Keep
+    # the release-profile process itself unbuffered, but preserve the historical
+    # child buffering contract unless a profile explicitly opts into overriding it.
+    if "PYTHONUNBUFFERED" not in profile.get("set_env", {}):
+        env.pop("PYTHONUNBUFFERED", None)
     for capability in profile.get("capabilities", []):
         probe_capability(capability, env)
     timeout = int(profile.get("timeout_seconds", 1800))

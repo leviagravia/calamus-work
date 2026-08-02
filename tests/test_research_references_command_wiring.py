@@ -46,7 +46,7 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
         self.assertLess(ui.index('top_menu(app, "Research")'), ui.index('top_menu(app, "Navigate")'))
         self.assertIn('Gtk.CheckMenuItem(label="Research Panel\\tCtrl+Alt+C")', ui)
         self.assertIn('add_item(researchm, "Clip Collection", app.show_clip_collection)', ui)
-        self.assertIn('add_item(researchm, "References", app.show_references)', ui)
+        self.assertIn('add_item(researchm, "Bibliography", app.show_references)', ui)
         self.assertIn('add_item(researchm, "Source Notes", app.show_source_notes)', ui)
         view_block = ui[ui.index('viewm = top_menu(app, "View")'):ui.index('optm = top_menu(app, "Options")')]
         self.assertNotIn("Clip Collection", view_block)

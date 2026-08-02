@@ -1,4 +1,4 @@
-"""Exact current W96 runtime identity proof on the real App/GTK dialogs."""
+"""Exact current W97 runtime identity proof on the real App/GTK dialogs."""
 from __future__ import annotations
 
 import importlib.machinery
@@ -29,11 +29,11 @@ from tests.calamus_gtk_test_driver import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-RUN_REAL_GTK = os.environ.get("CALAMUS_W96_RUN_REAL_GTK") == "1"
+RUN_REAL_GTK = os.environ.get("CALAMUS_W97_RUN_REAL_GTK") == "1"
 EXPECTED_BUILD_LABEL = "Development build"
-EXPECTED_WORK_ITEM = "W96"
-EXPECTED_DESCRIPTION = "Document Overview Core — Gate C"
-EXPECTED_BASELINE = "792ca0f76db39525a9052bd61e43fe929988af2e"
+EXPECTED_WORK_ITEM = "W97"
+EXPECTED_DESCRIPTION = "Bibliography Manager Core"
+EXPECTED_BASELINE = "199459fb023e4862407f7eb60318192f276d3239"
 
 
 def _load_app_module():
@@ -41,7 +41,7 @@ def _load_app_module():
     os.environ["CALAMUS_SOURCE_ROOT"] = str(ROOT)
     if str(ROOT / "calamus") not in sys.path:
         sys.path.insert(0, str(ROOT / "calamus"))
-    name = f"calamus_w96_identity_{uuid.uuid4().hex}"
+    name = f"calamus_w97_identity_{uuid.uuid4().hex}"
     loader = importlib.machinery.SourceFileLoader(name, str(ROOT / "bin/calamus"))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
@@ -75,9 +75,9 @@ def _text(view) -> str:
 
 @unittest.skipUnless(
     RUN_REAL_GTK and HAVE_GTK and display_ready(),
-    "set CALAMUS_W96_RUN_REAL_GTK=1 on a real GTK desktop",
+    "set CALAMUS_W97_RUN_REAL_GTK=1 on a real GTK desktop",
 )
-class W96CurrentIdentityRealAppE2E(unittest.TestCase):
+class W97CurrentIdentityRealAppE2E(unittest.TestCase):
     def test_exact_current_identity_and_stable_about(self):
         self.assertEqual(DEVELOPMENT_BUILD_LABEL, EXPECTED_BUILD_LABEL)
         self.assertEqual(DEVELOPMENT_WORK_ITEM, EXPECTED_WORK_ITEM)
@@ -138,9 +138,9 @@ class W96CurrentIdentityRealAppE2E(unittest.TestCase):
                     pump()
                     info_driver.assert_complete()
 
-                    print("W96_CURRENT_ABOUT_STABLE_IDENTITY=PASS")
-                    print("W96_CURRENT_SYSTEM_INFO_EXACT_IDENTITY=PASS")
-                    print("W96_CURRENT_IDENTITY_DIALOG_OWNERSHIP=PASS")
+                    print("W97_CURRENT_ABOUT_STABLE_IDENTITY=PASS")
+                    print("W97_CURRENT_SYSTEM_INFO_EXACT_IDENTITY=PASS")
+                    print("W97_CURRENT_IDENTITY_DIALOG_OWNERSHIP=PASS")
                 finally:
                     close_visible_dialogs()
                     win.destroy()

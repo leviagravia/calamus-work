@@ -68,6 +68,8 @@ modules = [
     "calamus_workspace_identity",
     "calamus_panel_chrome",
     "calamus_references",
+    "calamus_bibliography",
+    "calamus_bibliography_search",
     "calamus_reference_store",
     "calamus_reference_controller",
     "calamus_reference_panel",

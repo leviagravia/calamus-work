@@ -89,14 +89,14 @@ class RuntimeIdentityWorkingCopyTests(unittest.TestCase):
 
     def test_development_identity_constants_are_exact(self):
         self.assertEqual(DEVELOPMENT_BUILD_LABEL, "Development build")
-        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W96")
+        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W97")
         self.assertEqual(
             DEVELOPMENT_WORK_ITEM_DESCRIPTION,
-            "Document Overview Core — Gate C",
+            "Bibliography Manager Core",
         )
         self.assertEqual(
             PUBLISHED_BASELINE,
-            "792ca0f76db39525a9052bd61e43fe929988af2e",
+            "199459fb023e4862407f7eb60318192f276d3239",
         )
 
     def test_historical_package_version_is_preserved_but_not_runtime_label(self):

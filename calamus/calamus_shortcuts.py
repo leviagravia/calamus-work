@@ -56,7 +56,7 @@ SHORTCUTS: tuple[ShortcutSpec, ...] = (
     ShortcutSpec("Research", "Create Source Note from Selection", "menu"),
     ShortcutSpec("Research", "Insert Link to Heading", "menu"),
     ShortcutSpec("Research", "Quick Cite", "Ctrl+Alt+Q"),
-    ShortcutSpec("Research", "Open Citation in References", "Ctrl+Alt+Shift+Q"),
+    ShortcutSpec("Research", "Open Citation in Bibliography", "Ctrl+Alt+Shift+Q"),
     ShortcutSpec("Research", "Tag Integrity", "menu"),
     ShortcutSpec("Research", "Import BibTeX/BibLaTeX", "menu"),
     ShortcutSpec("Research", "Export References as BibTeX/BibLaTeX", "menu"),

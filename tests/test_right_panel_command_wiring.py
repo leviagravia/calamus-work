@@ -109,7 +109,7 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         self.assertIn('"Research Panel\\tCtrl+Alt+C"', ui)
         self.assertIn('(\"<Control><Alt>C\", app.toggle_research_panel)', ui)
         self.assertIn('add_item(researchm, "Clip Collection", app.show_clip_collection)', ui)
-        self.assertIn('add_item(researchm, "References", app.show_references)', ui)
+        self.assertIn('add_item(researchm, "Bibliography", app.show_references)', ui)
         self.assertIn('add_item(researchm, "Source Notes", app.show_source_notes)', ui)
         self.assertIn('f"<Control><Alt>{i}"', ui)
         view_block = ui[ui.index('viewm = top_menu(app, "View")'):ui.index('optm = top_menu(app, "Options")')]

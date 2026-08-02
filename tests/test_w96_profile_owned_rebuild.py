@@ -23,7 +23,7 @@ class W96ProfileOwnedRebuildTests(unittest.TestCase):
         self.assertEqual(data["schema"], 1)
         self.assertEqual(
             data["published_baseline"],
-            "792ca0f76db39525a9052bd61e43fe929988af2e",
+            "199459fb023e4862407f7eb60318192f276d3239",
         )
         release = {
             name: profile
@@ -50,7 +50,7 @@ class W96ProfileOwnedRebuildTests(unittest.TestCase):
         data = json.loads(MANIFEST.read_text(encoding="utf-8"))
         profiles = data["profiles"]
         required = {
-            "w96-headless-focused",
+            "w97-headless-focused",
             "gio-real",
             "pandoc-real",
             "gtk-components",
@@ -58,8 +58,9 @@ class W96ProfileOwnedRebuildTests(unittest.TestCase):
             "w86-w87-real-fixtures",
             "historical-w89-w94",
             "historical-w95extra",
-            "w96-identity-smoke",
-            "w96-product-smoke",
+            "w97-identity-smoke",
+            "historical-w96-product",
+            "w97-product-smoke",
             "manual-desktop",
         }
         self.assertTrue(required.issubset(profiles))

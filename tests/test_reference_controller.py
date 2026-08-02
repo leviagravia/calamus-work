@@ -87,6 +87,19 @@ class ReferenceControllerTests(unittest.TestCase):
         self.assertEqual(view.selected, "alpha2020")
         self.assertFalse(controller.select_key("missing"))
 
+    def test_controller_owns_semantic_selection_independently_of_row_lifetime(self):
+        store = FakeStore((self.record("alpha2020", "Alpha"), self.record("beta2021", "Beta")))
+        controller, view, _ = self.make(store)
+        controller.load()
+        self.assertEqual(controller.selected_key, "alpha2020")
+        view.selected = "beta2021"
+        controller.sync_selection_from_view()
+        self.assertEqual(controller.selected_key, "beta2021")
+        view.selected = None
+        self.assertEqual(controller.selected_record().key, "beta2021")
+        controller.refresh()
+        self.assertEqual(view.selected, "beta2021")
+
     def test_add_is_persist_first_and_failure_keeps_runtime_unchanged(self):
         store = FakeStore((self.record(),))
         controller, _, errors = self.make(store)

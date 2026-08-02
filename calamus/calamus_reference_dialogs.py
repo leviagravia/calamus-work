@@ -4,11 +4,11 @@ from __future__ import annotations
 from calamus_references import ReferenceRecord, reference_types, suggest_reference_key
 
 
-def run_reference_dialog(parent, existing_keys, record: ReferenceRecord | None = None) -> ReferenceRecord | None:
+def run_reference_dialog(parent, existing_keys, record: ReferenceRecord | None = None, *, allow_key_edit: bool = False, title: str | None = None) -> ReferenceRecord | None:
     from gi.repository import Gtk
 
     dialog = Gtk.Dialog(
-        title="Edit Reference" if record else "Add Reference",
+        title=title or ("Edit Reference" if record else "Add Reference"),
         transient_for=parent,
         modal=True,
     )
@@ -45,7 +45,7 @@ def run_reference_dialog(parent, existing_keys, record: ReferenceRecord | None =
     key_entry = add_entry(basic, 0, "Key", "key", record.key if record else "")
     suggest_button = Gtk.Button(label="Suggest")
     basic.attach(suggest_button, 2, 0, 1, 1)
-    if record is not None:
+    if record is not None and not allow_key_edit:
         key_entry.set_sensitive(False)
         key_entry.set_tooltip_text("Use Research → Rename Reference Key…")
         suggest_button.set_sensitive(False)
@@ -111,6 +111,29 @@ def run_reference_dialog(parent, existing_keys, record: ReferenceRecord | None =
     for row, (label, name) in enumerate(labels):
         add_entry(publication, row, label, name, pub_values[name])
 
+    file_button = Gtk.Button(label="Choose File…")
+    publication.attach(file_button, 2, len(labels) - 1, 1, 1)
+
+    def choose_file(*_):
+        chooser = Gtk.FileChooserDialog(
+            title="Choose Local Reference File",
+            transient_for=dialog,
+            action=Gtk.FileChooserAction.OPEN,
+        )
+        chooser.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        chooser.add_button("Choose", Gtk.ResponseType.OK)
+        current = entries["file_path"].get_text().strip()
+        if current:
+            try:
+                chooser.set_filename(current)
+            except Exception:
+                pass
+        if chooser.run() == Gtk.ResponseType.OK:
+            entries["file_path"].set_text(chooser.get_filename() or "")
+        chooser.destroy()
+
+    file_button.connect("clicked", choose_file)
+
     def suggest(*_):
         excluded = set(existing_keys)
         if record:
@@ -174,7 +197,7 @@ def run_reference_dialog(parent, existing_keys, record: ReferenceRecord | None =
     return result
 
 
-def confirm_reference_delete(parent, record: ReferenceRecord) -> bool:
+def confirm_reference_delete(parent, record: ReferenceRecord, impact=None) -> bool:
     from gi.repository import Gtk
     dialog = Gtk.MessageDialog(
         transient_for=parent,
@@ -183,9 +206,13 @@ def confirm_reference_delete(parent, record: ReferenceRecord) -> bool:
         buttons=Gtk.ButtonsType.NONE,
         text=f"Delete reference {record.key}?",
     )
-    dialog.format_secondary_text(record.title)
+    details = [record.title]
+    if impact is not None and getattr(impact, "used", False):
+        details.extend(("", "Known uses will become unresolved:"))
+        details.extend(getattr(impact, "summary_lines", ()))
+    dialog.format_secondary_text("\n".join(details))
     dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-    dialog.add_button("Delete", Gtk.ResponseType.OK)
+    dialog.add_button("Delete Anyway" if impact is not None and getattr(impact, "used", False) else "Delete", Gtk.ResponseType.OK)
     response = dialog.run()
     dialog.destroy()
     return response == Gtk.ResponseType.OK
@@ -207,3 +234,43 @@ def resolve_external_reference_change(parent) -> str:
     response = dialog.run()
     dialog.destroy()
     return {10: "reload", 20: "overwrite"}.get(response, "cancel")
+
+
+def show_reference_uses(parent, record: ReferenceRecord, impact) -> None:
+    from gi.repository import Gtk
+    lines = list(getattr(impact, "summary_lines", ()))
+    if not lines:
+        lines = ["No uses were found in the current document, current Source Notes, Related References or Reference Sets."]
+    dialog = Gtk.MessageDialog(
+        transient_for=parent,
+        modal=True,
+        message_type=Gtk.MessageType.INFO,
+        buttons=Gtk.ButtonsType.OK,
+        text=f"Uses of {record.key}",
+    )
+    dialog.format_secondary_text("\n".join(lines))
+    dialog.run()
+    dialog.destroy()
+
+
+def choose_bibliography_export_path(parent, *, markdown: bool) -> str | None:
+    """Choose a destination for a derived simple bibliography export."""
+    from gi.repository import Gtk
+
+    extension = ".md" if markdown else ".txt"
+    chooser = Gtk.FileChooserDialog(
+        title="Export Bibliography as Markdown" if markdown else "Export Bibliography as Text",
+        transient_for=parent,
+        action=Gtk.FileChooserAction.SAVE,
+    )
+    chooser.add_button("Cancel", Gtk.ResponseType.CANCEL)
+    chooser.add_button("Export", Gtk.ResponseType.OK)
+    chooser.set_do_overwrite_confirmation(True)
+    chooser.set_current_name("bibliography" + extension)
+    result = None
+    if chooser.run() == Gtk.ResponseType.OK:
+        result = chooser.get_filename()
+        if result and not result.casefold().endswith(extension):
+            result += extension
+    chooser.destroy()
+    return result

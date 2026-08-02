@@ -160,7 +160,10 @@ def build_menu(app) -> None:
     add_item(researchm, "Clip Collection", app.show_clip_collection)
     add_item(researchm, "Insert Clip…\tCtrl+Alt+K", app.on_insert_clip)
     add_item(researchm, "Scratchpad\tCtrl+Alt+S", app.show_scratchpad)
-    add_item(researchm, "References", app.show_references)
+    add_item(researchm, "Bibliography", app.show_references)
+    add_item(researchm, "Open Bibliography File", app.on_open_bibliography_file)
+    add_item(researchm, "Export Bibliography as Markdown…", app.on_export_bibliography_markdown)
+    add_item(researchm, "Export Bibliography as Text…", app.on_export_bibliography_text)
     add_item(researchm, "Tags", app.show_tags)
     add_item(researchm, "Reference Sets", app.show_reference_sets)
     add_item(researchm, "Source Notes", app.show_source_notes)
@@ -180,7 +183,7 @@ def build_menu(app) -> None:
     add_item(researchm, "Quick Cite…	Ctrl+Alt+Q", app.on_quick_cite)
     add_item(
         researchm,
-        "Open Citation in References	Ctrl+Alt+Shift+Q",
+        "Open Citation in Bibliography	Ctrl+Alt+Shift+Q",
         app.on_open_citation_in_references,
     )
     add_separator(researchm)

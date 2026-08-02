@@ -93,12 +93,12 @@ class W95ExtraWritingMenuTests(unittest.TestCase):
             self.assertIn(label, guide)
         self.assertIn("## Typewriter Mode", guide)
         version = VERSION.read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W96"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W97"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Document Overview Core — Gate C"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Bibliography Manager Core"',
             version,
         )
-        self.assertIn("792ca0f76db39525a9052bd61e43fe929988af2e", version)
+        self.assertIn("199459fb023e4862407f7eb60318192f276d3239", version)
 
 
 if __name__ == "__main__":

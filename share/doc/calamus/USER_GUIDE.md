@@ -70,7 +70,7 @@ Undo and Redo preserve the **exact caret and selection** recorded at the edit bo
 - **Clip Collection**: activate the Clip Collection client.
 - **Insert Clip… — `Ctrl+Alt+K`**: search the shortcut list and insert the selected clip body into the editor.
 - **Scratchpad — `Ctrl+Alt+S`**: activate the document-local Scratchpad client.
-- **References**: activate the global Markdown bibliography.
+- **Bibliography**: activate Bibliography Manager Core over the global Markdown References authority.
 - **Tags**: open the derived tag inventory for References, current Source Notes and current Scratchpad.
 - **Reference Sets**: activate explicit named sets of Reference keys.
 - **Source Notes**: activate the current document’s source-note sidecar.
@@ -81,11 +81,13 @@ Undo and Redo preserve the **exact caret and selection** recorded at the edit bo
 - **Create Source Note from Selection…**: create a Quote, Paraphrase or Comment from selected text.
 - **Insert Link to Heading…**: insert an explicit internal link to a document heading.
 - **Quick Cite… — `Ctrl+Alt+Q`**: search References and insert a Pandoc citation marker.
-- **Open Citation in References — `Ctrl+Alt+Shift+Q`**: resolve the citation at the caret and open its Reference.
+- **Open Citation in Bibliography — `Ctrl+Alt+Shift+Q`**: resolve the citation at the caret and open its Reference.
 - **Rename Reference Key…**: preview and apply a controlled key migration across managed authorities.
 - **Research Check…**: run an integrated consistency audit.
 - **Tag Integrity…**: find and safely normalize explicit tag variants.
 - **Import BibTeX/BibLaTeX…**: preview and import bibliographic records into `references.md`.
+- **Export Bibliography as Markdown…**: export the current visible Bibliography projection.
+- **Export Bibliography as Text…**: export the current visible Bibliography projection as plain text.
 - **Export References as BibTeX/BibLaTeX…**: derive a `.bib` export without creating a second authority.
 - **Export Research Apparatus…**: create one of the five derived Markdown research products.
 - **Export with Pandoc/citeproc…**: create formatted bibliographies or documents with processed citations.
@@ -308,7 +310,7 @@ Research
 │   ├── New / Edit / Duplicate / Delete
 │   ├── Related References
 │   ├── Quick Cite…
-│   ├── Open Citation in References
+│   ├── Open Citation in Bibliography
 │   └── Rename Reference Key…
 ├── Reference Sets                           [Available]
 │   ├── New / Edit / Delete Set
@@ -587,7 +589,7 @@ A Reference is not a citation. A Source Note preserves material grounded in a so
 
 | Your intention | Use this command |
 |---|---|
-| Register a book, article or archival source | `Research → References` |
+| Register a book, article or archival source | `Research → Bibliography` |
 | Save a quotation, paraphrase or source-based research observation | `Research → Source Notes` |
 | Capture an idea, draft or writing task for the current document | `Research → Scratchpad` or `Ctrl+Alt+S` |
 | Preserve selected manuscript text as provisional material | `Research → Capture Selection in Scratchpad…` or `Ctrl+Alt+Shift+S` |
@@ -735,7 +737,7 @@ At this point you have not written the article. You have created its intellectua
 
 A Reference is the bibliographic identity of a source. It belongs to the global Calamus References library and may be reused in many documents. A Source Note belongs instead to this particular article.
 
-Choose `Research → References` and add these three example records.
+Choose `Research → Bibliography` and add these three example records.
 
 First source:
 
@@ -1478,7 +1480,7 @@ Example project:
 A typical path is:
 
 1. Save the document as `~/Documents/Book/Chapter-01.md`.
-2. Open `Research → References` and add a source with a stable key such as `ratzinger1968`.
+2. Open `Research → Bibliography` and add a source with a stable key such as `ratzinger1968`.
 3. Open `Research → Source Notes` and add a note linked to `ratzinger1968` and, when useful, to a document heading such as `#introduction`.
 4. Select a useful sentence and use `Research → Create Source Note from Selection…` to turn it into a prefilled Source Note.
 5. Use `Research → Insert Link to Heading…` to create a Markdown link to one explicit `{#heading-id}`.
@@ -1993,9 +1995,11 @@ The dependable Basic contract remains document-local entries, explicit tags, exp
 - Hide without destroying: **Archive**
 - Return an archived entry to work: **Archive** again
 
-## References
+## Bibliography Manager Core
 
-`Research → References` manages the global Markdown reference library. References are stored in:
+`Research → Bibliography` opens the single Bibliography client in the Research Panel. It is the W97 evolution of the former References list: the client ID, controller and canonical authority are unchanged. Calamus does not create a second library, database, JSON index or detached bibliography application.
+
+The canonical UTF-8 Markdown authority is:
 
 `$XDG_DATA_HOME/calamus/research/references.md`
 
@@ -2003,9 +2007,68 @@ When `XDG_DATA_HOME` is not set, the usual location is:
 
 `~/.local/share/calamus/research/references.md`
 
-Use stable, readable keys such as `guardini1950` or `ratzinger1968`. These keys are inserted into Pandoc-style citations and linked from Source Notes.
+The manager builds a disposable in-memory projection from that file. Closing or refreshing the panel discards and rebuilds the projection; search, filters, sorting, counts and integrity badges are never stored.
 
-Practical example: add Joseph Ratzinger, *Introduction to Christianity*, key `ratzinger1968`, and tags `faith`, `theology`.
+### List, detail and selection
+
+The upper list shows compact bibliographic rows. The lower read-only detail shows every canonical field of the selected Reference, including aliases, identifiers, tags, local file, unknown preserved fields, Related References, Reference Sets, current-document use and integrity status. Selection belongs to one controller. Opening Bibliography again focuses the same client rather than creating another manager.
+
+### Search, filters and sorting
+
+Search covers the citation key, aliases, authors, editors, title, type, date, container, publisher, place, volume, issue, pages, DOI, ISBN, ISSN, URL, language, tags, annotation, local-file path and preserved additional fields.
+
+Search is deliberately coalesced: after typing stops, Calamus waits about 150 milliseconds and applies only the latest query. Intermediate keystrokes are cancelled, so a large library is not rebuilt repeatedly. Filters remain immediate.
+
+The filters can be combined:
+
+- **Type** and **Tag**;
+- **Use**: all, cited in the current document, used by current Source Notes, or unused in the current context;
+- **File**: available, missing or unset;
+- **Integrity**: error, warning, advisory or clean.
+
+Sorting is stable and deterministic by author/year, title, year, key or type. Missing values sort after populated values. No persistent search index is created.
+
+### Create, edit and duplicate
+
+Use **New** to register one source and **Edit** to modify the selected record. The dialog retains the canonical Markdown grammar and preserves fields that Calamus does not edit directly. A normal edit cannot change the citation key or aliases; use `Research → Rename Reference Key…` for controlled identity migration.
+
+**Duplicate** copies the metadata into a draft, proposes a new key and deliberately removes aliases. Review the draft before saving. It never creates a relation or replaces the original record automatically.
+
+### Safe Delete and Show Uses
+
+**Show Uses** reports uses known to the current Calamus context: document citations, current Source Notes, Related References and Reference Sets.
+
+**Delete** performs the same impact check before showing confirmation. When known uses exist the default remains Cancel and the button explicitly says **Delete Anyway**. Deletion does not rewrite those other authorities, so confirming may leave unresolved uses. Calamus does not claim to scan every document elsewhere in the filesystem.
+
+### Local files
+
+A Reference may store one local-file path. **Choose File…** fills that field from a native file chooser. **Open File** delegates the path to the operating system. **Reveal** opens its containing folder. The detail and File filter distinguish available, missing and unset paths. Calamus stores only the path; it does not import, copy, index or analyse the file.
+
+### Citation and research actions
+
+- **Quick Cite** inserts the canonical key through the existing citation command.
+- **Copy Key** copies the selected canonical key.
+- **Related…** opens the existing controlled Related References workflow.
+- `Research → Open Citation in Bibliography` resolves the citation at the caret and selects its canonical record.
+- Existing Reference Sets, Research Check, Tag Integrity, BibTeX/BibLaTeX and Pandoc/citeproc commands continue to use the same `references.md` authority.
+
+### Opening and exporting the canonical library
+
+`Research → Open Bibliography File` opens `references.md` in the system text editor. Calamus revalidates the file token before every later mutation. An external change therefore produces the existing Reload / Overwrite / Cancel conflict workflow; it is never silently overwritten.
+
+`Research → Export Bibliography as Markdown…` and `Research → Export Bibliography as Text…` export the current visible search/filter projection. These are derived files written atomically. They do not change `references.md`. BibTeX/BibLaTeX export remains the W87 workflow, while styled output remains `Research → Export with Pandoc/citeproc…`.
+
+### Integrity semantics
+
+Errors include exact duplicate DOI, ISBN or ISSN identities. Warnings include missing author/date or a configured local file that no longer exists. Advisories include records unused in the current context, records without tags, or records without an identifier. These are derived indications, not automatic corrections.
+
+The title and citation key remain structural requirements of the canonical References grammar. A malformed library is loaded read-only with diagnostics until corrected.
+
+### Core boundary and deferred Full work
+
+Bibliography Manager Core intentionally excludes automatic web metadata, PDF indexing, cloud synchronization, multiple attachments, background scanning, batch editing and automatic merging. Bibliography Manager Full may later add advanced Current Document projections, duplicate review and explicit field-by-field merge with multi-authority impact preview. Those functions are not implied by the Core interface.
+
+Practical example: add Joseph Ratzinger, *Introduction to Christianity*, key `ratzinger1968`, and tags `faith`, `theology`; choose its PDF; search `theology`; filter **File available**; inspect the detail; use **Quick Cite**; then use **Show Uses** before considering deletion.
 
 
 ## Tags
@@ -2203,7 +2266,7 @@ A useful tag system is not the one with the most labels. It is the one whose lab
 
 Use a disposable document while learning.
 
-1. Open `Research → References` and create or edit one Reference. Add the tags `tradition` and `ecclesiology`.
+1. Open `Research → Bibliography` and create or edit one Reference. Add the tags `tradition` and `ecclesiology`.
 2. Open `Research → Source Notes`, create a Comment and give it the tag `Tradition` with an uppercase `T`.
 3. Open `Research → Scratchpad`, create an Idea and give it the tag `tradition`.
 4. Choose `Research → Tags`.
@@ -2360,7 +2423,7 @@ The field owns only canonical Reference keys. It does not copy titles, authors o
 
 ### Add or remove Related References
 
-1. Open `Research → References`.
+1. Open `Research → Bibliography`.
 2. Select the Reference that will be the subject, for example `ratzinger1968`.
 3. Press **Related References…**.
 4. Search or scroll through the library and select one or more explicit relations.
@@ -2415,7 +2478,7 @@ The file stores only set names, descriptions, order and canonical member keys. B
 
 ### Create a Reference Set
 
-1. Register the required sources in `Research → References`.
+1. Register the required sources in `Research → Bibliography`.
 2. Open `Research → Reference Sets`.
 3. Press **Add**.
 4. Enter a clear name, for example `Core sources`.
@@ -2484,7 +2547,7 @@ The dialog remains authoritative for the final type, Reference, locator, tags, c
 
 1. Save `Chapter-01.md`.
 2. Ensure the document contains `## Introduction {#introduction}`.
-3. In `Research → References`, select `ratzinger1968` if the note should be linked to that source.
+3. In `Research → Bibliography`, select `ratzinger1968` if the note should be linked to that source.
 4. Select one sentence in the editor.
 5. Open `Research → Create Source Note from Selection…`.
 6. Confirm the selected sentence appears in **Text**.
@@ -2557,9 +2620,9 @@ Choose two keys to obtain a combined citation such as:
 
 Quick Cite does not format a final bibliography. Final citation styling belongs to Pandoc/citeproc or another external processor.
 
-## Open Citation in References
+## Open Citation in Bibliography
 
-Place the cursor inside or next to a citation and use `Research → Open Citation in References`. Calamus resolves the citation key and selects the matching Reference.
+Place the cursor inside or next to a citation and use `Research → Open Citation in Bibliography`. Calamus resolves the citation key and selects the matching Reference.
 
 Practical example: with the cursor in `[@guardini1950]`, the command opens References and selects `guardini1950`.
 
@@ -2624,7 +2687,7 @@ New references may start as `Import`; invalid entries are locked to `Skip`. A co
 8. Confirm the unresolved-collision message has disappeared and `Review Impact…` is enabled.
 9. Press `Review Impact…` and check the exact Import, Replace, Merge, Re-keyed and Skip counts.
 10. Confirm that only `references.md` will change, then press `Apply Import`.
-11. Open `Research → References` and verify the imported and merged records.
+11. Open `Research → Bibliography` and verify the imported and merged records.
 
 **STOP without applying** when the current/incoming summaries do not match the selected row, an invalid entry becomes importable, `Review Impact…` is enabled while a collision is unresolved, the impact counts differ from the selected decisions, or the dialog stops responding.
 
@@ -2693,7 +2756,7 @@ Calamus keeps `references.md` as the only canonical bibliography. Exported `.bib
 
 ### Stage R2 — Open References and add a book
 
-1. Choose `Research → References`.
+1. Choose `Research → Bibliography`.
 2. Press `Add`.
 3. In **Basic**, enter:
 
@@ -2804,7 +2867,7 @@ Examples:
 [@ratzinger1968, p. 42; @newman1870, pp. 55-57]
 ```
 
-Use `Research → Open Citation in References` when the cursor is in a citation. Calamus resolves aliases to the canonical Reference rather than creating a duplicate.
+Use `Research → Open Citation in Bibliography` when the cursor is in a citation. Calamus resolves aliases to the canonical Reference rather than creating a duplicate.
 
 ### Stage R7 — Create an explicit Related Reference
 
@@ -2941,7 +3004,7 @@ A reliable References workflow is simple: register each source once, use stable 
 
 Questa è la guida operativa completa dell’apparato Research di Calamus. È pensata per chi scrive saggi, articoli, tesi, omelie documentate, libri o ricerche teologiche e desidera lavorare con fonti, citazioni e note senza affidare il proprio materiale a un database opaco.
 
-Lo **Scratchpad Basic** e il client **Tags** sono parte del pannello Research. Tutto ciò che segue riguarda le funzioni Research disponibili: Clip Collection, Scratchpad, References, Tags, Related References, Reference Sets, Source Notes, Create Source Note from Selection, Insert Link to Heading, Authoring Bridge, Quick Cite, Open Citation in References, Rename Reference Key, Research Check, Tag Integrity, import/export BibTeX o BibLaTeX ed Export Research Apparatus.
+Lo **Scratchpad Basic** e il client **Tags** sono parte del pannello Research. Tutto ciò che segue riguarda le funzioni Research disponibili: Clip Collection, Scratchpad, References, Tags, Related References, Reference Sets, Source Notes, Create Source Note from Selection, Insert Link to Heading, Authoring Bridge, Quick Cite, Open Citation in Bibliography, Rename Reference Key, Research Check, Tag Integrity, import/export BibTeX o BibLaTeX ed Export Research Apparatus.
 
 Le etichette dei menu e dei pulsanti sono riportate in inglese perché corrispondono all’interfaccia reale. Le spiegazioni sono in italiano.
 
@@ -3057,7 +3120,7 @@ La prima volta segui questo itinerario senza saltare passaggi.
 
 3. Apri `Research → Scratchpad` (`Ctrl+Alt+S`) e annota la prima Idea collegandola alla sezione corrente.
 4. Seleziona un passaggio provvisorio e usa `Capture Selection in Scratchpad…` (`Ctrl+Alt+Shift+S`) per conservarlo senza lasciarlo nel manoscritto.
-5. Apri `Research → References` e registra due o tre fonti.
+5. Apri `Research → Bibliography` e registra due o tre fonti.
 6. Inserisci una prima citazione con `Research → Quick Cite…`.
 7. Crea una Source Note da una frase selezionata.
 8. Collega la Source Note a una Reference e, quando utile, a una heading del documento.
@@ -3103,7 +3166,7 @@ Usa Clip Collection per formule, schemi, clausole, firme o strutture Markdown in
 
 ### 6. References: la biblioteca globale
 
-`Research → References` apre il client della biblioteca canonica.
+`Research → Bibliography` apre il client della biblioteca canonica.
 
 Ogni Reference rappresenta **una sola opera o risorsa**. Una scheda può descrivere un libro, un capitolo, un articolo, una voce enciclopedica, una tesi, un intervento a convegno, un rapporto, un documento istituzionale, un sito, un manoscritto o altro materiale.
 
@@ -3658,12 +3721,12 @@ Procedura:
 
 Quick Cite non crea una Source Note. Inserisce soltanto il marker citazionale nel documento.
 
-### 14. Open Citation in References
+### 14. Open Citation in Bibliography
 
 Quando il cursore è dentro o vicino a una citazione, usa:
 
 ```text
-Research → Open Citation in References
+Research → Open Citation in Bibliography
 Ctrl+Alt+Shift+Q
 ```
 

@@ -6,6 +6,7 @@ from typing import Any, Callable, Protocol
 from calamus_reference_store import ReferenceLibrarySnapshot, ReferenceSaveResult
 from calamus_research_file import FileToken
 from calamus_references import ReferenceRecord
+from calamus_bibliography import BibliographyContext, BibliographyFilters, project_references
 
 
 class ReferenceStore(Protocol):
@@ -43,7 +44,9 @@ class ReferenceController:
         self._records: tuple[ReferenceRecord, ...] = ()
         self._token = FileToken(False)
         self._diagnostics: tuple[Any, ...] = ()
-        self._query = ""
+        self._filters = BibliographyFilters()
+        self._context = BibliographyContext()
+        self._selected_key: str | None = None
         self._loaded = False
 
     @property
@@ -85,33 +88,96 @@ class ReferenceController:
         if not self._loaded:
             self.load()
 
+    @property
+    def filters(self) -> BibliographyFilters:
+        return self._filters
+
+    @property
+    def context(self) -> BibliographyContext:
+        return self._context
+
+    @property
+    def selected_key(self) -> str | None:
+        return self._selected_key
+
+    def set_context(self, context: BibliographyContext) -> None:
+        if not isinstance(context, BibliographyContext):
+            raise TypeError("context must be BibliographyContext")
+        self._context = context
+        if self._loaded:
+            self.refresh()
+
+    def set_filters(self, **changes: str) -> tuple[ReferenceRecord, ...]:
+        values = {
+            "query": self._filters.query,
+            "reference_type": self._filters.reference_type,
+            "tag": self._filters.tag,
+            "use": self._filters.use,
+            "file": self._filters.file,
+            "integrity": self._filters.integrity,
+            "sort": self._filters.sort,
+        }
+        for name, value in changes.items():
+            if name not in values:
+                raise ValueError(f"unknown bibliography filter: {name}")
+            values[name] = value if isinstance(value, str) else ""
+        self._filters = BibliographyFilters(**values)
+        return self.refresh()
+
     def refresh(self, query: str | None = None) -> tuple[ReferenceRecord, ...]:
         if query is not None:
-            self._query = query if isinstance(query, str) else ""
-        visible = self.filtered_records(self._query)
-        selected = self._view.selected_key()
-        if selected not in {record.key for record in visible}:
-            selected = visible[0].key if visible else None
+            values = {
+                "query": query if isinstance(query, str) else "",
+                "reference_type": self._filters.reference_type,
+                "tag": self._filters.tag,
+                "use": self._filters.use,
+                "file": self._filters.file,
+                "integrity": self._filters.integrity,
+                "sort": self._filters.sort,
+            }
+            self._filters = BibliographyFilters(**values)
+        visible = self.filtered_records()
+        visible_keys = {record.key for record in visible}
+        if self._selected_key not in visible_keys:
+            self._selected_key = visible[0].key if visible else None
         status = self._status_text(len(visible))
-        self._view.render(visible, selected, status)
+        self._view.render(visible, self._selected_key, status)
+        self.refresh_detail()
         return visible
 
-    def filtered_records(self, query: str = "") -> tuple[ReferenceRecord, ...]:
-        needle = (query or "").strip().casefold()
-        if not needle:
-            return self._records
-        return tuple(record for record in self._records if needle in record.search_text)
+    def filtered_records(self, query: str | None = None) -> tuple[ReferenceRecord, ...]:
+        filters = self._filters
+        if query is not None:
+            filters = BibliographyFilters(
+                query=query if isinstance(query, str) else "",
+                reference_type=filters.reference_type,
+                tag=filters.tag,
+                use=filters.use,
+                file=filters.file,
+                integrity=filters.integrity,
+                sort=filters.sort,
+            )
+        return project_references(self._records, filters, self._context)
+
+    def refresh_detail(self) -> None:
+        if hasattr(self._view, "render_detail"):
+            self._view.render_detail(self.selected_record(), self._context)
 
     def selected_record(self) -> ReferenceRecord | None:
-        key = self._view.selected_key()
-        return next((record for record in self._records if record.key == key), None)
+        return next((record for record in self._records if record.key == self._selected_key), None)
+
+    def sync_selection_from_view(self) -> None:
+        selected = self._view.selected_key()
+        self._selected_key = selected if selected in self.keys else None
+        self.refresh_detail()
 
     def select_key(self, key: str) -> bool:
         self.ensure_loaded()
         canonical = self.resolve_key(key)
         if canonical is None:
             return False
-        self._query = ""
+        self._filters = BibliographyFilters()
+        self._selected_key = canonical
         self.refresh()
         return self._view.select_key(canonical)
 
@@ -188,14 +254,14 @@ class ReferenceController:
         self._records = candidate
         self._token = result.token
         self._diagnostics = ()
+        self._selected_key = select_key
         self.refresh()
-        self._view.select_key(select_key)
         return True
 
     def _status_text(self, visible_count: int) -> str:
         total = len(self._records)
         if self._diagnostics:
             return f"{total} reference(s); file needs correction."
-        if self._query.strip():
+        if self._filters.query.strip() or any((self._filters.reference_type != "all", self._filters.tag != "all", self._filters.use != "all", self._filters.file != "all", self._filters.integrity != "all")):
             return f"{visible_count} of {total} reference(s)."
         return f"{total} reference(s)."
