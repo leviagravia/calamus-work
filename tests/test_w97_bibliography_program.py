@@ -38,11 +38,12 @@ class W97BibliographyProgramTests(unittest.TestCase):
         ):
             self.assertIn(token, text)
 
-    def test_core_full_program_keeps_w98_blocked(self):
+    def test_full_is_deferred_and_w98_core_is_allowed(self):
         text = PROGRAM.read_text(encoding="utf-8")
-        self.assertIn("Core must be CLOSED/CERTIFIED/PUBLISHED before Full begins", text)
-        self.assertIn("W98 Research Panel Integral Closure is prohibited", text)
-        self.assertIn("W93 Scratchpad Full remains FROZEN", text)
+        self.assertIn("Bibliography Manager Full is frozen", text)
+        self.assertIn("No Full variant blocks W98", text)
+        self.assertIn("Scratchpad Full/W93", text)
+        self.assertIn("must not implement any Bibliography Manager Full feature", text)
 
     def test_mature_audit_has_all_seven_sources_and_decision_matrix(self):
         text = AUDIT.read_text(encoding="utf-8")

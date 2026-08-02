@@ -70,6 +70,7 @@ modules = [
     "calamus_references",
     "calamus_bibliography",
     "calamus_bibliography_search",
+    "calamus_research_coordination",
     "calamus_reference_store",
     "calamus_reference_controller",
     "calamus_reference_panel",

@@ -22,8 +22,10 @@ class W94TagsCommandWiringTests(unittest.TestCase):
         app = (ROOT / "bin/calamus").read_text(encoding="utf-8")
         self.assertIn("from calamus_tags_runtime import TagsRuntime", app)
         self.assertIn("self.tags_runtime = TagsRuntime(", app)
-        self.assertIn('("tags", "Tags", self.tags_runtime.widget, self.tags_runtime.activate)', app)
-        self.assertIn('self.research_panel_view.register_client(*client)', app)
+        self.assertIn('"tags", "Tags", self.tags_runtime.widget', app)
+        self.assertIn('self.tags_runtime.activate', app)
+        self.assertIn('self.research_panel_view.register_client(', app)
+        self.assertIn('lambda client_id=spec.client_id: self.research_coordinator.activate(client_id)', app)
         self.assertIn('def show_tags(self, *_):\n        return self.research_panel_runtime.show("tags")', app)
 
     def test_help_has_current_menu_entry_and_learning_topic(self):

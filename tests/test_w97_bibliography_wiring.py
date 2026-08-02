@@ -21,11 +21,11 @@ class W97BibliographyWiringTests(unittest.TestCase):
     def test_research_panel_renames_existing_client_without_second_manager(self):
         launcher = self.source("bin/calamus")
         ui = self.source("calamus/calamus_ui.py")
-        self.assertIn('(\"references\", \"Bibliography\"', launcher)
+        self.assertIn('"references", "Bibliography", self.reference_panel_runtime.widget', launcher)
         self.assertIn('add_item(researchm, "Bibliography", app.show_references)', ui)
         self.assertIn('add_item(researchm, "Open Bibliography File", app.on_open_bibliography_file)', ui)
-        self.assertEqual(launcher.count('("references", "Bibliography"'), 1)
-        self.assertNotIn('("bibliography",', launcher)
+        self.assertEqual(launcher.count('"references", "Bibliography", self.reference_panel_runtime.widget'), 1)
+        self.assertNotIn('"bibliography", "Bibliography"', launcher)
 
     def test_panel_has_core_list_detail_filters_and_actions(self):
         panel = self.source("calamus/calamus_reference_panel.py")
@@ -61,11 +61,11 @@ class W97BibliographyWiringTests(unittest.TestCase):
         for forbidden in ("BibliographyFilters(", "project_references(", "build_delete_impact("):
             self.assertNotIn(forbidden, text)
 
-    def test_current_development_identity_is_w97_core_on_published_w96_baseline(self):
+    def test_w97_core_is_preserved_under_current_w98_identity(self):
         version = self.source("calamus/calamus_version.py")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W97"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Bibliography Manager Core"', version)
-        self.assertIn('PUBLISHED_BASELINE = "199459fb023e4862407f7eb60318192f276d3239"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W98"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Research Panel Integral Closure"', version)
+        self.assertIn('PUBLISHED_BASELINE = "f7fd70b4ffc7c756b83b8bfa102d224823244092"', version)
 
 
 if __name__ == "__main__":

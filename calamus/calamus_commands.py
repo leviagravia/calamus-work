@@ -141,3 +141,49 @@ def shortcut_conflicts(commands: tuple[CommandSpec, ...] = COMMANDS) -> dict[str
             key = command.shortcut.replace("<Ctrl>", "<Control>")
             seen.setdefault(key, []).append(command.name)
     return {shortcut: names for shortcut, names in seen.items() if len(names) > 1}
+
+@dataclass(frozen=True)
+class ResearchCommandSpec:
+    command_id: str
+    label: str
+    access: str
+    owner: str
+    effect: str
+    invalidations: tuple[str, ...] = ()
+
+
+RESEARCH_COMMANDS: tuple[ResearchCommandSpec, ...] = (
+    ResearchCommandSpec("research.panel", "Research Panel", "Ctrl+Alt+C", "ResearchPanelRuntime", "panel"),
+    ResearchCommandSpec("research.clips", "Clip Collection", "menu", "ResearchPanelRuntime/ClipCollectionRuntime", "clips"),
+    ResearchCommandSpec("research.insert-clip", "Insert Clip…", "Ctrl+Alt+K", "ClipCollectionRuntime", "document", ("DOCUMENT_CONTENT",)),
+    ResearchCommandSpec("research.scratchpad", "Scratchpad", "Ctrl+Alt+S", "ResearchPanelRuntime/ScratchpadRuntime", "scratchpad"),
+    ResearchCommandSpec("research.bibliography", "Bibliography", "menu", "ResearchPanelRuntime/ReferencePanelRuntime", "references"),
+    ResearchCommandSpec("research.open-bibliography", "Open Bibliography File", "menu", "ReferencePanelRuntime", "external"),
+    ResearchCommandSpec("research.export-bibliography-markdown", "Export Bibliography as Markdown…", "menu", "ReferencePanelRuntime", "derived-export"),
+    ResearchCommandSpec("research.export-bibliography-text", "Export Bibliography as Text…", "menu", "ReferencePanelRuntime", "derived-export"),
+    ResearchCommandSpec("research.tags", "Tags", "menu", "ResearchPanelRuntime/TagsRuntime", "derived-tags"),
+    ResearchCommandSpec("research.reference-sets", "Reference Sets", "menu", "ResearchPanelRuntime/ReferenceSetRuntime", "reference-sets"),
+    ResearchCommandSpec("research.source-notes", "Source Notes", "menu", "ResearchPanelRuntime/SourceNotePanelRuntime", "source-notes"),
+    ResearchCommandSpec("research.authoring-bridge", "Authoring Bridge", "menu", "ResearchPanelRuntime/AuthoringBridgeRuntime", "derived-authoring"),
+    ResearchCommandSpec("research.capture-scratchpad", "Capture Selection in Scratchpad…", "Ctrl+Alt+Shift+S", "ScratchpadRuntime", "scratchpad", ("SCRATCHPAD",)),
+    ResearchCommandSpec("research.new-scratchpad-section", "New Scratchpad Entry for Current Section…", "menu", "ScratchpadRuntime", "scratchpad", ("SCRATCHPAD",)),
+    ResearchCommandSpec("research.show-scratchpad-section", "Show Scratchpad for Current Section", "menu", "ResearchPanelRuntime/ScratchpadRuntime", "scratchpad"),
+    ResearchCommandSpec("research.create-source-note", "Create Source Note from Selection…", "menu", "AuthoringBridgeRuntime/SourceNotePanelRuntime", "source-notes", ("SOURCE_NOTES",)),
+    ResearchCommandSpec("research.insert-heading-link", "Insert Link to Heading…", "menu", "AuthoringBridgeRuntime/App", "document", ("DOCUMENT_CONTENT",)),
+    ResearchCommandSpec("research.quick-cite", "Quick Cite…", "Ctrl+Alt+Q", "CitationController/App", "document", ("DOCUMENT_CONTENT",)),
+    ResearchCommandSpec("research.open-citation", "Open Citation in Bibliography", "Ctrl+Alt+Shift+Q", "CitationController/ReferencePanelRuntime", "selection"),
+    ResearchCommandSpec("research.rename-reference-key", "Rename Reference Key…", "menu", "ResearchIntegrityRuntime", "multi-authority", ("REFERENCES", "SOURCE_NOTES", "REFERENCE_SETS", "DOCUMENT_CONTENT")),
+    ResearchCommandSpec("research.check", "Research Check…", "menu", "ResearchIntegrityRuntime", "read-only"),
+    ResearchCommandSpec("research.tag-integrity", "Tag Integrity…", "menu", "TagIntegrityRuntime", "multi-authority", ("REFERENCES", "SOURCE_NOTES", "SCRATCHPAD")),
+    ResearchCommandSpec("research.import-bib", "Import BibTeX/BibLaTeX…", "menu", "BibtexRuntime", "references", ("REFERENCES",)),
+    ResearchCommandSpec("research.export-bib", "Export References as BibTeX/BibLaTeX…", "menu", "BibtexRuntime", "derived-export"),
+    ResearchCommandSpec("research.export-apparatus", "Export Research Apparatus…", "menu", "ResearchExportRuntime", "derived-export"),
+    ResearchCommandSpec("research.export-pandoc", "Export with Pandoc/citeproc…", "menu", "PandocExportRuntime", "derived-export"),
+)
+
+
+def research_command(command_id: str) -> ResearchCommandSpec:
+    matches = tuple(item for item in RESEARCH_COMMANDS if item.command_id == command_id)
+    if len(matches) != 1:
+        raise KeyError(command_id)
+    return matches[0]

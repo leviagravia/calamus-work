@@ -26,7 +26,10 @@ class SourceNotePanelRuntime:
         show_target: Callable[[str], bool],
         reference_key_resolver: Callable[[str], str | None] | None = None,
         store_factory=None,
+        on_changed=None,
     ) -> None:
+        if on_changed is not None and not callable(on_changed):
+            raise TypeError("on_changed must be callable")
         if not all(callable(callback) for callback in (
             document_path_provider,
             reference_keys_provider,
@@ -44,6 +47,7 @@ class SourceNotePanelRuntime:
         self._reference_key_resolver = reference_key_resolver
         self._show_reference = show_reference
         self._show_target = show_target
+        self._on_changed = on_changed or (lambda: None)
         self._view = build_source_note_panel_view(
             self.on_add,
             self.on_edit,
@@ -85,6 +89,17 @@ class SourceNotePanelRuntime:
             force=force,
         )
 
+    def refresh_for_invalidation(self, _reasons=frozenset()) -> bool:
+        return self.sync_document(force=True)
+
+    def shutdown(self) -> bool:
+        return True
+
+    def _changed(self, result: bool) -> bool:
+        if result:
+            getattr(self, "_on_changed", lambda: None)()
+        return bool(result)
+
     def notes_snapshot(self, *, force: bool = False):
         self.sync_document(force=force)
         return self._controller.notes
@@ -100,7 +115,7 @@ class SourceNotePanelRuntime:
             self._controller.target_options,
             self._controller.ids,
         )
-        return bool(note is not None and self._controller.add(note))
+        return self._changed(bool(note is not None and self._controller.add(note)))
 
     def add_from_selection(
         self,
@@ -141,7 +156,7 @@ class SourceNotePanelRuntime:
             self._controller.ids,
             draft=draft,
         )
-        return bool(note is not None and self._controller.add(note))
+        return self._changed(bool(note is not None and self._controller.add(note)))
 
     def show_note(self, note_id: str) -> bool:
         self.sync_document(force=True)
@@ -160,13 +175,15 @@ class SourceNotePanelRuntime:
             selected,
         )
         if note is not None:
-            self._controller.update(selected.id, note)
+            return self._changed(self._controller.update(selected.id, note))
+        return False
 
     def on_delete(self, *_):
         self.sync_document()
         selected = self._controller.selected_note()
         if selected is not None and confirm_source_note_delete(self._parent, selected):
-            self._controller.delete(selected.id)
+            return self._changed(self._controller.delete(selected.id))
+        return False
 
     def on_open_reference(self, *_):
         self.sync_document()

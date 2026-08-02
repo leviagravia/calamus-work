@@ -27,12 +27,16 @@ class ReferenceSetRuntime:
         records_provider,
         show_reference,
         store=None,
+        on_changed=None,
     ) -> None:
+        if on_changed is not None and not callable(on_changed):
+            raise TypeError("on_changed must be callable")
         if not callable(records_provider) or not callable(show_reference):
             raise TypeError("Reference Set runtime callbacks must be callable")
         self._parent = parent
         self._records_provider = records_provider
         self._show_reference = show_reference
+        self._on_changed = on_changed or (lambda: None)
         self._view = build_reference_set_view(
             self.on_add,
             self.on_edit,
@@ -83,6 +87,18 @@ class ReferenceSetRuntime:
         self._controller.refresh()
         self._view.focus_search()
 
+    def refresh_for_invalidation(self, _reasons=frozenset()) -> bool:
+        self.reload()
+        return True
+
+    def shutdown(self) -> bool:
+        return True
+
+    def _changed(self, result: bool) -> bool:
+        if result:
+            getattr(self, "_on_changed", lambda: None)()
+        return bool(result)
+
     def on_add(self, *_):
         self._controller.ensure_loaded()
         item = run_reference_set_dialog(
@@ -90,7 +106,7 @@ class ReferenceSetRuntime:
             self._controller.records,
             self._controller.names,
         )
-        return self._controller.add(item) if item is not None else False
+        return self._changed(self._controller.add(item)) if item is not None else False
 
     def on_edit(self, *_):
         self._controller.ensure_loaded()
@@ -103,14 +119,14 @@ class ReferenceSetRuntime:
             self._controller.names,
             selected,
         )
-        return self._controller.update(selected.name, item) if item is not None else False
+        return self._changed(self._controller.update(selected.name, item)) if item is not None else False
 
     def on_delete(self, *_):
         self._controller.ensure_loaded()
         selected = self._controller.selected_set()
         if selected is None or not confirm_reference_set_delete(self._parent, selected):
             return False
-        return self._controller.delete(selected.name)
+        return self._changed(self._controller.delete(selected.name))
 
     def on_open(self, *_):
         self._controller.ensure_loaded()

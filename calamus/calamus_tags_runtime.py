@@ -28,13 +28,17 @@ class TagsRuntime:
         show_reference: Callable[[str], bool],
         show_source_note: Callable[[str], bool],
         show_scratchpad_entry: Callable[[str], bool],
+        on_changed=None,
     ) -> None:
         if not isinstance(integrity_controller, TagIntegrityController):
             raise TypeError("integrity_controller must be TagIntegrityController")
+        if on_changed is not None and not callable(on_changed):
+            raise TypeError("on_changed must be callable")
         callbacks = (show_reference, show_source_note, show_scratchpad_entry)
         if any(not callable(callback) for callback in callbacks):
             raise TypeError("Tags runtime callbacks must be callable")
         self._parent = parent
+        self._on_changed = on_changed or (lambda: None)
         self._view = build_tags_panel_view(
             self.on_open,
             self.on_rename,
@@ -75,6 +79,13 @@ class TagsRuntime:
 
     def show_issues(self) -> bool:
         return self._controller.show_issues()
+
+    def refresh_for_invalidation(self, _reasons=frozenset()) -> bool:
+        return self._controller.refresh()
+
+    def shutdown(self) -> bool:
+        self._view.cancel_deferred_actions()
+        return True
 
     def on_refresh(self, *_):
         return self._controller.refresh()
@@ -132,4 +143,6 @@ class TagsRuntime:
             return False
         result = self._controller.apply(plan)
         show_tag_result(self._parent, result)
+        if result.succeeded:
+            getattr(self, "_on_changed", lambda: None)()
         return result.succeeded

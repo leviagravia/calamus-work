@@ -29,7 +29,10 @@ class ScratchpadRuntime:
         insert_body: Callable[[str], bool],
         copy_body: Callable[[str], bool],
         store_factory=None,
+        on_changed=None,
     ) -> None:
+        if on_changed is not None and not callable(on_changed):
+            raise TypeError("on_changed must be callable")
         callbacks = (
             document_path_provider,
             document_structure_provider,
@@ -49,6 +52,7 @@ class ScratchpadRuntime:
         self._show_target = show_target
         self._insert_body = insert_body
         self._copy_body = copy_body
+        self._on_changed = on_changed or (lambda: None)
         self._view = build_scratchpad_panel_view(
             self.on_add,
             self.on_edit,
@@ -90,6 +94,17 @@ class ScratchpadRuntime:
     def sync_document(self, *, force: bool = False) -> bool:
         return self._controller.bind_document(self._document_path_provider(), force=force)
 
+    def refresh_for_invalidation(self, _reasons=frozenset()) -> bool:
+        return self.sync_document(force=True)
+
+    def shutdown(self) -> bool:
+        return True
+
+    def _changed(self, result: bool) -> bool:
+        if result:
+            getattr(self, "_on_changed", lambda: None)()
+        return bool(result)
+
     def entries_snapshot(self, *, force: bool = False):
         self.sync_document(force=force)
         return self._controller.entries
@@ -128,7 +143,7 @@ class ScratchpadRuntime:
             self._controller.ids,
             draft=draft,
         )
-        return bool(result is not None and self._controller.add(result))
+        return self._changed(bool(result is not None and self._controller.add(result)))
 
     def capture_selection(self) -> bool:
         text = self._selected_text_provider()
@@ -177,7 +192,7 @@ class ScratchpadRuntime:
             self._controller.ids,
             selected,
         )
-        return bool(result is not None and self._controller.update(selected.id, result))
+        return self._changed(bool(result is not None and self._controller.update(selected.id, result)))
 
     def on_archive(self, *_):
         self.sync_document()
@@ -188,17 +203,17 @@ class ScratchpadRuntime:
             updated=now_iso(),
             status="active" if selected.status == "archived" else "archived",
         )
-        return self._controller.update(selected.id, revised)
+        return self._changed(self._controller.update(selected.id, revised))
 
     def on_delete(self, *_):
         self.sync_document()
         selected = self._controller.selected_entry()
         if selected is None:
             return False
-        return bool(
+        return self._changed(bool(
             confirm_scratchpad_delete(self._parent, selected)
             and self._controller.delete(selected.id)
-        )
+        ))
 
     def on_open_section(self, *_):
         self.sync_document()

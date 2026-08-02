@@ -142,6 +142,11 @@ from calamus_pandoc_controller import PandocExportController
 from calamus_pandoc_runtime import PandocExportRuntime
 from calamus_research_panel import ResearchPanelRuntime
 from calamus_research_panel_view import ResearchPanelViewAdapter
+from calamus_research_coordination import (
+    ResearchClientSpec,
+    ResearchInvalidationReason,
+    ResearchPanelCoordinator,
+)
 from calamus_scratchpad_runtime import ScratchpadRuntime
 from calamus_scratchpad_gateway import (
     current_section_target as scratchpad_current_section_target,
@@ -193,6 +198,18 @@ MIN_WINDOW_WIDTH = 520
 MIN_WINDOW_HEIGHT = 360
 MAX_WINDOW_WIDTH = 1600
 MAX_WINDOW_HEIGHT = 1000
+
+def _sync_source_notes_document(app, *, force=False):
+    if hasattr(app, "source_note_panel_runtime"):
+        app.source_note_panel_runtime.sync_document(force=force)
+    scratchpad_sync_document(app, force=force)
+    return True
+
+def _research_document_context_changed(app):
+    coordinator = getattr(app, "research_coordinator", None)
+    if coordinator is not None:
+        coordinator.publish((ResearchInvalidationReason.DOCUMENT_IDENTITY,))
+    return True
 
 class App(Gtk.Window):
     def __init__(self):
@@ -709,6 +726,9 @@ class App(Gtk.Window):
                 self.typewriter_runtime.on_edit()
             else:
                 self.viewport_runtime.queue_visible_to_insert(0.02)
+            self.publish_research_invalidation(
+                ResearchInvalidationReason.DOCUMENT_CONTENT
+            )
             self.update_title()
 
     def on_opacity_selection(self, *_):
@@ -872,6 +892,9 @@ class App(Gtk.Window):
         if hasattr(self, "pandoc_export_runtime") and not self.pandoc_export_runtime.shutdown():
             self.error("Pandoc export did not stop cleanly; Calamus remains open.")
             return False
+        research_coordinator = getattr(self, "research_coordinator", None)
+        if research_coordinator is not None:
+            research_coordinator.shutdown()
         self.save_settings()
         self._application_close_in_progress = True
         try:
@@ -882,6 +905,9 @@ class App(Gtk.Window):
         return True
 
     def on_destroy(self, *_):
+        research_coordinator = getattr(self, "research_coordinator", None)
+        if research_coordinator is not None:
+            research_coordinator.shutdown()
         document_overview_runtime = getattr(self, "document_overview_runtime", None)
         if document_overview_runtime is not None:
             document_overview_runtime.shutdown()
@@ -925,7 +951,7 @@ class App(Gtk.Window):
         self.current_file = self.document.file_path
         self.modified = self.document.modified
         self.reset_undo_history()
-        getattr(self, "sync_source_notes_document", lambda: None)()
+        getattr(self, "research_document_context_changed", lambda: None)()
         getattr(self, "refresh_document_overview_if_open", lambda: False)()
         if hasattr(self, "workspace_panel_view") and self.current_file:
             self.workspace_panel_view.select_path(self.current_file)
@@ -965,7 +991,7 @@ class App(Gtk.Window):
         self.modified = self.document.modified
         self.reset_undo_history()
         self.add_recent_file(self.current_file)
-        getattr(self, "sync_source_notes_document", lambda: None)()
+        getattr(self, "research_document_context_changed", lambda: None)()
         getattr(self, "refresh_document_overview_if_open", lambda: False)()
         if hasattr(self, "workspace_panel_view") and self.current_file:
             self.workspace_panel_view.select_path(self.current_file)
@@ -992,6 +1018,7 @@ class App(Gtk.Window):
         return self.execute_save_plan(plan)
 
     def execute_save_plan(self, plan):
+        previous_path = self.current_file
         try:
             if plan.replaces_buffer_text:
                 self.loading = True
@@ -1001,7 +1028,12 @@ class App(Gtk.Window):
             self.current_file = self.document.file_path
             self.modified = self.document.modified
             self.add_recent_file(self.current_file)
-            getattr(self, "sync_source_notes_document", lambda: None)()
+            if previous_path != self.current_file:
+                        getattr(self, "research_document_context_changed", lambda: None)()
+            elif plan.replaces_buffer_text:
+                self.publish_research_invalidation(
+                    ResearchInvalidationReason.DOCUMENT_CONTENT
+                )
             self.update_title()
             self.save_settings()
             getattr(self, "refresh_document_overview_if_open", lambda: False)()
@@ -1625,7 +1657,7 @@ class App(Gtk.Window):
         self.current_file = self.document.file_path
         self.modified = self.document.modified
         self.reset_undo_history()
-        getattr(self, "sync_source_notes_document", lambda: None)()
+        getattr(self, "research_document_context_changed", lambda: None)()
         self.update_title()
         getattr(self, "refresh_document_overview_if_open", lambda: False)()
         return True
@@ -2138,6 +2170,9 @@ class App(Gtk.Window):
             copy_text=copy_clip_body,
             show_error=lambda message: show_error(self, message),
             show_info=lambda message: show_info(self, message),
+            on_changed=lambda: self.publish_research_invalidation(
+                ResearchInvalidationReason.CLIPS
+            ),
         )
         if not self.clip_collection.load():
             log_nonfatal(
@@ -2157,12 +2192,18 @@ class App(Gtk.Window):
             reference_sets_provider=lambda: self.reference_set_runtime.sets_snapshot(force=True),
             open_external=open_external_path,
             reveal_external=reveal_in_file_manager,
+            on_changed=lambda: self.publish_research_invalidation(
+                ResearchInvalidationReason.REFERENCES
+            ),
         )
         self.reference_set_runtime = ReferenceSetRuntime(
             self,
             records_provider=lambda: self.reference_panel_runtime.records,
             show_reference=self.show_reference_key,
             store=self.reference_set_store,
+            on_changed=lambda: self.publish_research_invalidation(
+                ResearchInvalidationReason.REFERENCE_SETS
+            ),
         )
         self.citation_controller = CitationController(
             reference_records_provider=lambda: self.reference_panel_runtime.records,
@@ -2179,6 +2220,9 @@ class App(Gtk.Window):
             show_reference=self.show_reference_key,
             reference_key_resolver=self.reference_panel_runtime.resolve_key,
             show_target=self.show_heading_target,
+            on_changed=lambda: self.publish_research_invalidation(
+                ResearchInvalidationReason.SOURCE_NOTES
+            ),
         )
         self.authoring_bridge_runtime = AuthoringBridgeRuntime(
             self,
@@ -2205,6 +2249,9 @@ class App(Gtk.Window):
             show_target=self.show_heading_target,
             insert_body=lambda body: scratchpad_insert_body(self, body),
             copy_body=lambda body: scratchpad_copy_body(self, body),
+            on_changed=lambda: self.publish_research_invalidation(
+                ResearchInvalidationReason.SCRATCHPAD
+            ),
         )
         self.tag_integrity_controller = TagIntegrityController(
             reference_store=self.reference_store,
@@ -2219,6 +2266,11 @@ class App(Gtk.Window):
             show_reference=self.show_reference_key,
             show_source_note=self.show_source_note_id,
             show_scratchpad_entry=self.show_scratchpad_entry_id,
+            on_changed=lambda: self.publish_research_invalidation(
+                ResearchInvalidationReason.REFERENCES,
+                ResearchInvalidationReason.SOURCE_NOTES,
+                ResearchInvalidationReason.SCRATCHPAD,
+            ),
         )
         self.tag_integrity_runtime = TagIntegrityRuntime(
             self,
@@ -2227,17 +2279,97 @@ class App(Gtk.Window):
         self.research_panel_view = ResearchPanelViewAdapter(
             lambda: self.research_panel_runtime.hide(),
         )
-        clients = (
-            ("clip-collection", "Clips", self.clip_collection.widget, self.clip_collection_runtime.activate),
-            ("scratchpad", "Scratchpad", self.scratchpad_runtime.widget, self.scratchpad_runtime.activate),
-            ("references", "Bibliography", self.reference_panel_runtime.widget, self.reference_panel_runtime.activate),
-            ("tags", "Tags", self.tags_runtime.widget, self.tags_runtime.activate),
-            ("reference-sets", "Reference Sets", self.reference_set_runtime.widget, self.reference_set_runtime.activate),
-            ("source-notes", "Source Notes", self.source_note_panel_runtime.widget, self.source_note_panel_runtime.activate),
-            ("authoring-bridge", "Authoring Bridge", self.authoring_bridge_runtime.widget, self.authoring_bridge_runtime.activate),
+        self.research_coordinator = ResearchPanelCoordinator(
+            active_client_provider=lambda: self.research_panel_view.active_client,
+            schedule=lambda delay, callback: GLib.timeout_add(delay, callback),
+            cancel=lambda source_id: GLib.source_remove(source_id),
         )
-        for client in clients:
-            self.research_panel_view.register_client(*client)
+        client_specs = (
+            ResearchClientSpec(
+                "clip-collection", "Clips", self.clip_collection.widget,
+                self.clip_collection_runtime.activate,
+                frozenset({ResearchInvalidationReason.CLIPS}),
+                self.clip_collection_runtime.refresh_for_invalidation,
+                self.clip_collection_runtime.shutdown,
+            ),
+            ResearchClientSpec(
+                "scratchpad", "Scratchpad", self.scratchpad_runtime.widget,
+                self.scratchpad_runtime.activate,
+                frozenset({
+                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
+                    ResearchInvalidationReason.DOCUMENT_CONTENT,
+                    ResearchInvalidationReason.SCRATCHPAD,
+                }),
+                self.scratchpad_runtime.refresh_for_invalidation,
+                self.scratchpad_runtime.shutdown,
+            ),
+            ResearchClientSpec(
+                "references", "Bibliography", self.reference_panel_runtime.widget,
+                self.reference_panel_runtime.activate,
+                frozenset({
+                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
+                    ResearchInvalidationReason.DOCUMENT_CONTENT,
+                    ResearchInvalidationReason.REFERENCES,
+                    ResearchInvalidationReason.SOURCE_NOTES,
+                    ResearchInvalidationReason.REFERENCE_SETS,
+                }),
+                self.reference_panel_runtime.refresh_for_invalidation,
+                self.reference_panel_runtime.shutdown,
+            ),
+            ResearchClientSpec(
+                "tags", "Tags", self.tags_runtime.widget,
+                self.tags_runtime.activate,
+                frozenset({
+                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
+                    ResearchInvalidationReason.REFERENCES,
+                    ResearchInvalidationReason.SOURCE_NOTES,
+                    ResearchInvalidationReason.SCRATCHPAD,
+                }),
+                self.tags_runtime.refresh_for_invalidation,
+                self.tags_runtime.shutdown,
+            ),
+            ResearchClientSpec(
+                "reference-sets", "Reference Sets", self.reference_set_runtime.widget,
+                self.reference_set_runtime.activate,
+                frozenset({
+                    ResearchInvalidationReason.REFERENCES,
+                    ResearchInvalidationReason.REFERENCE_SETS,
+                }),
+                self.reference_set_runtime.refresh_for_invalidation,
+                self.reference_set_runtime.shutdown,
+            ),
+            ResearchClientSpec(
+                "source-notes", "Source Notes", self.source_note_panel_runtime.widget,
+                self.source_note_panel_runtime.activate,
+                frozenset({
+                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
+                    ResearchInvalidationReason.DOCUMENT_CONTENT,
+                    ResearchInvalidationReason.REFERENCES,
+                    ResearchInvalidationReason.SOURCE_NOTES,
+                }),
+                self.source_note_panel_runtime.refresh_for_invalidation,
+                self.source_note_panel_runtime.shutdown,
+            ),
+            ResearchClientSpec(
+                "authoring-bridge", "Authoring Bridge", self.authoring_bridge_runtime.widget,
+                self.authoring_bridge_runtime.activate,
+                frozenset({
+                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
+                    ResearchInvalidationReason.DOCUMENT_CONTENT,
+                    ResearchInvalidationReason.REFERENCES,
+                    ResearchInvalidationReason.SOURCE_NOTES,
+                }),
+                self.authoring_bridge_runtime.refresh_for_invalidation,
+                self.authoring_bridge_runtime.shutdown,
+            ),
+        )
+        for spec in client_specs:
+            self.research_coordinator.register(spec)
+            self.research_panel_view.register_client(
+                spec.client_id, spec.title, spec.widget,
+                lambda client_id=spec.client_id: self.research_coordinator.activate(client_id),
+            )
+        self.research_coordinator.assert_complete()
         self.right_panel_host.register("research", self.research_panel_view.widget)
         self.research_panel_runtime = ResearchPanelRuntime(
             self.right_panel_host,
@@ -2485,16 +2617,19 @@ class App(Gtk.Window):
         return bool(changed and self.buffer_text() == after)
 
     def on_rename_reference_key(self, *_):
-        return self.research_integrity_runtime.rename_reference_key()
+        changed = self.research_integrity_runtime.rename_reference_key()
+        return self.finish_research_mutation(changed, ResearchInvalidationReason.REFERENCES, ResearchInvalidationReason.SOURCE_NOTES, ResearchInvalidationReason.REFERENCE_SETS, ResearchInvalidationReason.DOCUMENT_CONTENT)
 
     def on_research_check(self, *_):
         return self.research_integrity_runtime.research_check()
 
     def on_tag_integrity(self, *_):
-        return self.tag_integrity_runtime.manage()
+        changed = self.tag_integrity_runtime.manage()
+        return self.finish_research_mutation(changed, ResearchInvalidationReason.REFERENCES, ResearchInvalidationReason.SOURCE_NOTES, ResearchInvalidationReason.SCRATCHPAD)
 
     def on_import_bibtex_biblatex(self, *_):
-        return self.bibtex_runtime.import_references()
+        changed = self.bibtex_runtime.import_references()
+        return self.finish_research_mutation(changed, ResearchInvalidationReason.REFERENCES)
 
     def on_export_references_bibtex_biblatex(self, *_):
         return self.bibtex_runtime.export_references()
@@ -2508,9 +2643,22 @@ class App(Gtk.Window):
     def show_heading_target(self, target):
         return self.navigation_controller.navigate_identifier(target) is not None
 
+    def finish_research_mutation(self, changed, *reasons):
+        if changed:
+            self.publish_research_invalidation(*reasons)
+        return changed
+
+    def publish_research_invalidation(self, *reasons):
+        coordinator = getattr(self, "research_coordinator", None)
+        if coordinator is not None:
+            coordinator.publish(reasons)
+
+    def research_document_context_changed(self):
+        _sync_source_notes_document(self, force=True)
+        return _research_document_context_changed(self)
+
     def sync_source_notes_document(self, *, force=False):
-        if hasattr(self, "source_note_panel_runtime"): self.source_note_panel_runtime.sync_document(force=force)
-        scratchpad_sync_document(self, force=force)
+        return _sync_source_notes_document(self, force=force)
 
     def toggle_clip_collection(self, *_):
         return self.show_clip_collection()
@@ -2711,7 +2859,7 @@ class App(Gtk.Window):
         if identity.document_identity_changed:
             self.document.file_path = identity.current_file_after
             self.current_file = identity.current_file_after
-            self.sync_source_notes_document(force=True)
+            getattr(self, "research_document_context_changed", lambda: None)()
             self.update_title()
             getattr(self, "refresh_document_overview_if_open", lambda: False)()
         recent_saved = self.state.save_recent_files(list(identity.recent_files_after), limit=10)
@@ -2730,7 +2878,7 @@ class App(Gtk.Window):
             self.document.set_text(current_text, modified=True)
             self.current_file = None
             self.modified = True
-            self.sync_source_notes_document(force=True)
+            getattr(self, "research_document_context_changed", lambda: None)()
             self.update_title()
             getattr(self, "refresh_document_overview_if_open", lambda: False)()
         recent_saved = self.state.save_recent_files(

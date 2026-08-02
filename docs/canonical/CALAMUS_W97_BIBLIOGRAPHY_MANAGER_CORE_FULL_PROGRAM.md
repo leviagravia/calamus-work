@@ -1,15 +1,13 @@
-# Calamus W97 — Bibliography Manager Core and Full program
+# Calamus W97 — Bibliography Manager Core and deferred Full program
 
 ## W97 Core
 
-A working local and transparent bibliography manager: one list/detail Research client over `references.md`, complete search, practical filters and sort, CRUD, reviewed duplication, safe-delete impact, local-file open/reveal, Quick Cite, Show Uses, Related References, simple derived exports, W87/W90 gateways and exact integrity indications.
+Bibliography Manager Core is CLOSED/CERTIFIED/PUBLISHED at `f7fd70b4ffc7c756b83b8bfa102d224823244092`.
 
-Core must be CLOSED/CERTIFIED/PUBLISHED before Full begins.
+## Full deferral
 
-## W97 Full
+Bibliography Manager Full is frozen until the whole Calamus Core/Basic roadmap reaches the Core Completion Gate. The same rule applies to Scratchpad Full/W93, Document Overview Full and Markdown Preview Full. No Full variant blocks W98 or any later Core/Basic work item.
 
-Advanced Current Document mode; author/year/set/relation/completeness filters; additional-field editor; duplicate centre; explicit field-by-field merge; migration of citations, Source Notes, Related References and Reference Sets with preview and rollback; optional multiple attachments and relative paths only after a separate contract; selected/filtered scopes for the existing Pandoc workflow.
+## W98 gate
 
-## Roadmap gate
-
-W98 Research Panel Integral Closure is prohibited until both W97 Core and W97 Full are CLOSED/CERTIFIED/PUBLISHED. W93 Scratchpad Full remains FROZEN and does not restart automatically.
+W98 Research Panel Integral Closure follows W97 Core and is limited to the seven existing Core/Basic Research clients, typed invalidation, lifecycle closure and command taxonomy. It must not implement any Bibliography Manager Full feature.

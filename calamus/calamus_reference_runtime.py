@@ -55,6 +55,7 @@ class ReferencePanelRuntime:
         reference_sets_provider=None,
         open_external=None,
         reveal_external=None,
+        on_changed=None,
     ) -> None:
         self._parent = parent
         for name, callback in (
@@ -64,6 +65,7 @@ class ReferencePanelRuntime:
             ("reference_sets_provider", reference_sets_provider),
             ("open_external", open_external),
             ("reveal_external", reveal_external),
+            ("on_changed", on_changed),
         ):
             if callback is not None and not callable(callback):
                 raise TypeError(f"{name} must be callable")
@@ -73,6 +75,7 @@ class ReferencePanelRuntime:
         self._reference_sets_provider = reference_sets_provider or (lambda: ())
         self._open_external = open_external or open_external_path
         self._reveal_external = reveal_external or reveal_in_file_manager
+        self._on_changed = on_changed or (lambda: None)
         self._store = store or MarkdownReferenceStore()
         self._view = build_reference_panel_view(
             self.on_add,
@@ -176,6 +179,21 @@ class ReferencePanelRuntime:
         self._refresh_context()
         self._view.focus_search()
 
+    def refresh_for_invalidation(self, reasons=frozenset()) -> bool:
+        names = {getattr(reason, "name", str(reason)) for reason in reasons}
+        if "REFERENCES" in names:
+            self.reload()
+        else:
+            self._refresh_context()
+        return True
+
+    def shutdown(self) -> bool:
+        self._view.dispose()
+        return True
+
+    def _changed(self) -> None:
+        getattr(self, "_on_changed", lambda: None)()
+
     def show_key(self, key: str) -> bool:
         self._controller.ensure_loaded()
         self._refresh_context()
@@ -195,6 +213,7 @@ class ReferencePanelRuntime:
         record = run_reference_dialog(self._parent, self._controller.identity_keys)
         if record is not None and self._controller.add(record):
             self._refresh_context()
+            self._changed()
             return True
         return False
 
@@ -206,6 +225,7 @@ class ReferencePanelRuntime:
         record = run_reference_dialog(self._parent, self._controller.identity_keys, selected)
         if record is not None and self._controller.update(selected.key, record):
             self._refresh_context()
+            self._changed()
             return True
         return False
 
@@ -224,6 +244,7 @@ class ReferencePanelRuntime:
         )
         if record is not None and self._controller.add(record):
             self._refresh_context()
+            self._changed()
             return True
         return False
 
@@ -247,6 +268,7 @@ class ReferencePanelRuntime:
             return False
         if confirm_reference_delete(self._parent, selected, impact) and self._controller.delete(selected.key):
             self._refresh_context()
+            self._changed()
             return True
         return False
 
@@ -303,6 +325,7 @@ class ReferencePanelRuntime:
         changed = self._controller.replace_records(plan.records_after, select_key=selected.key)
         if changed:
             self._refresh_context()
+            self._changed()
         return changed
 
     def open_bibliography_file(self) -> bool:

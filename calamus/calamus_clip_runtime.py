@@ -77,6 +77,7 @@ class ClipCollectionRuntime:
         copy_text: Callable[[str], None],
         show_error: Callable[[str], None],
         show_info: Callable[[str], None],
+        on_changed=None,
     ) -> None:
         self._parent = parent
         self._controller = controller
@@ -84,7 +85,10 @@ class ClipCollectionRuntime:
         self._insert_expansion = insert_expansion
         self._copy_text = copy_text
         self._show_error = show_error
+        if on_changed is not None and not callable(on_changed):
+            raise TypeError("on_changed must be callable")
         self._show_info = show_info
+        self._on_changed = on_changed or (lambda: None)
 
     @property
     def widget(self):
@@ -95,6 +99,12 @@ class ClipCollectionRuntime:
 
     def on_search(self, query: str) -> None:
         self._controller.set_query(query)
+
+    def refresh_for_invalidation(self, _reasons=frozenset()) -> bool:
+        return bool(self._controller.refresh())
+
+    def shutdown(self) -> bool:
+        return True
 
     def on_new(self, *_args) -> bool:
         record = run_clip_editor_dialog(
@@ -138,7 +148,7 @@ class ClipCollectionRuntime:
         if record is None:
             return False
         result = self._controller.update_selected(**record)
-        return self._handle_result(result)
+        return self._handle_result(result, changed=True)
 
     def on_duplicate(self, *_args) -> bool:
         selected = self._controller.selected_clip()
@@ -150,13 +160,13 @@ class ClipCollectionRuntime:
         if choice == "select":
             return self._controller.select_id(selected["id"], clear_query=True)
         result = self._controller.duplicate_selected()
-        return self._handle_result(result)
+        return self._handle_result(result, changed=True)
 
     def on_delete(self, *_args) -> bool:
         selected = self._controller.selected_clip()
         if selected is None or not confirm_clip_delete(self._parent, selected):
             return False
-        return self._handle_result(self._controller.delete_selected())
+        return self._handle_result(self._controller.delete_selected(), changed=True)
 
     def on_refresh(self, *_args) -> bool:
         return self._handle_result(self._controller.refresh(), success_message="Clip Collection reloaded from disk.")
@@ -208,7 +218,7 @@ class ClipCollectionRuntime:
                 return False
             if choice == "select" and existing is not None:
                 return self._controller.select_id(existing["id"], clear_query=True)
-        return self._handle_result(self._controller.create(**record))
+        return self._handle_result(self._controller.create(**record), changed=True)
 
     def _insert_clip(self, selected: dict[str, Any]) -> bool:
         # Re-read first so insertion never uses a stale body silently.
@@ -233,8 +243,10 @@ class ClipCollectionRuntime:
             if item.get("shortcut", "")
         )
 
-    def _handle_result(self, result, *, success_message: str = "") -> bool:
+    def _handle_result(self, result, *, success_message: str = "", changed: bool = False) -> bool:
         if result is True:
+            if changed:
+                getattr(self, "_on_changed", lambda: None)()
             if success_message:
                 self._show_info(success_message)
             return True

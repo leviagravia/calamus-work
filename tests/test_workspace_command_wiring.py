@@ -196,7 +196,7 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('self._reconcile_rename(plan, references)', block)
         self.assertIn('def plan_workspace_rename_identity(', identity)
         self.assertIn('self.document.file_path = identity.current_file_after', launcher)
-        self.assertIn('self.sync_source_notes_document(force=True)', launcher)
+        self.assertIn('getattr(self, "research_document_context_changed", lambda: None)()', launcher)
         self.assertIn('self.state.save_recent_files', launcher)
         self.assertIn('self.state.save_favourites', launcher)
 

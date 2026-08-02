@@ -105,6 +105,12 @@ class AuthoringBridgeRuntime:
     def on_refresh(self, *_):
         return self._controller.refresh(prefer_context=False) is not None
 
+    def refresh_for_invalidation(self, _reasons=frozenset()) -> bool:
+        return self._controller.refresh(prefer_context=False) is not None
+
+    def shutdown(self) -> bool:
+        return True
+
     def on_open(self, *_):
         return self._controller.open_selected()
 

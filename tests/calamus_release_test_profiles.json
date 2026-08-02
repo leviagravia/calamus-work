@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W97 Bibliography Manager Core Candidate R2",
-  "published_baseline": "199459fb023e4862407f7eb60318192f276d3239",
+  "lineage": "W98 Research Panel Integral Closure Candidate R1",
+  "published_baseline": "f7fd70b4ffc7c756b83b8bfa102d224823244092",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -1385,7 +1385,7 @@
         "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_source_provenance_lists_gate_b_modules",
         "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_view_has_five_categories_progressive_disclosure_and_no_tabs",
         "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_view_is_gtk_only_and_domain_modules_remain_gtk_free",
-        "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_w96_help_is_preserved_and_current_identity_is_w97",
+        "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_w96_help_is_preserved_and_current_identity_is_w98",
         "tests.test_w96_editor_handoff_rebuild.W96EditorHandoffRebuildTests.test_app_boundary_owns_window_presentation_and_editor_focus",
         "tests.test_w96_editor_handoff_rebuild.W96EditorHandoffRebuildTests.test_current_contract_records_retired_line_and_new_failure_classifications",
         "tests.test_w96_editor_handoff_rebuild.W96EditorHandoffRebuildTests.test_handoff_command_order_is_owned_by_app_boundary",
@@ -1411,7 +1411,7 @@
         "tests.test_w97_bibliography_manual_fixture.W97BibliographyManualFixtureTests.test_package_entry_point_builds_complete_isolated_fixture",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_core_contract_freezes_single_authority_and_existing_client",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_core_excludes_full_and_forbidden_infrastructure",
-        "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_core_full_program_keeps_w98_blocked",
+        "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_full_is_deferred_and_w98_core_is_allowed",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_domain_projection_is_gtk_free_and_provenance_tracked",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_mature_audit_has_all_seven_sources_and_decision_matrix",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_exact_failure_correction_is_canonical",
@@ -1426,15 +1426,15 @@
         "tests.test_w97_bibliography_view_lifecycle.W97BibliographyViewLifecycleTests.test_row_replacement_is_one_selection_silent_transaction",
         "tests.test_w97_bibliography_view_lifecycle.W97BibliographyViewLifecycleTests.test_selection_binding_is_single_owner",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_app_remains_composition_only",
-        "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_current_development_identity_is_w97_core_on_published_w96_baseline",
+        "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_w97_core_is_preserved_under_current_w98_identity",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_panel_has_core_list_detail_filters_and_actions",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_research_panel_renames_existing_client_without_second_manager",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_runtime_owns_duplicate_safe_delete_file_actions_and_context",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_single_canonical_authority_and_existing_controller_are_reused",
-        "tests.test_w97_identity_gate_contract.W97IdentityGateContractTests.test_w95_historical_gate_is_not_bound_to_current_identity",
-        "tests.test_w97_identity_gate_contract.W97IdentityGateContractTests.test_w95extra_functional_gate_remains_present",
-        "tests.test_w97_identity_gate_contract.W97IdentityGateContractTests.test_w97_current_identity_gate_is_exact",
-        "tests.test_w97_identity_gate_contract.W97IdentityGateContractTests.test_w97_identity_runs_before_w97_product_gate",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95_historical_gate_is_not_bound_to_current_identity",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95extra_functional_gate_remains_present",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_current_identity_gate_is_exact",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_identity_runs_before_w98_product_gate",
         "tests.test_w97_search_model_rebuild_contract.W97SearchModelRebuildContractTests.test_controller_owns_selected_key",
         "tests.test_w97_search_model_rebuild_contract.W97SearchModelRebuildContractTests.test_search_uses_explicit_changed_plus_owned_coalescer",
         "tests.test_w97_search_model_rebuild_contract.W97SearchModelRebuildContractTests.test_true_app_waits_for_delivery_not_single_pump",
@@ -1535,7 +1535,17 @@
         "tests.test_writing.WritingToolsTests.test_document_statistics",
         "tests.test_writing.WritingToolsTests.test_reflow_and_join_lines",
         "tests.test_writing.WritingToolsTests.test_smart_typography_and_case_tools",
-        "tests.test_writing.WritingToolsTests.test_sort_lines_preserves_final_newline"
+        "tests.test_writing.WritingToolsTests.test_sort_lines_preserves_final_newline",
+        "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_active_refreshes_once_and_hidden_refreshes_once_on_activation",
+        "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_document_content_is_coalesced_and_identity_cancels_pending",
+        "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_rejects_dynamic_or_incomplete_registration",
+        "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_shutdown_is_idempotent_and_cancels_pending",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_command_catalog_is_complete_and_uses_bibliography_taxonomy",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_contract_freezes_core_only_coordinator_and_seven_clients",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_coordinator_is_gtk_free_and_app_uses_one_context_gateway",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_forbidden_infrastructure_absent",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_program_removes_old_full_before_w98_gate",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w97_functional_product_gate_remains_historical"
       ]
     },
     "filesystem-capabilities": {
@@ -1875,7 +1885,7 @@
         "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_source_provenance_lists_gate_b_modules",
         "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_view_has_five_categories_progressive_disclosure_and_no_tabs",
         "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_view_is_gtk_only_and_domain_modules_remain_gtk_free",
-        "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_w96_help_is_preserved_and_current_identity_is_w97",
+        "tests.test_w96_document_overview_wiring.W96DocumentOverviewWiringTests.test_w96_help_is_preserved_and_current_identity_is_w98",
         "tests.test_w96_editor_handoff_rebuild.W96EditorHandoffRebuildTests.test_app_boundary_owns_window_presentation_and_editor_focus",
         "tests.test_w96_editor_handoff_rebuild.W96EditorHandoffRebuildTests.test_current_contract_records_retired_line_and_new_failure_classifications",
         "tests.test_w96_editor_handoff_rebuild.W96EditorHandoffRebuildTests.test_handoff_command_order_is_owned_by_app_boundary",
@@ -1901,7 +1911,7 @@
         "tests.test_w97_bibliography_manual_fixture.W97BibliographyManualFixtureTests.test_package_entry_point_builds_complete_isolated_fixture",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_core_contract_freezes_single_authority_and_existing_client",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_core_excludes_full_and_forbidden_infrastructure",
-        "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_core_full_program_keeps_w98_blocked",
+        "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_full_is_deferred_and_w98_core_is_allowed",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_domain_projection_is_gtk_free_and_provenance_tracked",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_mature_audit_has_all_seven_sources_and_decision_matrix",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_exact_failure_correction_is_canonical",
@@ -1916,34 +1926,18 @@
         "tests.test_w97_bibliography_view_lifecycle.W97BibliographyViewLifecycleTests.test_row_replacement_is_one_selection_silent_transaction",
         "tests.test_w97_bibliography_view_lifecycle.W97BibliographyViewLifecycleTests.test_selection_binding_is_single_owner",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_app_remains_composition_only",
-        "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_current_development_identity_is_w97_core_on_published_w96_baseline",
+        "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_w97_core_is_preserved_under_current_w98_identity",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_panel_has_core_list_detail_filters_and_actions",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_research_panel_renames_existing_client_without_second_manager",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_runtime_owns_duplicate_safe_delete_file_actions_and_context",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_single_canonical_authority_and_existing_controller_are_reused",
-        "tests.test_w97_identity_gate_contract.W97IdentityGateContractTests.test_w95_historical_gate_is_not_bound_to_current_identity",
-        "tests.test_w97_identity_gate_contract.W97IdentityGateContractTests.test_w95extra_functional_gate_remains_present",
-        "tests.test_w97_identity_gate_contract.W97IdentityGateContractTests.test_w97_current_identity_gate_is_exact",
-        "tests.test_w97_identity_gate_contract.W97IdentityGateContractTests.test_w97_identity_runs_before_w97_product_gate",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95_historical_gate_is_not_bound_to_current_identity",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95extra_functional_gate_remains_present",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_current_identity_gate_is_exact",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_identity_runs_before_w98_product_gate",
         "tests.test_w97_search_model_rebuild_contract.W97SearchModelRebuildContractTests.test_controller_owns_selected_key",
         "tests.test_w97_search_model_rebuild_contract.W97SearchModelRebuildContractTests.test_search_uses_explicit_changed_plus_owned_coalescer",
         "tests.test_w97_search_model_rebuild_contract.W97SearchModelRebuildContractTests.test_true_app_waits_for_delivery_not_single_pump"
-      ]
-    },
-    "w97-identity-smoke": {
-      "kind": "unittest",
-      "release_gate": true,
-      "zero_skips": true,
-      "capabilities": [
-        "gtk-display"
-      ],
-      "set_env": {
-        "CALAMUS_W97_RUN_REAL_GTK": "1",
-        "CALAMUS_RELEASE_PROFILE": "w97-identity-smoke"
-      },
-      "unset_env": [],
-      "test_ids": [
-        "tests.test_w97_identity_app_desktop_e2e.W97CurrentIdentityRealAppE2E.test_exact_current_identity_and_stable_about"
       ]
     },
     "historical-w96-product": {
@@ -1962,7 +1956,7 @@
         "tests.test_w96_document_overview_app_desktop_e2e.W96DocumentOverviewAppDesktopE2E.test_real_single_instance_categories_refresh_navigation_and_lifecycle"
       ]
     },
-    "w97-product-smoke": {
+    "historical-w97-product": {
       "kind": "unittest",
       "release_gate": true,
       "zero_skips": true,
@@ -1971,11 +1965,74 @@
       ],
       "set_env": {
         "CALAMUS_W97_RUN_REAL_GTK": "1",
-        "CALAMUS_RELEASE_PROFILE": "w97-product-smoke"
+        "CALAMUS_RELEASE_PROFILE": "historical-w97-product"
       },
       "unset_env": [],
       "test_ids": [
         "tests.test_w97_bibliography_app_desktop_e2e.W97BibliographyAppDesktopE2E.test_real_app_list_detail_filters_context_file_actions_and_lifecycle"
+      ]
+    },
+    "w98-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w98-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_active_refreshes_once_and_hidden_refreshes_once_on_activation",
+        "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_document_content_is_coalesced_and_identity_cancels_pending",
+        "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_rejects_dynamic_or_incomplete_registration",
+        "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_shutdown_is_idempotent_and_cancels_pending",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_command_catalog_is_complete_and_uses_bibliography_taxonomy",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_contract_freezes_core_only_coordinator_and_seven_clients",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_coordinator_is_gtk_free_and_app_uses_one_context_gateway",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_forbidden_infrastructure_absent",
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_program_removes_old_full_before_w98_gate",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95_historical_gate_is_not_bound_to_current_identity",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_current_identity_gate_is_exact",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_identity_runs_before_w98_product_gate",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w97_functional_product_gate_remains_historical",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95extra_functional_gate_remains_present"
+      ]
+    },
+    "w98-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W98_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w98-identity-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w98_identity_app_desktop_e2e.W98IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w98-product-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W98_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w98-product-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w98_research_panel_app_desktop_e2e.W98ResearchPanelAppDesktopE2E.test_document_switch_edit_hidden_dirty_and_normal_close"
       ]
     }
   }

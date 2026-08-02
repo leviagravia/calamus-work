@@ -122,7 +122,7 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
             "execute_save_plan",
             "execute_new_from_template_plan",
         ):
-            self.assertIn("sync_source_notes_document", method_source(method))
+            self.assertIn("research_document_context_changed", method_source(method))
 
     def test_app_only_composes_and_exposes_thin_wrappers(self):
         launcher = source(LAUNCHER)
