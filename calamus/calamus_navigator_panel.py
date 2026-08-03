@@ -179,6 +179,10 @@ class NavigatorPanelRuntime:
     def hide(self) -> bool:
         return self.set_visible(False)
 
+    def shutdown(self) -> bool:
+        self._view.cancel_pending()
+        return True
+
     def on_menu_toggled(self, menu_item: Any) -> None:
         if self._syncing_menu:
             return

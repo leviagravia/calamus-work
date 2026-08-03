@@ -95,6 +95,7 @@ class ResearchPanelCoordinator:
         self._generation = 0
         self._shutdown = False
         self._shutdown_clients: set[str] = set()
+        self._shutdown_failures: tuple[tuple[str, str], ...] = ()
         self._delivery_count = 0
 
     @property
@@ -112,6 +113,10 @@ class ResearchPanelCoordinator:
     @property
     def is_shutdown(self) -> bool:
         return self._shutdown
+
+    @property
+    def shutdown_failures(self) -> tuple[tuple[str, str], ...]:
+        return self._shutdown_failures
 
     def dirty_reasons(self, client_id: str) -> InvalidationSet:
         return frozenset(self._dirty.get(client_id, ()))
@@ -173,18 +178,24 @@ class ResearchPanelCoordinator:
 
     def shutdown(self) -> bool:
         if self._shutdown:
-            return True
+            return not self._shutdown_failures
         self._shutdown = True
         self.cancel_pending_content()
+        failures: list[tuple[str, str]] = []
         for client_id, spec in self._specs.items():
             if client_id in self._shutdown_clients:
                 continue
             try:
-                spec.shutdown()
+                result = spec.shutdown()
+                if result is False:
+                    failures.append((client_id, "callback returned False"))
+            except Exception as exc:
+                failures.append((client_id, f"{type(exc).__name__}: {exc}"))
             finally:
                 self._shutdown_clients.add(client_id)
+        self._shutdown_failures = tuple(failures)
         self._dirty.clear()
-        return True
+        return not failures
 
     def _schedule_document_content(self) -> None:
         self._generation += 1

@@ -34,6 +34,7 @@ class SearchController:
         self._adapter = adapter
         self.session = SearchSession()
         self._highlight_source = None
+        self._highlight_generation = 0
 
     @property
     def query(self) -> SearchQuery:
@@ -232,11 +233,33 @@ class SearchController:
         if not self.has_query() or self._highlight_source is not None:
             return False
         self.session = replace(self.session, current_match=None)
+        self._highlight_generation += 1
+        generation = self._highlight_generation
 
         def run():
+            if generation != self._highlight_generation:
+                return False
             self._highlight_source = None
             self.highlight()
             return False
 
         self._highlight_source = timeout_add(delay_ms, run)
+        return True
+
+    @property
+    def highlight_pending(self) -> bool:
+        return self._highlight_source is not None
+
+    def cancel_pending_highlight(self, cancel) -> bool:
+        if not callable(cancel):
+            raise TypeError("cancel must be callable")
+        self._highlight_generation += 1
+        source = self._highlight_source
+        self._highlight_source = None
+        if source is None:
+            return False
+        try:
+            cancel(source)
+        except Exception:
+            return False
         return True

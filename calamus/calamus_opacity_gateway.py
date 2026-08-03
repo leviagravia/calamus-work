@@ -11,7 +11,6 @@ from typing import Any
 
 from calamus_opacity import (
     MAX_OPACITY_PERCENT,
-    apply_widget_opacity,
     opacity_settings_overrides,
     prepare_opacity_preference_plan,
     transparent_mode_requested_percent,
@@ -54,11 +53,11 @@ def execute_opacity_preference_request(host: Any, requested_percent: int) -> boo
         return False
 
     try:
-        apply_widget_opacity(host, requested, widget_api=host._opacity_widget_api)
+        host.apply_opacity_percent(requested)
     except Exception as exc:
         host.save_settings(opacity_settings_overrides(previous))
         try:
-            apply_widget_opacity(host, previous, widget_api=host._opacity_widget_api)
+            host.apply_opacity_percent(previous)
         except Exception:
             pass
         sync_transparent_control(host)

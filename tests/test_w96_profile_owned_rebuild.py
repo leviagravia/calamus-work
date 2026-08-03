@@ -23,7 +23,7 @@ class W96ProfileOwnedRebuildTests(unittest.TestCase):
         self.assertEqual(data["schema"], 1)
         self.assertEqual(
             data["published_baseline"],
-            "f7fd70b4ffc7c756b83b8bfa102d224823244092",
+            "fb54cd3bb96bbea024966db2a059c755aef45d95",
         )
         release = {
             name: profile
@@ -63,6 +63,9 @@ class W96ProfileOwnedRebuildTests(unittest.TestCase):
             "w98-headless-focused",
             "w98-identity-smoke",
             "w98-product-smoke",
+            "w99-headless-focused",
+            "w99-identity-smoke",
+            "w99-lifecycle-smoke",
             "manual-desktop",
         }
         self.assertTrue(required.issubset(profiles))

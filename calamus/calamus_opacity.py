@@ -1,10 +1,4 @@
-"""Typed top-level opacity preference and GTK adapter for Calamus.
-
-The pure preference functions own persisted normalization, bounds, immutable
-transition planning, and Transparent Mode semantics.  The GTK adapter imports
-no toolkit at module import time and uses ``Gtk.Widget`` explicitly so Calamus
-does not call the deprecated ``Gtk.Window.set_opacity/get_opacity`` API.
-"""
+"""Typed GTK-free opacity preference model for Calamus."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -105,23 +99,3 @@ def transparent_mode_requested_percent(current_percent: int, enabled: bool) -> i
 
 def opacity_settings_overrides(percent: int) -> dict[str, int]:
     return {OPACITY_KEY: OpacityPreference(percent).percent}
-
-
-def apply_widget_opacity(widget: Any, percent: int, *, widget_api: Any = None) -> None:
-    """Apply opacity through the non-deprecated Gtk.Widget API.
-
-    ``widget_api`` is injectable so the adapter can be tested without opening a
-    display.  Production callers omit it and receive ``Gtk.Widget`` lazily.
-    """
-    preference = OpacityPreference(percent)
-    if widget_api is None:
-        import gi
-
-        gi.require_version("Gtk", "3.0")
-        from gi.repository import Gtk
-
-        widget_api = Gtk.Widget
-    setter = getattr(widget_api, "set_opacity", None)
-    if not callable(setter):
-        raise TypeError("widget opacity API does not provide set_opacity")
-    setter(widget, preference.fraction)

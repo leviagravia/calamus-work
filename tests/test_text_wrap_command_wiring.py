@@ -77,7 +77,8 @@ class TextWrapCommandWiringTests(unittest.TestCase):
         self.assertIn("Gtk.PolicyType.AUTOMATIC", editor)
         self.assertIn("scroller.get_hadjustment()", editor)
         self.assertIn("self.queue_wrap_reflow()", _method_source("on_word_wrap"))
-        self.assertIn("GLib.idle_add(self.apply_wrap_policy)", _method_source("queue_wrap_reflow"))
+        self.assertIn("self._wrap_reflow_source = GLib.idle_add(apply_deferred)", _method_source("queue_wrap_reflow"))
+        self.assertIn("GLib.source_remove(source)", _method_source("queue_wrap_reflow"))
 
     def test_options_menu_is_not_recomposed_incidentally(self):
         ui = UI.read_text(encoding="utf-8")

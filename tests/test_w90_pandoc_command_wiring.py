@@ -29,7 +29,8 @@ class W90PandocCommandWiringTests(unittest.TestCase):
 
     def test_app_is_only_composition_callback_and_close_gateway(self):
         launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
-        self.assertIn("self.pandoc_export_runtime.shutdown()", launcher)
+        lifecycle = (ROOT / "calamus/calamus_application_lifecycle_app.py").read_text(encoding="utf-8")
+        self.assertIn("app.pandoc_export_runtime.shutdown", lifecycle)
         callback = launcher.split("    def on_export_with_pandoc", 1)[1].split("\n    def ", 1)[0]
         self.assertIn("return self.pandoc_export_runtime.export()", callback)
         for forbidden in ("subprocess", "--citeproc", "export_references(", "os.replace("):

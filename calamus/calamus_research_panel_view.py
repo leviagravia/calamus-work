@@ -24,6 +24,8 @@ class ResearchClientSelector:
         self._active_id: str | None = None
         self._items: dict[str, tuple[str, Any, Any]] = {}
         self._changed_callbacks: list[Callable[[Any], None]] = []
+        self._reset_source = None
+        self._disposed = False
 
         self.widget = Gtk.MenuButton()
         self.widget.set_name("research-client-selector")
@@ -125,6 +127,8 @@ class ResearchClientSelector:
         return True
 
     def popup(self) -> None:
+        if self._disposed:
+            return
         self._ensure_popup_children_visible()
         self.popover.set_position(self._Gtk.PositionType.BOTTOM)
         self.popover.popup()
@@ -158,6 +162,8 @@ class ResearchClientSelector:
             self._scroll.set_min_content_width(width)
 
     def _on_popover_show(self, *_args) -> None:
+        if self._disposed:
+            return
         # Reassert the downward contract and start from the first item. Do not
         # align the list around the active client as GtkComboBox does.
         self._ensure_popup_children_visible()
@@ -167,12 +173,37 @@ class ResearchClientSelector:
         if rows:
             self.listbox.select_row(rows[0])
 
+        source = self._reset_source
+        self._reset_source = None
+        if source is not None:
+            try:
+                self._GLib.source_remove(source)
+            except Exception:
+                pass
+
         def reset_to_top():
+            self._reset_source = None
+            if self._disposed:
+                return False
             adjustment = self._scroll.get_vadjustment()
             adjustment.set_value(adjustment.get_lower())
             return False
 
-        self._GLib.idle_add(reset_to_top)
+        self._reset_source = self._GLib.idle_add(reset_to_top)
+
+    def dispose(self) -> bool:
+        if self._disposed:
+            return True
+        self._disposed = True
+        source = self._reset_source
+        self._reset_source = None
+        if source is not None:
+            try:
+                self._GLib.source_remove(source)
+            except Exception:
+                pass
+        self._changed_callbacks.clear()
+        return True
 
 
 class ResearchPanelViewAdapter:
@@ -285,3 +316,6 @@ class ResearchPanelViewAdapter:
         callback = self._clients[client_id][1]
         if callback is not None:
             callback()
+
+    def shutdown(self) -> bool:
+        return self.selector.dispose()

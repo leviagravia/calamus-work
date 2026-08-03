@@ -54,6 +54,7 @@ from calamus_navigator_panel_view import build_navigator_panel_view
 from calamus_left_panel import LeftPanelHost
 from calamus_workspace_controller import WorkspaceController
 from calamus_workspace_application import WorkspaceApplicationRuntime
+from calamus_workspace_gio import WorkspaceGioAdapter
 from calamus_workspace_mutation import WorkspaceMutationController, WorkspaceMutationRuntime
 from calamus_workspace_identity import (
     WorkspacePathReferenceSnapshot, plan_workspace_rename_identity,
@@ -112,6 +113,8 @@ from calamus_identity_dialogs import (
     present_system_info_dialog,
 )
 from calamus_logging import log_nonfatal
+from calamus_application_lifecycle import ApplicationLifecycleCoordinator
+import calamus_application_lifecycle_app as application_lifecycle_app
 from calamus_help import load_user_guide
 from calamus_help_dialogs import show_user_guide
 from calamus_editor import build_editor_widgets, apply_text_wrap_policy
@@ -169,10 +172,10 @@ from calamus_appearance_preferences import (
 )
 from calamus_appearance_gateway import execute_appearance_preference_request
 from calamus_opacity import (
-    apply_widget_opacity,
     load_opacity_preference,
     opacity_settings_overrides,
 )
+from calamus_opacity_view import apply_widget_opacity
 from calamus_opacity_gateway import (
     execute_opacity_preference_request,
     execute_transparent_mode_request,
@@ -217,6 +220,7 @@ class App(Gtk.Window):
         self.state = StateManager(CONFIG_DIR)
         self.settings = self.load_settings()
         self.command_layer = CommandLayer(build_low_risk_registry())
+        self.application_lifecycle = ApplicationLifecycleCoordinator()
 
         width = clamp_int(self.settings.get("width"), DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
         height = clamp_int(self.settings.get("height"), DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT)
@@ -246,6 +250,7 @@ class App(Gtk.Window):
         self.loading = False
         self.spell_source = None
         self.word_count_source = None
+        self._wrap_reflow_source = None
         self.history = TextHistory(max_steps=100)
         self.history_runtime = None
         self.restoring_undo = False
@@ -373,7 +378,9 @@ class App(Gtk.Window):
             on_root_changed=self.on_workspace_root_changed,
             on_recent_changed=self.populate_recent_workspaces_menu,
         )
-        self.workspace_mutation_controller = WorkspaceMutationController(self.workspace_controller)
+        self.workspace_mutation_controller = WorkspaceMutationController(
+            self.workspace_controller, WorkspaceGioAdapter()
+        )
         self.workspace_mutation_runtime = WorkspaceMutationRuntime(
             self.workspace_mutation_controller,
             self.workspace_application_runtime,
@@ -411,6 +418,7 @@ class App(Gtk.Window):
         self.search_tag = self.text.get_buffer().create_tag("search_highlight", background="#fff59d", foreground="#000000")
         self.search_controller = SearchController(SearchViewAdapter(self.text, self.search_tag))
         self.current_line_tag = self.text.get_buffer().create_tag("current_line", background="#eef5ff")
+        self.configure_application_lifecycle()
 
         self.status = Gtk.Label()
         self.status.set_xalign(0)
@@ -478,7 +486,19 @@ class App(Gtk.Window):
             self.workspace_paned.queue_resize()
         if hasattr(self, "body_paned"):
             self.body_paned.queue_resize()
-        GLib.idle_add(self.apply_wrap_policy)
+        source = self._wrap_reflow_source
+        self._wrap_reflow_source = None
+        if source is not None:
+            try:
+                GLib.source_remove(source)
+            except Exception:
+                pass
+
+        def apply_deferred():
+            self._wrap_reflow_source = None
+            return self.apply_wrap_policy()
+
+        self._wrap_reflow_source = GLib.idle_add(apply_deferred)
 
     def on_cursor_position_notify(self, *_):
         # Do not auto-scroll on every cursor-position notification. Mouse clicks
@@ -847,6 +867,9 @@ class App(Gtk.Window):
         self.status.set_text(visible_status)
         self.status.set_tooltip_text(full_status)
 
+    def apply_opacity_percent(self, percent):
+        apply_widget_opacity(self, percent, widget_api=self._opacity_widget_api)
+
     def apply_font(self):
         css = build_application_css(
             self.font_family,
@@ -880,21 +903,29 @@ class App(Gtk.Window):
             return self.save_file()
         return True
 
+    def configure_application_lifecycle(self):
+        return application_lifecycle_app.configure_application_lifecycle(self)
+
+    def shutdown_application_sources(self):
+        return application_lifecycle_app.shutdown_application_sources(
+            self, GLib.source_remove
+        )
+
     def request_application_close(self):
-        # Xed/Mousepad lifecycle contract: every interactive close path owns the
-        # decision, destroys the window itself, and lets the destroy gateway
-        # terminate Gtk.main(). The default delete-event handler never races a
-        # second close path.
+        # Every interactive close path owns the decision, then delegates all
+        # runtime ownership to the single W99 lifecycle coordinator.
         if getattr(self, "_application_close_in_progress", False):
             return True
         if not self.may_continue():
             return False
-        if hasattr(self, "pandoc_export_runtime") and not self.pandoc_export_runtime.shutdown():
-            self.error("Pandoc export did not stop cleanly; Calamus remains open.")
+        report = self.application_lifecycle.preflight()
+        if not report.ok:
+            failure = report.failures[0]
+            self.error(
+                "Application shutdown was blocked; Calamus remains open.\n"
+                f"{failure.owner}: {failure.detail}"
+            )
             return False
-        research_coordinator = getattr(self, "research_coordinator", None)
-        if research_coordinator is not None:
-            research_coordinator.shutdown()
         self.save_settings()
         self._application_close_in_progress = True
         try:
@@ -905,21 +936,12 @@ class App(Gtk.Window):
         return True
 
     def on_destroy(self, *_):
-        research_coordinator = getattr(self, "research_coordinator", None)
-        if research_coordinator is not None:
-            research_coordinator.shutdown()
-        document_overview_runtime = getattr(self, "document_overview_runtime", None)
-        if document_overview_runtime is not None:
-            document_overview_runtime.shutdown()
-        typewriter_runtime = getattr(self, "typewriter_runtime", None)
-        if typewriter_runtime is not None:
-            typewriter_runtime.shutdown()
-        history_runtime = getattr(self, "history_runtime", None)
-        if history_runtime is not None:
-            history_runtime.shutdown()
-        viewport_runtime = getattr(self, "viewport_runtime", None)
-        if viewport_runtime is not None:
-            viewport_runtime.shutdown()
+        report = self.application_lifecycle.shutdown()
+        for failure in report.failures:
+            log_nonfatal(
+                f"application lifecycle shutdown failed: {failure.owner}",
+                RuntimeError(failure.detail),
+            )
         # Calamus currently has one top-level application window. While the
         # launcher still owns a raw Gtk.main() loop, destroying that final
         # window must terminate the loop exactly once.

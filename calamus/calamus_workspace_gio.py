@@ -1,7 +1,6 @@
 """Single-mutation GIO adapter for Writing Workspace operation plans."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
 
 try:
@@ -21,17 +20,7 @@ from calamus_workspace_operations import (
 )
 
 
-@dataclass(frozen=True)
-class WorkspaceOperationResult:
-    success: bool
-    path: str
-    message: str = ""
-    committed: bool = False
-    source_path: str = ""
-    companion_path: str = ""
-    scratchpad_path: str = ""
-    rollback_failed: bool = False
-
+from calamus_workspace_results import WorkspaceOperationResult
 
 class WorkspaceGioAdapter:
     """Execute exactly one already-validated local filesystem mutation."""

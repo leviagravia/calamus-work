@@ -7,6 +7,7 @@ LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 PREFERENCE = ROOT / "calamus" / "calamus_opacity.py"
 GATEWAY = ROOT / "calamus" / "calamus_opacity_gateway.py"
+ADAPTER = ROOT / "calamus" / "calamus_opacity_view.py"
 
 
 def _method_source(name: str) -> str:
@@ -74,12 +75,13 @@ class OpacityCommandWiringTests(unittest.TestCase):
         gateway = _function_source(GATEWAY, "execute_opacity_preference_request")
         self.assertIn("prepare_opacity_preference_plan", gateway)
         self.assertIn("sync_transparent_control", gateway)
-        self.assertLess(gateway.index("host.save_settings"), gateway.index("apply_widget_opacity"))
-        self.assertLess(gateway.index("apply_widget_opacity"), gateway.index("host.opacity_percent ="))
+        self.assertLess(gateway.index("host.save_settings"), gateway.index("host.apply_opacity_percent"))
+        self.assertLess(gateway.index("host.apply_opacity_percent"), gateway.index("host.opacity_percent ="))
 
     def test_adapter_uses_gtk_widget_not_deprecated_window_api(self):
         preference = PREFERENCE.read_text(encoding="utf-8")
-        adapter = _function_source(PREFERENCE, "apply_widget_opacity")
+        self.assertNotIn("import gi", preference)
+        adapter = _function_source(ADAPTER, "apply_widget_opacity")
         self.assertIn("Gtk.Widget", adapter)
         self.assertIn('getattr(widget_api, "set_opacity"', adapter)
         self.assertIn("setter(widget, preference.fraction)", adapter)

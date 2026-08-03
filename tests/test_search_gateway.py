@@ -137,6 +137,25 @@ class SearchControllerTests(unittest.TestCase):
         self.assertEqual(adapter.highlights, [(0, 5), (6, 11)])
         self.assertTrue(controller.schedule_highlight(timeout_add))
 
+    def test_cancel_pending_highlight_invalidates_a_racing_callback(self):
+        adapter = FakeAdapter("alpha alpha")
+        controller = SearchController(adapter)
+        controller.configure("alpha")
+        callbacks = []
+        cancelled = []
+
+        def timeout_add(_delay, callback):
+            callbacks.append(callback)
+            return 41
+
+        self.assertTrue(controller.schedule_highlight(timeout_add))
+        self.assertTrue(controller.highlight_pending)
+        self.assertTrue(controller.cancel_pending_highlight(cancelled.append))
+        self.assertEqual(cancelled, [41])
+        self.assertFalse(controller.highlight_pending)
+        self.assertFalse(callbacks[0]())
+        self.assertEqual(adapter.highlights, [])
+
     def test_schedule_without_query_is_noop(self):
         controller = SearchController(FakeAdapter("alpha"))
         self.assertFalse(controller.schedule_highlight(lambda *_: 1))

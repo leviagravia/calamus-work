@@ -35,6 +35,9 @@ class _App:
         self.events = []
         self.errors = []
 
+    def apply_opacity_percent(self, percent):
+        _WidgetAPI.set_opacity(self, percent / 100.0)
+
     def save_settings(self, overrides=None):
         self.events.append(("save-settings", dict(overrides or {}), self.opacity_percent))
         return self.save_results.pop(0) if self.save_results else True

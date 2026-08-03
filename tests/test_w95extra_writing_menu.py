@@ -65,8 +65,9 @@ class W95ExtraWritingMenuTests(unittest.TestCase):
         self.assertIn('("<Shift>F9", app.toggle_typewriter_mode)', source)
         self.assertEqual(source.count("<Shift>F9"), 1)
         launcher = LAUNCHER.read_text(encoding="utf-8")
+        lifecycle = (ROOT / "calamus/calamus_application_lifecycle_app.py").read_text(encoding="utf-8")
         self.assertIn("on_typewriter_item_toggled", launcher)
-        self.assertIn("typewriter_runtime.shutdown()", launcher)
+        self.assertIn("app.typewriter_runtime.shutdown", lifecycle)
 
 
     def test_geometry_policy_is_gtk_free_and_projection_has_one_runtime_writer(self):
@@ -93,12 +94,12 @@ class W95ExtraWritingMenuTests(unittest.TestCase):
             self.assertIn(label, guide)
         self.assertIn("## Typewriter Mode", guide)
         version = VERSION.read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W98"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W99"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Research Panel Integral Closure"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Retrospective GTK-free and Lifecycle Audit"',
             version,
         )
-        self.assertIn("f7fd70b4ffc7c756b83b8bfa102d224823244092", version)
+        self.assertIn("fb54cd3bb96bbea024966db2a059c755aef45d95", version)
 
 
 if __name__ == "__main__":

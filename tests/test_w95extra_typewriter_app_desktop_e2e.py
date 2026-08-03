@@ -165,17 +165,39 @@ class W95ExtraTypewriterAppDesktopE2E(unittest.TestCase):
         target = visible.y + visible.height * 0.5
         self.assertLessEqual(abs(caret_center - target), max(8, caret.height))
 
+        # The runtime contract deliberately suppresses semantic projection while
+        # the editor lacks focus.  Establish the real GTK focus authority instead
+        # of relying on window-manager default focus, which is nondeterministic.
+        self.app.present()
+        self.app.set_focus(self.app.text)
+        self.app.text.grab_focus()
+        until(
+            lambda: self.app.text.has_focus(),
+            "Editor did not acquire focus for the keyboard-resume proof",
+        )
+
         before_manual = self.app.scroller.get_vadjustment().get_value()
         self.app.typewriter_runtime.on_scroll()
         self.app.scroller.get_vadjustment().set_value(max(0, before_manual - 120))
         pump()
         self.assertTrue(self.app.typewriter_runtime.manual_scroll_suspended)
         manual_value = self.app.scroller.get_vadjustment().get_value()
-        self.app.typewriter_runtime.on_keyboard()
-        until(
-            lambda: not self.app.viewport_runtime.reveal_pending,
-            "Typewriter Mode did not resume after semantic keyboard movement",
-        )
+
+        # Exercise the same App signal bridge used by a real keyboard movement:
+        # key press owns the semantic adjustment, move-cursor requests projection,
+        # and key release ends that ownership.
+        self.app.on_text_key_press(self.app.text, None)
+        try:
+            self.app.on_text_move_cursor(self.app.text, None, 0, False)
+            until(
+                lambda: (
+                    not self.app.viewport_runtime.reveal_pending
+                    and self.app.viewport_runtime.scroll_source is None
+                ),
+                "Typewriter Mode did not resume after semantic keyboard movement",
+            )
+        finally:
+            self.app.on_text_key_release(self.app.text, None)
         self.assertFalse(self.app.typewriter_runtime.manual_scroll_suspended)
         self.assertNotEqual(self.app.scroller.get_vadjustment().get_value(), manual_value)
 

@@ -16,9 +16,11 @@ class W98ResearchPanelProgramTests(unittest.TestCase):
         shortcuts=(ROOT/'calamus/calamus_shortcuts.py').read_text(); self.assertIn('"Bibliography", "menu"',shortcuts); self.assertNotIn('"References", "menu"',shortcuts)
     def test_coordinator_is_gtk_free_and_app_uses_one_context_gateway(self):
         coord=(ROOT/'calamus/calamus_research_coordination.py').read_text(); app=(ROOT/'bin/calamus').read_text()
+        lifecycle=(ROOT/'calamus/calamus_application_lifecycle_app.py').read_text()
         self.assertNotIn('import gi',coord); self.assertNotIn('gi.repository',coord)
-        for token in ('ResearchPanelCoordinator(','ResearchClientSpec(','research_document_context_changed','research_coordinator.shutdown()'):
+        for token in ('ResearchPanelCoordinator(','ResearchClientSpec(','research_document_context_changed'):
             self.assertIn(token,app)
+        self.assertIn('app.research_coordinator.shutdown', lifecycle)
         blocks=('execute_new_plan','execute_open_plan','execute_new_from_template_plan','reconcile_workspace_rename','reconcile_workspace_trash')
         for name in blocks:
             start=app.index('    def '+name); end=app.find('\n    def ',start+5); body=app[start:end if end!=-1 else None]

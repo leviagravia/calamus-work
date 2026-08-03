@@ -14,7 +14,7 @@ from calamus_workspace import (
     WorkspaceError, WorkspaceItem, is_managed_document_sidecar_name, path_is_within_root,
 )
 from calamus_workspace_controller import WorkspaceController
-from calamus_workspace_gio import WorkspaceGioAdapter, WorkspaceOperationResult
+from calamus_workspace_results import WorkspaceOperationResult
 from calamus_workspace_identity import WorkspacePathReferenceSnapshot, path_is_trashed
 from calamus_workspace_operations import (
     WorkspaceContentToken, WorkspaceDuplicatePlan, WorkspaceOperationPlan,
@@ -30,12 +30,14 @@ class WorkspaceMutationController:
     def __init__(
         self,
         workspace: WorkspaceController,
-        adapter: WorkspaceGioAdapter | None = None,
+        adapter: Any,
     ) -> None:
         if not isinstance(workspace, WorkspaceController):
             raise TypeError("workspace must be WorkspaceController")
         self._workspace = workspace
-        self._adapter = adapter or WorkspaceGioAdapter()
+        if adapter is None:
+            raise TypeError("adapter does not implement the Workspace mutation protocol")
+        self._adapter = adapter
 
     def destination_for_selection(self, selected: WorkspaceItem | None) -> str:
         root = self._workspace.root
@@ -205,17 +207,22 @@ class WorkspaceMutationController:
     def execute(
         self, plan: WorkspaceOperationPlan | WorkspaceRenamePlan | WorkspaceDuplicatePlan | WorkspaceTrashPlan
     ) -> WorkspaceOperationResult:
-        if plan.kind == "new-text-file":
-            return self._adapter.create_new_text_file(plan)
-        if plan.kind == "new-folder":
-            return self._adapter.create_new_folder(plan)
-        if plan.kind == "rename":
-            return self._adapter.rename_item(plan)
-        if plan.kind == "duplicate-text-file":
-            return self._adapter.duplicate_text_file(plan)
-        if plan.kind == "move-to-trash":
-            return self._adapter.move_to_trash(plan)
-        raise ValueError(f"unsupported Workspace operation: {plan.kind}")
+        method_by_kind = {
+            "new-text-file": "create_new_text_file",
+            "new-folder": "create_new_folder",
+            "rename": "rename_item",
+            "duplicate-text-file": "duplicate_text_file",
+            "move-to-trash": "move_to_trash",
+        }
+        method_name = method_by_kind.get(plan.kind)
+        if method_name is None:
+            raise ValueError(f"unsupported Workspace operation: {plan.kind}")
+        callback = getattr(self._adapter, method_name, None)
+        if not callable(callback):
+            raise TypeError(
+                f"adapter does not implement the Workspace mutation protocol: {method_name}"
+            )
+        return callback(plan)
 
 
 class WorkspaceMutationRuntime:

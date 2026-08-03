@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W98 Research Panel Integral Closure Candidate R1",
-  "published_baseline": "f7fd70b4ffc7c756b83b8bfa102d224823244092",
+  "lineage": "W99 Retrospective GTK-free and Lifecycle Audit Candidate R1",
+  "published_baseline": "fb54cd3bb96bbea024966db2a059c755aef45d95",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -1545,7 +1545,28 @@
         "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_coordinator_is_gtk_free_and_app_uses_one_context_gateway",
         "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_forbidden_infrastructure_absent",
         "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_program_removes_old_full_before_w98_gate",
-        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w97_functional_product_gate_remains_historical"
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w97_functional_product_gate_remains_historical",
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_failed_pre_destroy_keeps_application_open_and_reports_owner",
+        "tests.test_search_gateway.SearchControllerTests.test_cancel_pending_highlight_invalidates_a_racing_callback",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_final_shutdown_continues_and_aggregates_every_failure",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_preflight_failure_blocks_but_can_be_retried",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_registration_after_shutdown_is_rejected",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_registration_is_named_ordered_and_unique",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_successful_preflight_is_not_repeated_during_final_shutdown",
+        "tests.test_w99_application_lifecycle.W99ApplicationLifecycleWiringTests.test_all_launcher_glib_sources_have_one_shutdown_gateway",
+        "tests.test_w99_application_lifecycle.W99ApplicationLifecycleWiringTests.test_close_gateway_uses_only_central_lifecycle_authority",
+        "tests.test_w99_application_lifecycle.W99ApplicationLifecycleWiringTests.test_launcher_registers_the_complete_fixed_owner_inventory",
+        "tests.test_w99_application_lifecycle.W99ResearchShutdownTests.test_research_shutdown_is_failure_complete_and_idempotent",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_every_glib_source_has_an_explicit_cancellation_owner",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_lifecycle_coordinator_is_gtk_free",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_concrete_ui_or_gio_boundaries",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_gi_or_gtk",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_workspace_mutation_depends_on_injected_protocol_not_gio",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_release_manifest_owns_w99_baseline_and_profiles",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_release_runner_scrubs_and_owns_w99_lane_flags",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_current_identity_gate_is_exact",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_identity_precedes_lifecycle_true_app_gate",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_contract_freezes_scope_owner_inventory_and_mature_decisions"
       ]
     },
     "filesystem-capabilities": {
@@ -2033,6 +2054,85 @@
       "unset_env": [],
       "test_ids": [
         "tests.test_w98_research_panel_app_desktop_e2e.W98ResearchPanelAppDesktopE2E.test_document_switch_edit_hidden_dirty_and_normal_close"
+      ]
+    },
+    "w99-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w99-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_accepted_close_saves_then_destroys_window",
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_cancelled_close_preserves_runtime_and_does_not_save_or_destroy",
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_destroy_failure_reopens_gateway_and_propagates",
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_destroy_of_final_window_terminates_active_main_loop",
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_destroy_without_active_main_loop_does_not_call_main_quit",
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_failed_pre_destroy_keeps_application_open_and_reports_owner",
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_failed_save_decision_is_treated_as_rejected_close",
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_gateway_queries_continuation_once",
+        "tests.test_quit_lifecycle.QuitLifecycleTests.test_reentrant_close_is_idempotent",
+        "tests.test_runtime_identity_working_copy.RuntimeIdentityWorkingCopyTests.test_development_identity_constants_are_exact",
+        "tests.test_search_gateway.SearchControllerTests.test_cancel_pending_highlight_invalidates_a_racing_callback",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_final_shutdown_continues_and_aggregates_every_failure",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_preflight_failure_blocks_but_can_be_retried",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_registration_after_shutdown_is_rejected",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_registration_is_named_ordered_and_unique",
+        "tests.test_w99_application_lifecycle.ApplicationLifecycleCoordinatorTests.test_successful_preflight_is_not_repeated_during_final_shutdown",
+        "tests.test_w99_application_lifecycle.W99ApplicationLifecycleWiringTests.test_all_launcher_glib_sources_have_one_shutdown_gateway",
+        "tests.test_w99_application_lifecycle.W99ApplicationLifecycleWiringTests.test_close_gateway_uses_only_central_lifecycle_authority",
+        "tests.test_w99_application_lifecycle.W99ApplicationLifecycleWiringTests.test_launcher_registers_the_complete_fixed_owner_inventory",
+        "tests.test_w99_application_lifecycle.W99ResearchShutdownTests.test_research_shutdown_is_failure_complete_and_idempotent",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_every_glib_source_has_an_explicit_cancellation_owner",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_lifecycle_coordinator_is_gtk_free",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_concrete_ui_or_gio_boundaries",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_gi_or_gtk",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_workspace_mutation_depends_on_injected_protocol_not_gio",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_release_manifest_owns_w99_baseline_and_profiles",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_release_runner_scrubs_and_owns_w99_lane_flags",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_current_identity_gate_is_exact",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_identity_precedes_lifecycle_true_app_gate",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_contract_freezes_scope_owner_inventory_and_mature_decisions"
+      ]
+    },
+    "w99-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W99_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w99-identity-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w99_identity_app_desktop_e2e.W99IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w99-lifecycle-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W99_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w99-lifecycle-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w99_lifecycle_app_desktop_e2e.W99ApplicationLifecycleRealAppE2E.test_normal_close_cancels_app_sources_and_shuts_each_owner_once"
       ]
     }
   }

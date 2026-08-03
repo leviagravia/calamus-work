@@ -1,6 +1,6 @@
 import unittest
 
-from calamus_opacity import apply_widget_opacity
+from calamus_opacity_view import apply_widget_opacity
 
 
 class _WidgetAPI:
