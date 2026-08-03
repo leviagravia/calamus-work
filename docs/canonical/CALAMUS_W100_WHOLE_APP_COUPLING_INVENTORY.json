@@ -1,0 +1,588 @@
+{
+  "schema": 1,
+  "baseline": "9a80b266cbdb41b499efdb296ff2a312cf85656f",
+  "couplings": [
+    {
+      "path": "calamus/calamus_application_lifecycle_app.py",
+      "function": "configure_application_lifecycle",
+      "start_line": 5,
+      "app_attributes": [
+        "application_lifecycle",
+        "document_overview_runtime",
+        "history_runtime",
+        "navigator_panel_runtime",
+        "pandoc_export_runtime",
+        "research_coordinator",
+        "research_panel_view",
+        "shutdown_application_sources",
+        "typewriter_runtime",
+        "viewport_runtime"
+      ],
+      "app_attribute_count": 10,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_application_lifecycle_app.py",
+      "function": "shutdown_application_sources",
+      "start_line": 20,
+      "app_attributes": [],
+      "app_attribute_count": 0,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_clip_runtime.py",
+      "function": "selected_document_text",
+      "start_line": 17,
+      "app_attributes": [
+        "text"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_clip_runtime.py",
+      "function": "insert_clip_expansion",
+      "start_line": 35,
+      "app_attributes": [
+        "execute_command",
+        "get_cursor_offset",
+        "set_cursor_offset",
+        "text"
+      ],
+      "app_attribute_count": 4,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_document_dossier_app.py",
+      "function": "build_document_overview",
+      "start_line": 104,
+      "app_attributes": [
+        "bookmarks",
+        "buffer_text",
+        "document",
+        "document_dossier_controller",
+        "document_overview_runtime",
+        "error",
+        "info",
+        "modified",
+        "on_research_check",
+        "reference_set_store",
+        "reference_store",
+        "show_reference_key",
+        "show_source_note_id",
+        "text"
+      ],
+      "app_attribute_count": 14,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_document_dossier_app.py",
+      "function": "on_document_overview",
+      "start_line": 140,
+      "app_attributes": [
+        "document_overview_runtime"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_document_dossier_app.py",
+      "function": "refresh_document_overview_if_open",
+      "start_line": 144,
+      "app_attributes": [],
+      "app_attribute_count": 0,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_document_dossier_app.py",
+      "function": "_present_document_editor",
+      "start_line": 149,
+      "app_attributes": [],
+      "app_attribute_count": 0,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_document_dossier_app.py",
+      "function": "navigate_document_overview_offset",
+      "start_line": 168,
+      "app_attributes": [
+        "buffer_text",
+        "get_cursor_offset",
+        "set_cursor_offset"
+      ],
+      "app_attribute_count": 3,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_document_dossier_app.py",
+      "function": "navigate_document_overview_range",
+      "start_line": 179,
+      "app_attributes": [
+        "buffer_text",
+        "select_range"
+      ],
+      "app_attribute_count": 2,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_document_dossier_app.py",
+      "function": "show_reference_set_name",
+      "start_line": 188,
+      "app_attributes": [
+        "reference_set_runtime",
+        "research_panel_runtime"
+      ],
+      "app_attribute_count": 2,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_scratchpad_gateway.py",
+      "function": "current_section_target",
+      "start_line": 12,
+      "app_attributes": [
+        "current_heading_identifier"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_scratchpad_gateway.py",
+      "function": "selected_text",
+      "start_line": 17,
+      "app_attributes": [
+        "text"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_scratchpad_gateway.py",
+      "function": "insert_body",
+      "start_line": 25,
+      "app_attributes": [
+        "execute_command",
+        "set_cursor_offset",
+        "text"
+      ],
+      "app_attribute_count": 3,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_scratchpad_gateway.py",
+      "function": "copy_body",
+      "start_line": 41,
+      "app_attributes": [
+        "_clipboard"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_scratchpad_gateway.py",
+      "function": "sync_document",
+      "start_line": 49,
+      "app_attributes": [],
+      "app_attribute_count": 0,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_text_key_press",
+      "start_line": 5,
+      "app_attributes": [
+        "typewriter_runtime"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_text_key_release",
+      "start_line": 9,
+      "app_attributes": [
+        "typewriter_runtime"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_text_move_cursor",
+      "start_line": 13,
+      "app_attributes": [
+        "typewriter_runtime",
+        "viewport_runtime"
+      ],
+      "app_attribute_count": 2,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_text_button_press",
+      "start_line": 21,
+      "app_attributes": [
+        "typewriter_runtime"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_text_motion_notify",
+      "start_line": 25,
+      "app_attributes": [
+        "typewriter_runtime"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_text_button_release",
+      "start_line": 29,
+      "app_attributes": [
+        "typewriter_runtime"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_text_scroll",
+      "start_line": 33,
+      "app_attributes": [
+        "typewriter_runtime"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_text_focus_out",
+      "start_line": 37,
+      "app_attributes": [
+        "typewriter_runtime"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_typewriter_state_changed",
+      "start_line": 41,
+      "app_attributes": [
+        "_syncing_typewriter_item",
+        "typewriter_mode",
+        "update_title"
+      ],
+      "app_attribute_count": 3,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "on_typewriter_item_toggled",
+      "start_line": 53,
+      "app_attributes": [
+        "_syncing_typewriter_item",
+        "typewriter_runtime"
+      ],
+      "app_attribute_count": 2,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_typewriter_app.py",
+      "function": "toggle_typewriter_mode",
+      "start_line": 58,
+      "app_attributes": [
+        "typewriter_runtime"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_ui.py",
+      "function": "top_menu",
+      "start_line": 25,
+      "app_attributes": [
+        "menubar"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W105"
+    },
+    {
+      "path": "calamus/calamus_ui.py",
+      "function": "build_menu",
+      "start_line": 44,
+      "app_attributes": [
+        "always_item",
+        "always_on_top",
+        "appearance_mode",
+        "change_font",
+        "dark_item",
+        "favourites_item",
+        "favourites_menu",
+        "line_item",
+        "line_numbers_enabled",
+        "navigator_item",
+        "next_bookmark",
+        "on_about",
+        "on_add_favourite",
+        "on_capture_selection_in_scratchpad",
+        "on_character_map",
+        "on_check",
+        "on_clean_selected_pdf",
+        "on_close_workspace",
+        "on_copy",
+        "on_create_source_note_from_selection",
+        "on_cut",
+        "on_dark_mode",
+        "on_document_overview",
+        "on_document_statistics",
+        "on_duplicate_line_or_selection",
+        "on_duplicate_workspace_file",
+        "on_edit_favourites",
+        "on_export_bibliography_markdown",
+        "on_export_bibliography_text",
+        "on_export_references_bibtex_biblatex",
+        "on_export_research_apparatus",
+        "on_export_with_pandoc",
+        "on_find_all",
+        "on_find_next",
+        "on_find_previous",
+        "on_find_replace",
+        "on_font",
+        "on_go_to_line",
+        "on_go_to_section",
+        "on_import_bibtex_biblatex",
+        "on_insert_clip",
+        "on_insert_date",
+        "on_insert_datetime",
+        "on_insert_link_to_heading",
+        "on_insert_time",
+        "on_join_lines",
+        "on_keyboard_shortcuts",
+        "on_language_selection",
+        "on_line_numbers",
+        "on_lowercase",
+        "on_manage_bookmarks",
+        "on_manage_templates",
+        "on_move_workspace_item_to_trash",
+        "on_navigator_item_toggled",
+        "on_new",
+        "on_new_scratchpad_for_current_section",
+        "on_new_workspace_folder",
+        "on_new_workspace_text_file",
+        "on_next_heading",
+        "on_opacity_selection",
+        "on_open",
+        "on_open_bibliography_file",
+        "on_open_citation_in_references",
+        "on_paste",
+        "on_paste_clean_pdf",
+        "on_paste_plain_text",
+        "on_previous_heading",
+        "on_print",
+        "on_print_preview",
+        "on_quick_cite",
+        "on_quit",
+        "on_redo",
+        "on_reflow_paragraph",
+        "on_refresh_workspace",
+        "on_reload_favourites",
+        "on_remove_extra_spaces",
+        "on_remove_trailing_spaces",
+        "on_rename_reference_key",
+        "on_rename_workspace_item",
+        "on_replace_all_dialog",
+        "on_research_check",
+        "on_research_item_toggled",
+        "on_reveal_workspace",
+        "on_save",
+        "on_save_as",
+        "on_save_as_template",
+        "on_select_all",
+        "on_select_workspace_folder",
+        "on_sentence_case",
+        "on_show_scratchpad_for_current_section",
+        "on_smart_typography",
+        "on_sort_lines_ascending",
+        "on_sort_lines_descending",
+        "on_system_info",
+        "on_tag_integrity",
+        "on_title_case",
+        "on_top",
+        "on_transparent_mode",
+        "on_typewriter_item_toggled",
+        "on_undo",
+        "on_uppercase",
+        "on_user_guide",
+        "on_white_background",
+        "on_word_wrap",
+        "on_workspace_item_toggled",
+        "opacity_percent",
+        "populate_favourites_menu",
+        "populate_recent_menu",
+        "populate_recent_workspaces_menu",
+        "populate_template_menu",
+        "previous_bookmark",
+        "recent_item",
+        "recent_menu",
+        "recent_workspaces_item",
+        "recent_workspaces_menu",
+        "research_item",
+        "set_opacity_value",
+        "show_authoring_bridge",
+        "show_clip_collection",
+        "show_reference_sets",
+        "show_references",
+        "show_scratchpad",
+        "show_source_notes",
+        "show_tags",
+        "show_workspace_panel",
+        "template_item",
+        "template_menu",
+        "toggle_bookmark",
+        "toggle_current_line_highlight",
+        "toggle_distraction_free",
+        "toggle_focus_mode",
+        "transparent_item",
+        "typewriter_item",
+        "white_item",
+        "word_wrap",
+        "word_wrap_item",
+        "workspace_duplicate_item",
+        "workspace_file_item",
+        "workspace_file_menu",
+        "workspace_item",
+        "workspace_new_folder_item",
+        "workspace_new_text_file_item",
+        "workspace_rename_item",
+        "workspace_show_item",
+        "workspace_trash_item"
+      ],
+      "app_attribute_count": 145,
+      "migration_work_item": "W105"
+    },
+    {
+      "path": "calamus/calamus_ui.py",
+      "function": "shortcut_bindings",
+      "start_line": 311,
+      "app_attributes": [
+        "change_font",
+        "insert_clip_number",
+        "next_bookmark",
+        "on_about",
+        "on_add_favourite",
+        "on_capture_selection_in_scratchpad",
+        "on_character_map",
+        "on_check",
+        "on_clean_selected_pdf",
+        "on_copy",
+        "on_cut",
+        "on_document_statistics",
+        "on_duplicate_line_or_selection",
+        "on_edit_favourites",
+        "on_find_next",
+        "on_find_previous",
+        "on_find_replace",
+        "on_font",
+        "on_go_to_line",
+        "on_go_to_section",
+        "on_insert_clip",
+        "on_insert_datetime",
+        "on_join_lines",
+        "on_keyboard_shortcuts",
+        "on_lowercase",
+        "on_move_line",
+        "on_new",
+        "on_next_heading",
+        "on_open",
+        "on_open_citation_in_references",
+        "on_paste",
+        "on_paste_clean_pdf",
+        "on_paste_plain_text",
+        "on_previous_heading",
+        "on_print",
+        "on_print_preview",
+        "on_quick_cite",
+        "on_quit",
+        "on_redo",
+        "on_reflow_paragraph",
+        "on_reload_favourites",
+        "on_replace_all_dialog",
+        "on_save",
+        "on_save_as",
+        "on_select_all",
+        "on_sentence_case",
+        "on_smart_typography",
+        "on_sort_lines_ascending",
+        "on_sort_lines_descending",
+        "on_title_case",
+        "on_undo",
+        "on_uppercase",
+        "previous_bookmark",
+        "show_scratchpad",
+        "toggle_always_on_top",
+        "toggle_bookmark",
+        "toggle_current_line_highlight",
+        "toggle_distraction_free",
+        "toggle_focus_mode",
+        "toggle_line_numbers",
+        "toggle_navigator_panel",
+        "toggle_research_panel",
+        "toggle_transparent_mode",
+        "toggle_typewriter_mode",
+        "toggle_word_wrap"
+      ],
+      "app_attribute_count": 65,
+      "migration_work_item": "W105"
+    },
+    {
+      "path": "calamus/calamus_ui.py",
+      "function": "add_shortcuts",
+      "start_line": 392,
+      "app_attributes": [
+        "add_accel_group"
+      ],
+      "app_attribute_count": 1,
+      "migration_work_item": "W105"
+    },
+    {
+      "path": "calamus/calamus_writing_app.py",
+      "function": "insert_current_moment",
+      "start_line": 9,
+      "app_attributes": [
+        "buffer_text",
+        "command_layer_insert_date_time_text",
+        "execute_command",
+        "get_cursor_offset"
+      ],
+      "app_attribute_count": 4,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_writing_app.py",
+      "function": "on_insert_date",
+      "start_line": 22,
+      "app_attributes": [],
+      "app_attribute_count": 0,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_writing_app.py",
+      "function": "on_insert_time",
+      "start_line": 26,
+      "app_attributes": [],
+      "app_attribute_count": 0,
+      "migration_work_item": "W107"
+    },
+    {
+      "path": "calamus/calamus_writing_app.py",
+      "function": "on_insert_datetime",
+      "start_line": 30,
+      "app_attributes": [],
+      "app_attribute_count": 0,
+      "migration_work_item": "W107"
+    }
+  ]
+}

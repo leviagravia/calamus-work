@@ -89,14 +89,14 @@ class RuntimeIdentityWorkingCopyTests(unittest.TestCase):
 
     def test_development_identity_constants_are_exact(self):
         self.assertEqual(DEVELOPMENT_BUILD_LABEL, "Development build")
-        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W99")
+        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W100")
         self.assertEqual(
             DEVELOPMENT_WORK_ITEM_DESCRIPTION,
-            "Retrospective GTK-free and Lifecycle Audit",
+            "Monolith Decomposition Contract",
         )
         self.assertEqual(
             PUBLISHED_BASELINE,
-            "fb54cd3bb96bbea024966db2a059c755aef45d95",
+            "9a80b266cbdb41b499efdb296ff2a312cf85656f",
         )
 
     def test_historical_package_version_is_preserved_but_not_runtime_label(self):

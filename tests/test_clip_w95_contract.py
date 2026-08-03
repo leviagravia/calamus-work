@@ -77,12 +77,12 @@ class ClipW95ContractTests(unittest.TestCase):
 
     def test_w95extra_identity_points_to_published_w95(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W99"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W100"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Retrospective GTK-free and Lifecycle Audit"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Monolith Decomposition Contract"',
             version,
         )
-        self.assertIn('PUBLISHED_BASELINE = "fb54cd3bb96bbea024966db2a059c755aef45d95"', version)
+        self.assertIn('PUBLISHED_BASELINE = "9a80b266cbdb41b499efdb296ff2a312cf85656f"', version)
 
 
 if __name__ == "__main__":

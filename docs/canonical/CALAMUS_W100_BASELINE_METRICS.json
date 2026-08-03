@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "baseline_commit": "9a80b266cbdb41b499efdb296ff2a312cf85656f",
+  "launcher": "bin/calamus",
+  "launcher_lines": 3298,
+  "app_start_line": 217,
+  "app_end_line": 3282,
+  "app_lines": 3066,
+  "app_method_count": 266,
+  "unique_import_modules": 100,
+  "unique_calamus_import_modules": 92,
+  "assigned_self_attribute_count": 94,
+  "init_assigned_attribute_count": 66,
+  "calamus_ui_lines": 401,
+  "calamus_ui_unique_app_attributes": 156,
+  "calamus_ui_total_app_attribute_references": 281,
+  "whole_app_parameter_functions": 35
+}

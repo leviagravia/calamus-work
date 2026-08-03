@@ -1,0 +1,898 @@
+{
+  "schema": 1,
+  "baseline": "9a80b266cbdb41b499efdb296ff2a312cf85656f",
+  "attributes": [
+    {
+      "name": "_application_close_in_progress",
+      "assigned_by_methods": [
+        "__init__",
+        "request_application_close"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "_favourite_dynamic_items",
+      "assigned_by_methods": [
+        "populate_favourites_menu"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "_opacity_widget_api",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "_syncing_appearance_items",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "_syncing_line_number_item",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "_syncing_opacity_item",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "_syncing_typewriter_item",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "_syncing_word_wrap_item",
+      "assigned_by_methods": [
+        "on_word_wrap"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "_wrap_reflow_source",
+      "assigned_by_methods": [
+        "__init__",
+        "queue_wrap_reflow"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "always_on_top",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "appearance_mode",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "application_lifecycle",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "authoring_bridge_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "bibtex_controller",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "bibtex_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "body_paned",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "bookmarks",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "citation_controller",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "clip_collection",
+      "assigned_by_methods": [
+        "build_clip_collection"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "clip_collection_runtime",
+      "assigned_by_methods": [
+        "build_clip_collection"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "clip_collection_view",
+      "assigned_by_methods": [
+        "build_clip_collection"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "command_layer",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W103",
+      "future_owner_domain": "editor transaction state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "css",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "current_file",
+      "assigned_by_methods": [
+        "__init__",
+        "execute_new_from_template_plan",
+        "execute_new_plan",
+        "execute_open_plan",
+        "execute_save_plan",
+        "reconcile_workspace_rename",
+        "reconcile_workspace_trash",
+        "set_buffer"
+      ],
+      "migration_work_item": "W102",
+      "future_owner_domain": "document session state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "current_line_highlight",
+      "assigned_by_methods": [
+        "__init__",
+        "toggle_current_line_highlight"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "current_line_tag",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "distraction_free",
+      "assigned_by_methods": [
+        "__init__",
+        "toggle_distraction_free"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "document",
+      "assigned_by_methods": [
+        "__init__",
+        "buffer_text",
+        "execute_new_from_template_plan",
+        "execute_new_plan",
+        "execute_open_plan",
+        "reconcile_workspace_rename",
+        "reconcile_workspace_trash"
+      ],
+      "migration_work_item": "W102",
+      "future_owner_domain": "document session state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "editor_box",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "focus_mode",
+      "assigned_by_methods": [
+        "__init__",
+        "toggle_focus_mode"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "font_family",
+      "assigned_by_methods": [
+        "__init__",
+        "on_font"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "font_size",
+      "assigned_by_methods": [
+        "__init__",
+        "change_font",
+        "on_font"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "history",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W103",
+      "future_owner_domain": "editor transaction state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "history_runtime",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W103",
+      "future_owner_domain": "editor transaction state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "inline_spell_enabled",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "last_command",
+      "assigned_by_methods": [
+        "finalize_command_edit"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "thin-shell compatibility state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "left_panel_host",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "line_gutter",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "line_numbers_enabled",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "loading",
+      "assigned_by_methods": [
+        "__init__",
+        "execute_new_from_template_plan",
+        "execute_new_plan",
+        "execute_open_plan",
+        "execute_save_plan",
+        "set_buffer",
+        "set_text_from_history"
+      ],
+      "migration_work_item": "W102",
+      "future_owner_domain": "document session state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "menubar",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "modified",
+      "assigned_by_methods": [
+        "__init__",
+        "execute_new_from_template_plan",
+        "execute_new_plan",
+        "execute_open_plan",
+        "execute_save_plan",
+        "finalize_command_edit",
+        "on_changed",
+        "reconcile_workspace_trash",
+        "set_buffer",
+        "set_text_from_history"
+      ],
+      "migration_work_item": "W102",
+      "future_owner_domain": "document session state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "navigation_controller",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "navigator_panel_host",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "navigator_panel_runtime",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "navigator_panel_view",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "opacity_percent",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "pandoc_export_controller",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "pandoc_export_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "print_pages",
+      "assigned_by_methods": [
+        "__init__",
+        "on_begin_print"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "reference_panel_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "reference_set_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "reference_set_store",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "reference_store",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "research_coordinator",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "research_export_controller",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "research_export_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "research_integrity_controller",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "research_integrity_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "research_panel_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "research_panel_view",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "restoring_undo",
+      "assigned_by_methods": [
+        "__init__",
+        "set_text_from_history"
+      ],
+      "migration_work_item": "W103",
+      "future_owner_domain": "editor transaction state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "right_panel_host",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "scratchpad_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "scroller",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "search_controller",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "search_tag",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "settings",
+      "assigned_by_methods": [
+        "__init__",
+        "save_settings"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "source_note_panel_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "spell_lang",
+      "assigned_by_methods": [
+        "__init__",
+        "on_lang",
+        "on_language_selection"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "spell_source",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "state",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "status",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W108",
+      "future_owner_domain": "GTK shell/widget state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "tag",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "tag_integrity_controller",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "tag_integrity_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "tags_runtime",
+      "assigned_by_methods": [
+        "build_research_panel"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "text",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "trim_trailing_on_save",
+      "assigned_by_methods": [
+        "__init__",
+        "on_trim_trailing_on_save"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "typewriter_mode",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "typewriter_runtime",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "viewport_runtime",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W103",
+      "future_owner_domain": "editor transaction state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "word_count_source",
+      "assigned_by_methods": [
+        "__init__",
+        "schedule_status_update"
+      ],
+      "migration_work_item": "W101",
+      "future_owner_domain": "application composition component",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "word_wrap",
+      "assigned_by_methods": [
+        "__init__",
+        "on_word_wrap"
+      ],
+      "migration_work_item": "W106",
+      "future_owner_domain": "preference/application state",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_application_runtime",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_controller",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_mutation_controller",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_mutation_runtime",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_paned",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_panel_host",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_panel_runtime",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_panel_view",
+      "assigned_by_methods": [
+        "__init__"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_root",
+      "assigned_by_methods": [
+        "__init__",
+        "on_workspace_root_changed"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    },
+    {
+      "name": "workspace_visible",
+      "assigned_by_methods": [
+        "__init__",
+        "on_workspace_visibility_changed"
+      ],
+      "migration_work_item": "W107",
+      "future_owner_domain": "subsystem component or host port",
+      "disposition": "move or expose through a typed component/port"
+    }
+  ]
+}

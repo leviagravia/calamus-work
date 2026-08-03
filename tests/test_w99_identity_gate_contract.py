@@ -1,57 +1,32 @@
-"""Headless gate contract for the W99 current identity and GTK lane order."""
+"""Historical W99 identity/lifecycle gate contract under current W100 identity."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = "fb54cd3bb96bbea024966db2a059c755aef45d95"
+W99_BASELINE = "fb54cd3bb96bbea024966db2a059c755aef45d95"
+W100_BASELINE = "9a80b266cbdb41b499efdb296ff2a312cf85656f"
 
 
 class W99IdentityGateContractTests(unittest.TestCase):
-    def test_w99_current_identity_gate_is_exact(self):
-        text = (ROOT / "tests" / "test_w99_identity_app_desktop_e2e.py").read_text(
-            encoding="utf-8"
-        )
-        for token in (
-            '"W99"',
-            '"Retrospective GTK-free and Lifecycle Audit"',
-            f'"{BASELINE}"',
-            'print("W99_CURRENT_IDENTITY=PASS")',
-        ):
+    def test_w99_identity_oracle_is_preserved_but_not_a_current_release_gate(self):
+        text = (ROOT / "tests/test_w99_identity_app_desktop_e2e.py").read_text(encoding="utf-8")
+        for token in ('"W99"', '"Retrospective GTK-free and Lifecycle Audit"', f'"{W99_BASELINE}"', 'print("W99_CURRENT_IDENTITY=PASS")'):
             self.assertIn(token, text)
+        data = json.loads((ROOT / "tests/calamus_release_test_profiles.json").read_text(encoding="utf-8"))
+        self.assertFalse(data["profiles"]["w99-identity-smoke"]["release_gate"])
 
-    def test_w99_identity_precedes_lifecycle_true_app_gate(self):
-        text = (ROOT / "scripts" / "prove-w99-retrospective-gtk-lanes.sh").read_text(
-            encoding="utf-8"
-        )
+    def test_w99_lifecycle_remains_a_historical_release_gate(self):
+        data = json.loads((ROOT / "tests/calamus_release_test_profiles.json").read_text(encoding="utf-8"))
+        self.assertTrue(data["profiles"]["w99-lifecycle-smoke"]["release_gate"])
+        self.assertEqual(data["published_baseline"], W100_BASELINE)
+
+    def test_w99_script_retains_historical_lane_order(self):
+        text = (ROOT / "scripts/prove-w99-retrospective-gtk-lanes.sh").read_text(encoding="utf-8")
         self.assertLess(text.index("w99-identity-smoke"), text.index("w99-lifecycle-smoke"))
-        self.assertIn("W99_CURRENT_IDENTITY_TRUE_APP=PASS", text)
         self.assertIn("W99_RETROSPECTIVE_GTK_LANES=PASS", text)
-
-    def test_release_manifest_owns_w99_baseline_and_profiles(self):
-        data = json.loads(
-            (ROOT / "tests" / "calamus_release_test_profiles.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        self.assertEqual(data["published_baseline"], BASELINE)
-        self.assertIn("W99", data["lineage"])
-        for profile in (
-            "w99-headless-focused",
-            "w99-identity-smoke",
-            "w99-lifecycle-smoke",
-        ):
-            self.assertIn(profile, data["profiles"])
-
-    def test_release_runner_scrubs_and_owns_w99_lane_flags(self):
-        text = (ROOT / "scripts" / "calamus-release-profiles.py").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn('"CALAMUS_W99_"', text)
-        self.assertIn(BASELINE, text)
 
 
 if __name__ == "__main__":

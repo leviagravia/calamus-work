@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W99 Retrospective GTK-free and Lifecycle Audit Candidate R1",
-  "published_baseline": "fb54cd3bb96bbea024966db2a059c755aef45d95",
+  "lineage": "W100 Monolith Decomposition Contract Candidate R1",
+  "published_baseline": "9a80b266cbdb41b499efdb296ff2a312cf85656f",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -1562,11 +1562,10 @@
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_concrete_ui_or_gio_boundaries",
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_gi_or_gtk",
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_workspace_mutation_depends_on_injected_protocol_not_gio",
-        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_release_manifest_owns_w99_baseline_and_profiles",
-        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_release_runner_scrubs_and_owns_w99_lane_flags",
-        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_current_identity_gate_is_exact",
-        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_identity_precedes_lifecycle_true_app_gate",
-        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_contract_freezes_scope_owner_inventory_and_mature_decisions"
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_contract_freezes_scope_owner_inventory_and_mature_decisions",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_identity_oracle_is_preserved_but_not_a_current_release_gate",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_lifecycle_remains_a_historical_release_gate",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_script_retains_historical_lane_order"
       ]
     },
     "filesystem-capabilities": {
@@ -2096,16 +2095,15 @@
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_concrete_ui_or_gio_boundaries",
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_gi_or_gtk",
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_workspace_mutation_depends_on_injected_protocol_not_gio",
-        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_release_manifest_owns_w99_baseline_and_profiles",
-        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_release_runner_scrubs_and_owns_w99_lane_flags",
-        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_current_identity_gate_is_exact",
-        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_identity_precedes_lifecycle_true_app_gate",
-        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_contract_freezes_scope_owner_inventory_and_mature_decisions"
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_contract_freezes_scope_owner_inventory_and_mature_decisions",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_identity_oracle_is_preserved_but_not_a_current_release_gate",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_lifecycle_remains_a_historical_release_gate",
+        "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_script_retains_historical_lane_order"
       ]
     },
     "w99-identity-smoke": {
       "kind": "unittest",
-      "release_gate": true,
+      "release_gate": false,
       "zero_skips": true,
       "capabilities": [
         "gtk-display"
@@ -2133,6 +2131,52 @@
       "unset_env": [],
       "test_ids": [
         "tests.test_w99_lifecycle_app_desktop_e2e.W99ApplicationLifecycleRealAppE2E.test_normal_close_cancels_app_sources_and_shuts_each_owner_once"
+      ]
+    },
+    "w100-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w100-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_runtime_identity_working_copy.RuntimeIdentityWorkingCopyTests.test_development_identity_constants_are_exact",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_baseline_metrics_are_exact_and_growth_is_blocked",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_every_app_method_is_assigned_once",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_every_assigned_app_attribute_is_assigned_once",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_whole_app_coupling_inventory_is_exact",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_roadmap_is_exact_and_feature_work_is_deferred",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_contract_forbids_false_decomposition_mechanisms",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_mature_source_audit_records_exact_sources_and_decisions",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_no_product_or_launcher_behavior_was_changed_by_w100",
+        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_current_identity_is_exact",
+        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_release_manifest_owns_w100_profiles_and_w99_identity_is_not_release_gate",
+        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_gtk_lane_runs_current_identity_then_historical_lifecycle",
+        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_release_runner_scrubs_w100_flags"
+      ]
+    },
+    "w100-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W100_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w100-identity-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w100_identity_app_desktop_e2e.W100IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
       ]
     }
   }
