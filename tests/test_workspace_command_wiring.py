@@ -9,13 +9,14 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         view=(ROOT/'calamus/calamus_workspace_tree.py').read_text(encoding='utf-8')
         app=(ROOT/'calamus/calamus_workspace_application.py').read_text(encoding='utf-8')
         launcher=(ROOT/'bin/calamus').read_text(encoding='utf-8')
+        composition=(ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8')
         self.assertIn('self.connect("row-activated", self._on_row_activated)',view)
         self.assertIn('self.connect("key-press-event", self._on_key_press)',view)
         self.assertIn('self.emit("file-activated", item)',view)
         self.assertIn('column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)',view)
         self.assertIn('column.set_fixed_width(1)',view)
         self.assertIn('column.set_expand(True)',view)
-        self.assertIn('open_document=self.open_path',launcher)
+        self.assertIn('open_document=app.open_path', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
         self.assertIn('self._open_document(activation.path)',app)
 
     def test_view_is_semantic_and_has_no_document_or_filesystem_ownership(self):
@@ -63,7 +64,7 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
     def test_startup_visibility_is_applied_after_paned_zeroing(self):
         launcher=(ROOT/'bin/calamus').read_text(encoding='utf-8')
         zero=launcher.index('self.workspace_paned.set_position(0)')
-        visible=launcher.index('if startup_workspace_visible:')
+        visible=launcher.index('if self._components.workspace.startup_visible:')
         self.assertLess(zero,visible)
 
     def test_menu_exposes_create_rename_duplicate_and_system_trash_only(self):
@@ -135,8 +136,8 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('self._workspace_runtime.refresh()', runtime)
         self.assertIn('self._view.select_path(result.path)', runtime)
         self.assertIn('self._open_document(result.path)', runtime)
-        self.assertIn('WorkspaceMutationRuntime(', launcher)
-        self.assertIn('open_document=self.open_path', launcher)
+        self.assertIn('WorkspaceMutationRuntime(', (ROOT/'calamus/calamus_workspace_composition.py').read_text(encoding='utf-8'))
+        self.assertIn('open_document=app.open_path', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
         self.assertIn('document-new-symbolic', panel)
 
     def test_new_text_file_dialog_is_input_only(self):
@@ -237,9 +238,9 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('item.internal_text', panel)
         self.assertIn('Gdk.Gravity.SOUTH_WEST', panel)
         self.assertNotIn('Gtk.Gravity.', panel)
-        self.assertIn('on_rename_item=self.on_rename_workspace_item', launcher)
-        self.assertIn('on_duplicate_file=self.on_duplicate_workspace_file', launcher)
-        self.assertIn('on_move_to_trash=self.on_move_workspace_item_to_trash', launcher)
+        self.assertIn('on_rename_item=app.on_rename_workspace_item', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
+        self.assertIn('on_duplicate_file=app.on_duplicate_workspace_file', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
+        self.assertIn('on_move_to_trash=app.on_move_workspace_item_to_trash', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
         for forbidden in ('Gio.File', 'set_display_name', 'os.rename', 'shutil.move'):
             self.assertNotIn(forbidden, panel)
 

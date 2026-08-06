@@ -74,8 +74,10 @@ class W99GtkFreeArchitectureTests(unittest.TestCase):
         self.assertNotIn("calamus_workspace_gio", source)
         self.assertNotIn("WorkspaceGioAdapter", source)
         self.assertIn("adapter does not implement the Workspace mutation protocol", source)
+        composition = (CALAMUS / "calamus_workspace_composition.py").read_text(encoding="utf-8")
+        self.assertIn("WorkspaceGioAdapter()", composition)
         launcher = (ROOT / "bin" / "calamus").read_text(encoding="utf-8")
-        self.assertIn("WorkspaceGioAdapter()", launcher)
+        self.assertNotIn("WorkspaceGioAdapter()", launcher)
 
     def test_every_glib_source_has_an_explicit_cancellation_owner(self):
         source_pattern = re.compile(r"(?:GLib|self\.(?:glib|_GLib))\.(?:idle_add|timeout_add|timeout_add_seconds)\(")

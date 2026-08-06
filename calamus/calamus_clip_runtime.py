@@ -14,13 +14,18 @@ from calamus_clip_expansion import expand_clip_text
 from calamus_clips import ClipError
 
 
-def selected_document_text(app: Any) -> str:
-    """Return the current document selection without mutating the editor."""
-    buffer = app.text.get_buffer()
+def selected_document_text_from_view(text_view: Any) -> str:
+    """Return the current selection through the narrow text-view boundary."""
+    buffer = text_view.get_buffer()
     if not buffer.get_has_selection():
         return ""
     start, end = buffer.get_selection_bounds()
     return buffer.get_text(start, end, True)
+
+
+def selected_document_text(app: Any) -> str:
+    """Historical whole-App compatibility gateway retained until W108."""
+    return selected_document_text_from_view(app.text)
 
 
 def copy_clip_body(text: str) -> None:
@@ -32,38 +37,71 @@ def copy_clip_body(text: str) -> None:
     clipboard.store()
 
 
-def insert_clip_expansion(app: Any, text: str, cursor_offset: int) -> bool:
-    """Insert expanded clip text through Calamus' command/Undo gateway."""
+def insert_clip_expansion_through_gateway(
+    text_view: Any,
+    text: str,
+    cursor_offset: int,
+    *,
+    execute_command: Callable[[str, Callable[[Any], None]], bool],
+    get_cursor_offset: Callable[[], int],
+    set_cursor_offset: Callable[[int], Any],
+    sync_history_view_state: Callable[[], Any],
+    queue_insert_scroll: Callable[..., Any],
+) -> bool:
+    """Insert expanded text through explicit editor command dependencies."""
     if not isinstance(text, str):
         return False
-    buffer = app.text.get_buffer()
+    for callback in (
+        execute_command,
+        get_cursor_offset,
+        set_cursor_offset,
+        sync_history_view_state,
+        queue_insert_scroll,
+    ):
+        if not callable(callback):
+            raise TypeError("clip insertion gateways must be callable")
+    buffer = text_view.get_buffer()
     if buffer.get_has_selection():
         start_iter, _end_iter = buffer.get_selection_bounds()
         start_offset = start_iter.get_offset()
     else:
-        start_offset = app.get_cursor_offset()
+        start_offset = get_cursor_offset()
     caret = start_offset + max(0, min(int(cursor_offset), len(text)))
-    app.text.grab_focus()
+    text_view.grab_focus()
 
     def edit(target_buffer):
         target_buffer.insert_at_cursor(text)
 
-    changed = bool(app.execute_command("Insert Clip", edit))
+    changed = bool(execute_command("Insert Clip", edit))
     if not changed:
         return False
-    # A collapsed GtkTextBuffer selection is not a reliable caret placement
-    # gateway after insert_at_cursor on all GTK 3 builds. Place the insertion
-    # mark explicitly after the grouped mutation, then defer viewport repair
-    # until GTK has completed layout. The document mutation remains one Undo.
-    app.set_cursor_offset(caret)
-    sync_history = getattr(app, "sync_current_history_view_state", None)
-    if callable(sync_history):
-        sync_history()
-    queue_scroll = getattr(app, "queue_insert_scroll", None)
-    if callable(queue_scroll):
-        queue_scroll(margin=0.15)
-    app.text.grab_focus()
+    # Preserve the published single-Undo and viewport-repair semantics while
+    # avoiding a whole-App input at the W101 local builder boundary.
+    set_cursor_offset(caret)
+    sync_history_view_state()
+    queue_insert_scroll(margin=0.15)
+    text_view.grab_focus()
     return True
+
+
+def insert_clip_expansion(app: Any, text: str, cursor_offset: int) -> bool:
+    """Historical whole-App compatibility gateway retained until W108."""
+    sync_history = getattr(app, "sync_current_history_view_state", None)
+    if not callable(sync_history):
+        sync_history = lambda: None
+    queue_scroll = getattr(app, "queue_insert_scroll", None)
+    if not callable(queue_scroll):
+        queue_scroll = lambda **_kwargs: None
+    return insert_clip_expansion_through_gateway(
+        app.text,
+        text,
+        cursor_offset,
+        execute_command=app.execute_command,
+        get_cursor_offset=app.get_cursor_offset,
+        set_cursor_offset=app.set_cursor_offset,
+        sync_history_view_state=sync_history,
+        queue_insert_scroll=queue_scroll,
+    )
 
 
 class ClipCollectionRuntime:

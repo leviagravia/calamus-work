@@ -57,13 +57,14 @@ class W95MatureHistoryRebuildTests(unittest.TestCase):
         self.assertIn("self.history_runtime.undo_target()", source)
         self.assertIn("self.history_runtime.redo_target()", source)
         self.assertIn("restore_buffer_state(self.text, state)", source)
-        self.assertIn('buffer.connect("begin-user-action"', source)
-        self.assertIn('buffer.connect("end-user-action"', source)
+        composition = text(ROOT / "calamus/calamus_editor_composition.py")
+        self.assertIn('_connect(buffer, "begin-user-action"', composition)
+        self.assertIn('_connect(buffer, "end-user-action"', composition)
 
     def test_clip_marker_updates_the_committed_post_edit_caret(self):
-        source = method(CLIP_RUNTIME, "insert_clip_expansion")
-        self.assertLess(source.index("app.set_cursor_offset(caret)"), source.index("sync_history()"))
-        self.assertIn("sync_current_history_view_state", source)
+        source = method(CLIP_RUNTIME, "insert_clip_expansion_through_gateway")
+        self.assertLess(source.index("set_cursor_offset(caret)"), source.index("sync_history_view_state()"))
+        self.assertIn("sync_history_view_state", source)
 
     def test_true_gate_runs_on_undo_and_checks_caret_selection_and_viewport(self):
         source = text(GATE)

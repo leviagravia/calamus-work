@@ -10,8 +10,32 @@ from pathlib import Path
 root = Path(sys.argv[1]).resolve()
 expected_lib = root / "calamus"
 
+# This verifier imports modules outside the normal bin/calamus entry point.
+# Reproduce the application-owned GI namespace contract before any transitive
+# import can select the host default (GTK 4 on current Mint installations).
+try:
+    import gi
+except ModuleNotFoundError:
+    gi = None
+    print("SOURCE_PROVENANCE_GTK_CONTRACT=SKIP_PYGOBJECT_UNAVAILABLE")
+else:
+    for namespace, version in (
+        ("Gtk", "3.0"),
+        ("Gdk", "3.0"),
+        ("Pango", "1.0"),
+        ("PangoCairo", "1.0"),
+    ):
+        gi.require_version(namespace, version)
+    print("SOURCE_PROVENANCE_GTK_CONTRACT=GTK3")
+
 
 modules = [
+    "calamus_application_components",
+    "calamus_application_composition",
+    "calamus_editor_composition",
+    "calamus_navigator_composition",
+    "calamus_workspace_composition",
+    "calamus_clip_composition",
     "calamus_document",
     "calamus_model",
     "calamus_commands",

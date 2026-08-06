@@ -29,8 +29,10 @@ class ClipW95ContractTests(unittest.TestCase):
         self.assertIn('"Insert Clip…\\tCtrl+Alt+K", app.on_insert_clip', ui)
         self.assertIn('("<Control><Alt>K", app.on_insert_clip)', ui)
         self.assertIn("def on_insert_clip", app)
-        self.assertIn("ClipCollectionRuntime", app)
-        self.assertIn("MarkdownClipStore", app)
+        composition = (ROOT / "calamus/calamus_clip_composition.py").read_text(encoding="utf-8")
+        self.assertEqual(composition.count("ClipCollectionRuntime("), 1)
+        self.assertEqual(composition.count("MarkdownClipStore("), 1)
+        self.assertIn("compose_core_application_components", app)
         self.assertIn('ShortcutSpec("Research", "Insert Clip", "Ctrl+Alt+K")', shortcuts)
 
     def test_panel_does_not_restore_w94_width_regression(self):
@@ -77,12 +79,12 @@ class ClipW95ContractTests(unittest.TestCase):
 
     def test_w95extra_identity_points_to_published_w95(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W100"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W101"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Monolith Decomposition Contract"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Core Composition Boundary and Dependency Enforcement"',
             version,
         )
-        self.assertIn('PUBLISHED_BASELINE = "9a80b266cbdb41b499efdb296ff2a312cf85656f"', version)
+        self.assertIn('PUBLISHED_BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"', version)
 
 
 if __name__ == "__main__":

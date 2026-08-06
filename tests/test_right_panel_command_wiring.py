@@ -33,8 +33,11 @@ def method_source(name):
 class RightPanelCommandWiringTests(unittest.TestCase):
     def test_startup_has_one_right_panel_host_authority(self):
         launcher = source(LAUNCHER)
-        self.assertEqual(launcher.count("RightPanelHost("), 1)
-        self.assertIn("self.right_panel_host = RightPanelHost", launcher)
+        composition = source(ROOT / "calamus/calamus_clip_composition.py")
+        root = source(ROOT / "calamus/calamus_application_composition.py")
+        self.assertEqual(composition.count("RightPanelHost("), 1)
+        self.assertNotIn("RightPanelHost(", launcher)
+        self.assertIn("app.right_panel_host = right_panel_host", root)
         self.assertIn('self.right_panel_host.register("research", self.research_panel_view.widget)', launcher)
         self.assertNotIn('self.right_panel_host.register("clip-collection"', launcher)
 
@@ -119,11 +122,11 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         adapter = method_source("on_clip_insert")
         gateway = source(CLIP_RUNTIME)
         self.assertIn("self.clip_collection_runtime.on_insert()", adapter)
-        self.assertIn("def insert_clip_expansion", gateway)
-        self.assertIn("app.execute_command(", gateway)
-        self.assertIn('"Insert Clip"', gateway)
-        self.assertIn("app.set_cursor_offset(caret)", gateway)
-        self.assertIn('queue_scroll(margin=0.15)', gateway)
+        self.assertIn("def insert_clip_expansion_through_gateway", gateway)
+        self.assertIn("def insert_clip_expansion(app", gateway)
+        self.assertIn('execute_command("Insert Clip", edit)', gateway)
+        self.assertIn("set_cursor_offset(caret)", gateway)
+        self.assertIn('queue_insert_scroll(margin=0.15)', gateway)
         self.assertNotIn("select_range=(caret, caret)", gateway)
         self.assertNotIn("save_clips", gateway)
 

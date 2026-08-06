@@ -31,11 +31,13 @@ class DocumentStructureCommandWiringTests(unittest.TestCase):
             self.assertIn(name[:-3], PROVENANCE.read_text(encoding="utf-8"))
 
     def test_launcher_builds_one_controller_authority(self):
-        source = LAUNCHER.read_text(encoding="utf-8")
+        source = (ROOT / "calamus/calamus_navigator_composition.py").read_text(encoding="utf-8")
+        launcher = LAUNCHER.read_text(encoding="utf-8")
         self.assertIn("from calamus_navigation_gateway import NavigationController", source)
         self.assertIn("from calamus_navigation_view import NavigationViewAdapter", source)
         self.assertEqual(source.count("NavigationController("), 1)
-        self.assertIn("self.navigation_controller = NavigationController(", source)
+        self.assertIn("navigation_controller = NavigationController(", source)
+        self.assertIn("compose_core_application_components", launcher)
 
     def test_buffer_change_invalidates_structure_without_parsing_inline(self):
         source = function_source(LAUNCHER, "on_changed")

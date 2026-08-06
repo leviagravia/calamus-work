@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "baseline_commit": "fb003223643d9da5f81ddaa3f3e0e4a9304f3903",
+  "removal_work_item": "W111",
+  "aliases": [
+    {"app_attribute": "history", "bundle_path": "editor.history"},
+    {"app_attribute": "viewport_runtime", "bundle_path": "editor.viewport_runtime"},
+    {"app_attribute": "history_runtime", "bundle_path": "editor.history_runtime"},
+    {"app_attribute": "typewriter_runtime", "bundle_path": "editor.typewriter_runtime"},
+    {"app_attribute": "search_controller", "bundle_path": "editor.search_controller"},
+    {"app_attribute": "tag", "bundle_path": "editor.misspelling_tag"},
+    {"app_attribute": "search_tag", "bundle_path": "editor.search_tag"},
+    {"app_attribute": "current_line_tag", "bundle_path": "editor.current_line_tag"},
+    {"app_attribute": "navigation_controller", "bundle_path": "navigator.navigation_controller"},
+    {"app_attribute": "left_panel_host", "bundle_path": "navigator.left_panel_host"},
+    {"app_attribute": "navigator_panel_view", "bundle_path": "navigator.panel_view"},
+    {"app_attribute": "navigator_panel_host", "bundle_path": "navigator.panel_host"},
+    {"app_attribute": "navigator_panel_runtime", "bundle_path": "navigator.panel_runtime"},
+    {"app_attribute": "workspace_controller", "bundle_path": "workspace.controller"},
+    {"app_attribute": "workspace_panel_view", "bundle_path": "workspace.panel_view"},
+    {"app_attribute": "workspace_application_runtime", "bundle_path": "workspace.application_runtime"},
+    {"app_attribute": "workspace_mutation_controller", "bundle_path": "workspace.mutation_controller"},
+    {"app_attribute": "workspace_mutation_runtime", "bundle_path": "workspace.mutation_runtime"},
+    {"app_attribute": "workspace_panel_host", "bundle_path": "workspace.panel_host"},
+    {"app_attribute": "workspace_panel_runtime", "bundle_path": "workspace.panel_runtime"},
+    {"app_attribute": "right_panel_host", "bundle_path": "right_panel_host"},
+    {"app_attribute": "clip_collection_view", "bundle_path": "clips.view"},
+    {"app_attribute": "clip_collection", "bundle_path": "clips.controller"},
+    {"app_attribute": "clip_collection_runtime", "bundle_path": "clips.runtime"}
+  ]
+}

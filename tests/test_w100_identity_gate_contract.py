@@ -5,25 +5,29 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = "9a80b266cbdb41b499efdb296ff2a312cf85656f"
+W100_BASELINE = "9a80b266cbdb41b499efdb296ff2a312cf85656f"
+W101_BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
 
 
 class W100IdentityGateContractTests(unittest.TestCase):
     def test_current_identity_is_exact(self):
-        version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
+        historical = (ROOT / "tests/test_w100_identity_app_desktop_e2e.py").read_text(encoding="utf-8")
         for token in (
-            'DEVELOPMENT_WORK_ITEM = "W100"',
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Monolith Decomposition Contract"',
-            f'PUBLISHED_BASELINE = "{BASELINE}"',
+            '"W100"',
+            '"Monolith Decomposition Contract"',
+            W100_BASELINE,
         ):
-            self.assertIn(token, version)
+            self.assertIn(token, historical)
+        current = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W101"', current)
+        self.assertIn(f'PUBLISHED_BASELINE = "{W101_BASELINE}"', current)
 
     def test_release_manifest_owns_w100_profiles_and_w99_identity_is_not_release_gate(self):
         data = json.loads((ROOT / "tests/calamus_release_test_profiles.json").read_text(encoding="utf-8"))
-        self.assertEqual(data["published_baseline"], BASELINE)
-        self.assertIn("W100", data["lineage"])
-        for profile in ("w100-headless-focused", "w100-identity-smoke"):
-            self.assertTrue(data["profiles"][profile]["release_gate"])
+        self.assertEqual(data["published_baseline"], W101_BASELINE)
+        self.assertIn("W101", data["lineage"])
+        self.assertTrue(data["profiles"]["w100-headless-focused"]["release_gate"])
+        self.assertFalse(data["profiles"]["w100-identity-smoke"]["release_gate"])
         self.assertFalse(data["profiles"]["w99-identity-smoke"]["release_gate"])
 
     def test_gtk_lane_runs_current_identity_then_historical_lifecycle(self):
@@ -31,11 +35,15 @@ class W100IdentityGateContractTests(unittest.TestCase):
         self.assertLess(text.index("w100-identity-smoke"), text.index("w99-lifecycle-smoke"))
         self.assertIn("W100_CURRENT_IDENTITY_TRUE_APP=PASS", text)
         self.assertIn("W100_MONOLITH_CONTRACT_GTK_LANES=PASS", text)
+        current = (ROOT / "scripts/prove-w101-core-composition-gtk-lanes.sh").read_text(encoding="utf-8")
+        self.assertLess(current.index("w101-identity-smoke"), current.index("w101-core-composition-smoke"))
+        self.assertLess(current.index("w101-core-composition-smoke"), current.index("w99-lifecycle-smoke"))
 
     def test_release_runner_scrubs_w100_flags(self):
         text = (ROOT / "scripts/calamus-release-profiles.py").read_text(encoding="utf-8")
         self.assertIn('"CALAMUS_W100_"', text)
-        self.assertIn(BASELINE, text)
+        self.assertIn('"CALAMUS_W101_"', text)
+        self.assertIn(W101_BASELINE, text)
 
 
 if __name__ == "__main__":

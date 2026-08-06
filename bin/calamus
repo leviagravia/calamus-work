@@ -42,33 +42,19 @@ from calamus_templates import (
 from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import WORD_RE, text_stats as calc_text_stats
-from calamus_search_gateway import SearchController
-from calamus_search_view import SearchViewAdapter
 from calamus_search_dialogs import run_find_all_dialog, run_find_replace_dialog
-from calamus_navigation_gateway import NavigationController
 import calamus_document_dossier_app as document_dossier_app
-from calamus_navigation_view import NavigationViewAdapter
 from calamus_navigation_dialogs import run_go_to_line_dialog, run_go_to_section_dialog
-from calamus_navigator_panel import NavigatorPanelRuntime
-from calamus_navigator_panel_view import build_navigator_panel_view
-from calamus_left_panel import LeftPanelHost
-from calamus_workspace_controller import WorkspaceController
-from calamus_workspace_application import WorkspaceApplicationRuntime
-from calamus_workspace_gio import WorkspaceGioAdapter
-from calamus_workspace_mutation import WorkspaceMutationController, WorkspaceMutationRuntime
 from calamus_workspace_identity import (
     WorkspacePathReferenceSnapshot, plan_workspace_rename_identity,
     plan_workspace_trash_identity,
 )
 from calamus_workspace_menu import populate_recent_workspaces_menu as workspace_populate_recent_menu
-from calamus_workspace_panel import WorkspacePanelView, WorkspacePanelRuntime
 from calamus_workspace_external import open_external_path, reveal_in_file_manager
-from calamus_history import HistoryState, TextHistory
-from calamus_history_runtime import SnapshotHistoryRuntime, restore_buffer_state
-from calamus_viewport_runtime import EditorViewportRuntime
-from calamus_typewriter_runtime import TypewriterRuntime
 import calamus_typewriter_app as typewriter_app
 import calamus_writing_app as writing_app
+from calamus_history import HistoryState
+from calamus_history_runtime import restore_buffer_state
 from calamus_external import open_character_map as external_open_character_map
 from calamus_writing import (
     sort_lines, clean_pdf_text, remove_extra_spaces,
@@ -93,6 +79,7 @@ from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shor
 from calamus_command_context import CommandContext
 from calamus_command_layer import CommandLayer
 from calamus_command_catalog import build_low_risk_registry
+from calamus_application_composition import compose_core_application_components
 
 APP_TITLE = "Calamus Copy"
 APP_ICON = "calamus"
@@ -118,11 +105,6 @@ import calamus_application_lifecycle_app as application_lifecycle_app
 from calamus_help import load_user_guide
 from calamus_help_dialogs import show_user_guide
 from calamus_editor import build_editor_widgets, apply_text_wrap_policy
-from calamus_clip_collection import ClipCollectionController
-from calamus_clip_panel import build_clip_collection_view
-from calamus_clip_runtime import ClipCollectionRuntime, copy_clip_body, insert_clip_expansion, selected_document_text
-from calamus_clips import MarkdownClipStore
-from calamus_right_panel import RightPanelHost
 from calamus_reference_runtime import ReferencePanelRuntime
 from calamus_reference_store import MarkdownReferenceStore
 from calamus_reference_set_store import MarkdownReferenceSetStore
@@ -251,8 +233,6 @@ class App(Gtk.Window):
         self.spell_source = None
         self.word_count_source = None
         self._wrap_reflow_source = None
-        self.history = TextHistory(max_steps=100)
-        self.history_runtime = None
         self.restoring_undo = False
         self.print_pages = []
         line_number_preference = load_line_number_preference(self.settings)
@@ -304,120 +284,16 @@ class App(Gtk.Window):
         # topology; the line-number gutter stays outside the scroller.
         self.editor_box, self.line_gutter, self.scroller, self.text = build_editor_widgets(self.word_wrap)
         self.body_paned.pack1(self.editor_box, True, True)
-        buffer = self.text.get_buffer()
-        self.viewport_runtime = EditorViewportRuntime(
-            self.text, self.scroller, GLib, log_nonfatal
+        self._components = compose_core_application_components(
+            self,
+            clip_invalidation_reason=ResearchInvalidationReason.CLIPS,
         )
-        self.history_runtime = SnapshotHistoryRuntime(
-            self.history,
-            self.text,
-            self.scroller,
-            GLib,
-            log_nonfatal,
-            viewport_runtime=self.viewport_runtime,
-        )
-        self.typewriter_runtime = TypewriterRuntime(
-            self.text,
-            self.viewport_runtime,
-            on_state_changed=self.on_typewriter_state_changed,
-            log_nonfatal=log_nonfatal,
-        )
-        buffer.connect("changed", self.on_changed)
-        buffer.connect("begin-user-action", self.on_buffer_begin_user_action)
-        buffer.connect("end-user-action", self.on_buffer_end_user_action)
-        buffer.connect("notify::cursor-position", self.on_cursor_position_notify)
-        self.text.connect("key-press-event", self.on_text_key_press)
-        self.text.connect_after("key-release-event", self.on_text_key_release)
-        self.text.connect_after("move-cursor", self.on_text_move_cursor)
-        self.text.connect("button-press-event", self.on_text_button_press)
-        self.text.connect_after("motion-notify-event", self.on_text_motion_notify)
-        self.text.connect_after("button-release-event", self.on_text_button_release)
-        self.text.connect("scroll-event", self.on_text_scroll)
-        self.text.connect("focus-out-event", self.on_text_focus_out)
-        self.apply_wrap_policy()
-
-        self.navigation_controller = NavigationController(
-            NavigationViewAdapter(self.text)
-        )
-        self.left_panel_host = LeftPanelHost(self.workspace_paned, self.queue_wrap_reflow)
-        self.navigator_panel_view = build_navigator_panel_view(
-            self.navigation_controller,
-            lambda: self.navigator_panel_runtime.hide(),
-        )
-        self.navigator_panel_host = self.left_panel_host.register("navigator", self.navigator_panel_view.widget)
-        self.navigator_panel_runtime = NavigatorPanelRuntime(
-            self.navigator_panel_host,
-            self.navigator_panel_view,
-            self.navigator_item,
-            self.text.grab_focus,
-        )
-
-        self.workspace_controller = WorkspaceController()
-        self.workspace_panel_view = WorkspacePanelView(
-            on_hide=lambda: self.workspace_panel_runtime.hide(),
-            on_new_text_file=self.on_new_workspace_text_file,
-            on_new_folder=self.on_new_workspace_folder,
-            on_rename_item=self.on_rename_workspace_item,
-            on_duplicate_file=self.on_duplicate_workspace_file,
-            on_move_to_trash=self.on_move_workspace_item_to_trash,
-            on_choose_root=self.on_select_workspace_folder,
-            on_refresh=self.on_refresh_workspace,
-            on_reveal=self.on_reveal_workspace,
-            on_activate_item=lambda item: self.workspace_application_runtime.activate_item(item),
-        )
-        self.workspace_application_runtime = WorkspaceApplicationRuntime(
-            self.workspace_controller,
-            self.workspace_panel_view,
-            self.state,
-            may_continue=self.may_continue,
-            open_document=self.open_path,
-            open_external=open_external_path,
-            reveal_external=reveal_in_file_manager,
-            save_settings=self.save_settings,
-            report_error=self.error,
-            on_root_changed=self.on_workspace_root_changed,
-            on_recent_changed=self.populate_recent_workspaces_menu,
-        )
-        self.workspace_mutation_controller = WorkspaceMutationController(
-            self.workspace_controller, WorkspaceGioAdapter()
-        )
-        self.workspace_mutation_runtime = WorkspaceMutationRuntime(
-            self.workspace_mutation_controller,
-            self.workspace_application_runtime,
-            self.workspace_panel_view,
-            may_continue=self.may_continue,
-            open_document=self.open_path,
-            report_error=self.error,
-            capture_path_references=self.capture_workspace_path_references,
-            reconcile_rename=self.reconcile_workspace_rename,
-            current_document_path=lambda: self.current_file,
-            confirm_trash=self.confirm_workspace_trash,
-            reconcile_trash=self.reconcile_workspace_trash,
-        )
-        self.workspace_panel_host = self.left_panel_host.register("workspace", self.workspace_panel_view.widget)
-        self.workspace_panel_runtime = WorkspacePanelRuntime(
-            self.workspace_panel_host,
-            self.workspace_panel_view,
-            self.workspace_item,
-            self.text.grab_focus,
-            self.on_workspace_visibility_changed,
-        )
-        workspace_bound = self.workspace_application_runtime.bind_startup_root(self.workspace_root)
-        startup_workspace_visible = bool(workspace_bound and self.workspace_visible)
-
-        self.right_panel_host = RightPanelHost(self.body_paned, self.queue_wrap_reflow)
-        self.build_clip_collection()
         self.build_research_panel()
         document_dossier_app.build_document_overview(self)
         # Both side panels start detached. The editor remains the only visible
         # workspace client until the user explicitly requests a panel.
         self.workspace_paned.set_position(0)
         self.body_paned.set_position(max(420, int(width * 0.72)))
-
-        self.tag = self.text.get_buffer().create_tag("misspelled", underline=Pango.Underline.ERROR)
-        self.search_tag = self.text.get_buffer().create_tag("search_highlight", background="#fff59d", foreground="#000000")
-        self.search_controller = SearchController(SearchViewAdapter(self.text, self.search_tag))
-        self.current_line_tag = self.text.get_buffer().create_tag("current_line", background="#eef5ff")
         self.configure_application_lifecycle()
 
         self.status = Gtk.Label()
@@ -450,7 +326,7 @@ class App(Gtk.Window):
         else:
             self.reset_undo_history()
 
-        if startup_workspace_visible:
+        if self._components.workspace.startup_visible:
             self.workspace_panel_runtime.set_visible(True)
         self.update_title()
 
@@ -2164,43 +2040,6 @@ class App(Gtk.Window):
         d.show_all()
         d.run()
         d.destroy()
-
-    def build_clip_collection(self):
-        self.clip_collection_view = build_clip_collection_view(
-            on_search=lambda query: self.clip_collection_runtime.on_search(query),
-            on_new=lambda *_: self.clip_collection_runtime.on_new(),
-            on_capture=lambda *_: self.clip_collection_runtime.on_capture(),
-            on_insert=lambda *_: self.clip_collection_runtime.on_insert(),
-            on_copy=lambda *_: self.clip_collection_runtime.on_copy(),
-            on_edit=lambda *_: self.clip_collection_runtime.on_edit(),
-            on_duplicate=lambda *_: self.clip_collection_runtime.on_duplicate(),
-            on_delete=lambda *_: self.clip_collection_runtime.on_delete(),
-            on_refresh=lambda *_: self.clip_collection_runtime.on_refresh(),
-            on_open_file=lambda *_: self.clip_collection_runtime.on_open_file(),
-            on_activate=lambda: self.clip_collection_runtime.on_insert(),
-            show_title=False,
-        )
-        self.clip_collection = ClipCollectionController(
-            MarkdownClipStore(self.state.config_dir),
-            self.clip_collection_view,
-        )
-        self.clip_collection_runtime = ClipCollectionRuntime(
-            self,
-            self.clip_collection,
-            selected_text_provider=lambda: selected_document_text(self),
-            insert_expansion=lambda text, offset: insert_clip_expansion(self, text, offset),
-            copy_text=copy_clip_body,
-            show_error=lambda message: show_error(self, message),
-            show_info=lambda message: show_info(self, message),
-            on_changed=lambda: self.publish_research_invalidation(
-                ResearchInvalidationReason.CLIPS
-            ),
-        )
-        if not self.clip_collection.load():
-            log_nonfatal(
-                'clip-collection-load',
-                RuntimeError(self.clip_collection.last_error or 'Clip Collection could not be loaded.'),
-            )
 
     def build_research_panel(self):
         self.reference_store = MarkdownReferenceStore()

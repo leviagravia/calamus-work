@@ -33,12 +33,13 @@ class NavigatorPanelCommandWiringTests(unittest.TestCase):
         self.assertIn("self.workspace_paned = Gtk.Paned", source)
         self.assertIn("self.workspace_paned.pack2(self.body_paned, True, True)", source)
         self.assertIn("self.body_paned.pack1(self.editor_box, True, True)", source)
-        self.assertIn("RightPanelHost(self.body_paned", source)
+        composition = (ROOT / "calamus/calamus_clip_composition.py").read_text(encoding="utf-8")
+        self.assertIn("RightPanelHost(\n        inputs.body_paned", composition)
 
     def test_one_w70_controller_is_reused_by_panel(self):
-        source = LAUNCHER.read_text(encoding="utf-8")
+        source = (ROOT / "calamus/calamus_navigator_composition.py").read_text(encoding="utf-8")
         self.assertEqual(source.count("NavigationController("), 1)
-        self.assertIn("build_navigator_panel_view(\n            self.navigation_controller", source)
+        self.assertIn("build_navigator_panel_view(\n        navigation_controller", source)
         self.assertNotIn("build_document_structure", VIEW.read_text(encoding="utf-8"))
 
     def test_navigate_menu_exposes_checkable_panel_before_commands(self):
@@ -81,7 +82,8 @@ class NavigatorPanelCommandWiringTests(unittest.TestCase):
 
     def test_one_visibility_runtime_serves_menu_shortcut_and_x(self):
         source = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn("NavigatorPanelRuntime(", source)
+        composition = (ROOT / "calamus/calamus_navigator_composition.py").read_text(encoding="utf-8")
+        self.assertEqual(composition.count("NavigatorPanelRuntime("), 1)
         toggle = function_source(LAUNCHER, "toggle_navigator_panel")
         hide = function_source(LAUNCHER, "hide_navigator_panel")
         toggled = function_source(LAUNCHER, "on_navigator_item_toggled")

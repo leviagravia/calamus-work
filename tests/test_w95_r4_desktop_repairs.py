@@ -26,9 +26,9 @@ def method_source(path, name):
 class W95R4DesktopRepairTests(unittest.TestCase):
     def test_clip_gateway_places_caret_explicitly_after_grouped_edit(self):
         runtime = source(CLIP_RUNTIME)
-        method = method_source(CLIP_RUNTIME, "insert_clip_expansion")
-        self.assertLess(method.index('app.execute_command("Insert Clip", edit)'), method.index("app.set_cursor_offset(caret)"))
-        self.assertIn('queue_scroll(margin=0.15)', method)
+        method = method_source(CLIP_RUNTIME, "insert_clip_expansion_through_gateway")
+        self.assertLess(method.index('execute_command("Insert Clip", edit)'), method.index("set_cursor_offset(caret)"))
+        self.assertIn('queue_insert_scroll(margin=0.15)', method)
         self.assertNotIn("select_range=(caret, caret)", method)
 
     def test_programmatic_cursor_and_history_use_one_bounded_viewport_repair(self):

@@ -27,10 +27,13 @@ def method(path, name):
 
 class W95VSCodePulsarViewportRebuildTests(unittest.TestCase):
     def test_app_passes_the_real_scroller_to_history_runtime(self):
-        launcher = source(LAUNCHER)
-        self.assertIn("EditorViewportRuntime(", launcher)
-        self.assertIn("self.text, self.scroller, GLib, log_nonfatal", launcher)
-        self.assertIn("viewport_runtime=self.viewport_runtime", launcher)
+        composition = source(ROOT / "calamus/calamus_editor_composition.py")
+        self.assertEqual(composition.count("EditorViewportRuntime("), 1)
+        self.assertIn(
+            "inputs.text_view,\n        inputs.scroller,\n        GLib,\n        log_nonfatal",
+            composition,
+        )
+        self.assertIn("viewport_runtime=viewport_runtime", composition)
 
     def test_viewport_projection_is_direct_geometry_not_scroll_to_mark(self):
         policy = source(VIEWPORT_POLICY)

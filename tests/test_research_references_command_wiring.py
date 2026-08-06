@@ -60,7 +60,9 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
 
     def test_app_composes_authorities_but_does_not_own_reference_crud(self):
         launcher = source(LAUNCHER)
-        self.assertEqual(launcher.count("RightPanelHost("), 1)
+        composition = source(ROOT / "calamus/calamus_clip_composition.py")
+        self.assertEqual(composition.count("RightPanelHost("), 1)
+        self.assertNotIn("RightPanelHost(", launcher)
         self.assertIn('self.right_panel_host.register("research", self.research_panel_view.widget)', launcher)
         self.assertIn("ReferencePanelRuntime(", launcher)
         for forbidden in ("ReferenceRecord(", "serialize_references_markdown", "os.replace(tmp", "resolve_external_reference_change"):

@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W100 Monolith Decomposition Contract Candidate R1",
-  "published_baseline": "9a80b266cbdb41b499efdb296ff2a312cf85656f",
+  "lineage": "W101 Core Composition Boundary \u2014 Isolation-Contract Rebuild Candidate R1",
+  "published_baseline": "fb003223643d9da5f81ddaa3f3e0e4a9304f3903",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -2165,7 +2165,7 @@
     },
     "w100-identity-smoke": {
       "kind": "unittest",
-      "release_gate": true,
+      "release_gate": false,
       "zero_skips": true,
       "capabilities": [
         "gtk-display"
@@ -2177,6 +2177,78 @@
       "unset_env": [],
       "test_ids": [
         "tests.test_w100_identity_app_desktop_e2e.W100IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w101-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w101-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_build_topology_and_composition_complete_barrier_are_exact",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_clip_builder_uses_narrow_gateway_and_preserves_historical_wrappers",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_editor_signal_inventory_and_lifetime_are_exact",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_identity_scope_and_contract_are_exact",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_moved_constructor_inventory_is_exact_and_absent_from_app",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_named_set_once_cycles_are_bounded_and_complete",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_no_ambient_authority_or_dynamic_projection_exists",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_only_one_whole_app_entry_and_one_app_bundle_assignment_exist",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_required_modules_and_frozen_bundle_fields_are_exact",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_research_document_overview_and_lifecycle_remain_in_app_boundary",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_roadmap_and_mature_source_decisions_are_specific",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_root_import_direction_is_closed_and_builders_are_local",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_static_compatibility_aliases_match_the_w111_ledger",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_structural_budgets_are_exact_and_w100_is_strictly_reduced",
+        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_isolated_paths_and_fixture_match_the_actual_resolver",
+        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_production_resolver_remains_home_dot_config_without_xdg_migration",
+        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_snapshot_tree_is_read_only_and_change_sensitive",
+        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_true_app_gate_enforces_config_dir_and_real_tree_integrity",
+        "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_current_identity_is_exact",
+        "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_gtk_lane_order_is_current_then_product_then_historical_lifecycle",
+        "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_headless_lane_runs_current_then_w100_w99_and_w98",
+        "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_release_manifest_owns_current_profiles_and_historical_identity_is_not_release",
+        "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_release_runner_scrubs_w101_flags_and_requires_current_baseline"
+      ]
+    },
+    "w101-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W101_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w101-identity-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w101_identity_app_desktop_e2e.W101IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w101-core-composition-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W101_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w101-core-composition-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w101_core_composition_app_desktop_e2e.W101CoreCompositionRealAppE2E.test_true_app_core_wiring_and_normal_close"
       ]
     }
   }

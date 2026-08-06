@@ -25,10 +25,11 @@ def method_source(name):
 class SearchCommandWiringTests(unittest.TestCase):
     def test_startup_has_one_search_controller_authority(self):
         source = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn(
-            "self.search_controller = SearchController(SearchViewAdapter(self.text, self.search_tag))",
-            source,
-        )
+        composition = (ROOT / "calamus/calamus_editor_composition.py").read_text(encoding="utf-8")
+        root = (ROOT / "calamus/calamus_application_composition.py").read_text(encoding="utf-8")
+        self.assertEqual(composition.count("SearchController("), 1)
+        self.assertIn("SearchViewAdapter(inputs.text_view, search_tag)", composition)
+        self.assertIn("app.search_controller = editor.search_controller", root)
         self.assertNotIn("self.last_search =", source)
         self.assertNotIn("self.last_match =", source)
         self.assertNotIn("self.search_highlight_source =", source)

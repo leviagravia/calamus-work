@@ -57,7 +57,9 @@ class ScratchpadCommandWiringTests(unittest.TestCase):
         self.assertEqual(block.count('"scratchpad"'), 1)
         self.assertIn("ScratchpadRuntime(", block)
         self.assertIn("self.scratchpad_runtime.activate", block)
-        self.assertEqual(source(LAUNCHER).count("RightPanelHost("), 1)
+        composition = source(ROOT / "calamus/calamus_clip_composition.py")
+        self.assertEqual(composition.count("RightPanelHost("), 1)
+        self.assertNotIn("RightPanelHost(", source(LAUNCHER))
 
     def test_document_mutation_and_clipboard_use_app_gateways(self):
         gateway = source(ROOT / "calamus/calamus_scratchpad_gateway.py")

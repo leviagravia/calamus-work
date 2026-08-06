@@ -78,7 +78,12 @@ class ReleaseRegressionTests(unittest.TestCase):
         launcher = _launcher("calamus")
         with open(launcher, "r", encoding="utf-8") as handle:
             source = handle.read()
-        self.assertIn("self.right_panel_host = RightPanelHost", source)
+        with open(os.path.join(_lib_dir(), "calamus_clip_composition.py"), "r", encoding="utf-8") as handle:
+            composition = handle.read()
+        with open(os.path.join(_lib_dir(), "calamus_application_composition.py"), "r", encoding="utf-8") as handle:
+            root = handle.read()
+        self.assertEqual(composition.count("RightPanelHost("), 1)
+        self.assertIn("app.right_panel_host = right_panel_host", root)
         self.assertIn('self.right_panel_host.register("research", self.research_panel_view.widget)', source)
         self.assertNotIn("self.clip_panel_attached", source)
         self.assertNotIn("self.body_paned.pack2(self.clip_panel", source)

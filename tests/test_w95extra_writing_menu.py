@@ -94,12 +94,12 @@ class W95ExtraWritingMenuTests(unittest.TestCase):
             self.assertIn(label, guide)
         self.assertIn("## Typewriter Mode", guide)
         version = VERSION.read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W100"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W101"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Monolith Decomposition Contract"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Core Composition Boundary and Dependency Enforcement"',
             version,
         )
-        self.assertIn("9a80b266cbdb41b499efdb296ff2a312cf85656f", version)
+        self.assertIn("fb003223643d9da5f81ddaa3f3e0e4a9304f3903", version)
 
 
 if __name__ == "__main__":

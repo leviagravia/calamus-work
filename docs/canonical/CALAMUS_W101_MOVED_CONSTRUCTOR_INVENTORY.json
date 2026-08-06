@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "baseline_commit": "fb003223643d9da5f81ddaa3f3e0e4a9304f3903",
+  "entries": [
+    {"owner": "editor", "symbol": "TextHistory", "destination": "calamus_editor_composition.py"},
+    {"owner": "editor", "symbol": "EditorViewportRuntime", "destination": "calamus_editor_composition.py"},
+    {"owner": "editor", "symbol": "SnapshotHistoryRuntime", "destination": "calamus_editor_composition.py"},
+    {"owner": "editor", "symbol": "TypewriterRuntime", "destination": "calamus_editor_composition.py"},
+    {"owner": "editor", "symbol": "SearchController", "destination": "calamus_editor_composition.py"},
+    {"owner": "navigator", "symbol": "NavigationController", "destination": "calamus_navigator_composition.py"},
+    {"owner": "navigator", "symbol": "LeftPanelHost", "destination": "calamus_navigator_composition.py"},
+    {"owner": "navigator", "symbol": "build_navigator_panel_view", "destination": "calamus_navigator_composition.py"},
+    {"owner": "navigator", "symbol": "NavigatorPanelRuntime", "destination": "calamus_navigator_composition.py"},
+    {"owner": "workspace", "symbol": "WorkspaceController", "destination": "calamus_workspace_composition.py"},
+    {"owner": "workspace", "symbol": "WorkspacePanelView", "destination": "calamus_workspace_composition.py"},
+    {"owner": "workspace", "symbol": "WorkspaceApplicationRuntime", "destination": "calamus_workspace_composition.py"},
+    {"owner": "workspace", "symbol": "WorkspaceGioAdapter", "destination": "calamus_workspace_composition.py"},
+    {"owner": "workspace", "symbol": "WorkspaceMutationController", "destination": "calamus_workspace_composition.py"},
+    {"owner": "workspace", "symbol": "WorkspaceMutationRuntime", "destination": "calamus_workspace_composition.py"},
+    {"owner": "workspace", "symbol": "WorkspacePanelRuntime", "destination": "calamus_workspace_composition.py"},
+    {"owner": "panels", "symbol": "RightPanelHost", "destination": "calamus_clip_composition.py"},
+    {"owner": "clips", "symbol": "build_clip_collection_view", "destination": "calamus_clip_composition.py"},
+    {"owner": "clips", "symbol": "MarkdownClipStore", "destination": "calamus_clip_composition.py"},
+    {"owner": "clips", "symbol": "ClipCollectionController", "destination": "calamus_clip_composition.py"},
+    {"owner": "clips", "symbol": "ClipCollectionRuntime", "destination": "calamus_clip_composition.py"}
+  ]
+}

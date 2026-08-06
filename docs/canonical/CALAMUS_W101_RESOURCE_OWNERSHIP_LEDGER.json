@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "owners": [
+    {"resource": "12 editor Gtk signal handlers", "owner": "EditorInfrastructureComponents.signal_connections", "teardown": "Gtk widget destruction"},
+    {"resource": "viewport GLib sources and signals", "owner": "EditorViewportRuntime", "teardown": "W99 lifecycle viewport owner"},
+    {"resource": "history debounce source", "owner": "SnapshotHistoryRuntime", "teardown": "W99 lifecycle history owner"},
+    {"resource": "typewriter projection state", "owner": "TypewriterRuntime", "teardown": "W99 lifecycle typewriter owner"},
+    {"resource": "Search highlight source", "owner": "SearchController", "teardown": "application-sources lifecycle owner"},
+    {"resource": "Navigator pending cursor source", "owner": "NavigatorPanelRuntime/Navigator view", "teardown": "W99 navigator-panel lifecycle owner"},
+    {"resource": "Workspace view signal handlers", "owner": "WorkspacePanelView", "teardown": "Gtk widget destruction"},
+    {"resource": "Clip view signal handlers", "owner": "ClipCollection view", "teardown": "Gtk widget destruction"},
+    {"resource": "Clip client shutdown", "owner": "ResearchPanelCoordinator", "teardown": "existing W99 research-coordinator lifecycle owner"}
+  ]
+}
