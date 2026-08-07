@@ -4,8 +4,9 @@ import unittest
 import calamus_shortcuts
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
-UI_SOURCE = (ROOT / "calamus" / "calamus_ui.py").read_text(encoding="utf-8")
+UI_SOURCE = legacy_menu_projection()
 BIN_SOURCE = (ROOT / "bin" / "calamus").read_text(encoding="utf-8")
 
 

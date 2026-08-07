@@ -71,7 +71,6 @@ def build_workspace_components(
     panel_runtime = WorkspacePanelRuntime(
         panel_host,
         panel_view,
-        inputs.workspace_menu_item,
         inputs.text_view.grab_focus,
         inputs.on_visibility_changed,
     )

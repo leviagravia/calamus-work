@@ -1,0 +1,9 @@
+W105 ROADMAP RESOLUTION
+
+Current work item: W105 — Menu and UI-State Decoupling.
+Published baseline: 92aa832c6b72cb7a81a5a44c656890ec602d9d41.
+
+W105 owns declarative global application-menu structure, logical command UI-state snapshots, menu check/sensitivity projection, and dynamic global menu row projection.
+W104 command/action identity and execution remain authoritative.
+W106 — Preferences and Application State Extraction is NOT STARTED and remains the next work item only after W105 closes.
+W107+ ownership remains unchanged.

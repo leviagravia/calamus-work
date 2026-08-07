@@ -3,6 +3,7 @@ import unittest
 from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -42,7 +43,7 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
             self.assertIn(f'"{module}"', provenance)
 
     def test_research_is_top_level_between_edit_and_navigate(self):
-        ui = source(UI)
+        ui = legacy_menu_projection()
         self.assertLess(ui.index('top_menu(app, "Edit")'), ui.index('top_menu(app, "Research")'))
         self.assertLess(ui.index('top_menu(app, "Research")'), ui.index('top_menu(app, "Navigate")'))
         self.assertIn('Gtk.CheckMenuItem(label="Research Panel\\tCtrl+Alt+C")', ui)
@@ -53,7 +54,7 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Clip Collection", view_block)
 
     def test_shortcut_now_targets_research_panel_without_duplication(self):
-        ui = source(UI)
+        ui = legacy_menu_projection()
         self.assertIn("command_shortcut_bindings()", ui)
         self.assertTrue(guide_has("Research", "Research Panel", "Ctrl+Alt+C"))
         self.assertFalse(guide_has("View", "Clip Collection", "Ctrl+Alt+C"))

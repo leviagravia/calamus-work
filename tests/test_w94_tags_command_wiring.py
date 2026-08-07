@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 from tests.w104_command_test_support import guide_has
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -14,7 +15,7 @@ class W94TagsCommandWiringTests(unittest.TestCase):
             self.assertIn(f'"{module}"', provenance)
 
     def test_research_menu_and_shortcut_catalog_have_one_tags_command(self):
-        ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertEqual(ui.count('add_item(researchm, "Tags", app.show_tags)'), 1)
         self.assertTrue(guide_has("Research", "Tags", "menu"))
 

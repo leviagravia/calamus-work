@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -20,7 +21,7 @@ def _method_source(name: str) -> str:
 
 class SaveCommandWiringTests(unittest.TestCase):
     def test_visible_save_command_keeps_named_entrypoint(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('add_item(filem, "Save\\tCtrl+S", app.on_save)', ui)
 
     def test_on_save_delegates_to_save_file(self):

@@ -5,41 +5,29 @@ import unittest
 
 from calamus_view_preferences import prepare_text_wrap_plan
 
-
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 
 
-def _method_node(name: str):
+def _methods(*names):
     source = LAUNCHER.read_text(encoding="utf-8")
     tree = ast.parse(source)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            return node
-    raise AssertionError(f"method {name!r} not found")
-
-
-def _compiled_method(name: str, namespace=None):
-    isolated = copy.deepcopy(_method_node(name))
-    module = ast.Module(body=[isolated], type_ignores=[])
+    nodes = []
+    for name in names:
+        node = next((n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == name), None)
+        if node is None:
+            raise AssertionError(f"method {name!r} not found")
+        nodes.append(copy.deepcopy(node))
+    module = ast.Module(body=nodes, type_ignores=[])
     ast.fix_missing_locations(module)
-    scope = dict(namespace or {})
+    scope = {"prepare_text_wrap_plan": prepare_text_wrap_plan}
     exec(compile(module, str(LAUNCHER), "exec"), scope)
-    return scope[name]
+    return tuple(scope[name] for name in names)
 
 
 class _Item:
-    def __init__(self, active):
-        self.active = active
-        self.events = []
-
-    def get_active(self):
-        self.events.append(("get-active", self.active))
-        return self.active
-
-    def set_active(self, value):
-        self.active = value
-        self.events.append(("set-active", value))
+    def __init__(self, active): self.active = active
+    def get_active(self): return self.active
 
 
 class _App:
@@ -48,68 +36,59 @@ class _App:
         self.persist = persist
         self.events = []
         self.errors = []
-
     def save_settings(self, overrides=None):
         self.events.append(("save-settings", dict(overrides or {})))
         return self.persist
-
-    def queue_wrap_reflow(self):
-        self.events.append(("queue-wrap-reflow", self.word_wrap))
-
-    def update_title(self):
-        self.events.append(("update-title", self.word_wrap))
-
-    def error(self, message):
-        self.errors.append(message)
+    def queue_wrap_reflow(self): self.events.append(("queue-wrap-reflow", self.word_wrap))
+    def refresh_ui_state(self): self.events.append(("refresh-ui-state", self.word_wrap))
+    def update_title(self): self.events.append(("update-title", self.word_wrap))
+    def error(self, message): self.errors.append(message)
 
 
 class TextWrapLifecycleTests(unittest.TestCase):
-    def setUp(self):
-        self.callback = _compiled_method(
-            "on_word_wrap",
-            {"prepare_text_wrap_plan": prepare_text_wrap_plan},
-        )
+    @classmethod
+    def setUpClass(cls):
+        set_wrap, on_wrap = _methods("set_word_wrap", "on_word_wrap")
+        cls.set_wrap = staticmethod(set_wrap)
+        cls.on_wrap = staticmethod(on_wrap)
 
-    def test_success_persists_before_runtime_commit_and_apply(self):
+    def test_success_persists_then_commits_reflows_and_projects(self):
         app = _App(enabled=False, persist=True)
-        item = _Item(True)
-        self.assertTrue(self.callback(app, item))
+        self.assertTrue(self.set_wrap(app, True))
         self.assertTrue(app.word_wrap)
-        self.assertEqual(
-            app.events,
-            [
-                ("save-settings", {"word_wrap": True}),
-                ("queue-wrap-reflow", True),
-                ("update-title", True),
-            ],
-        )
+        self.assertEqual(app.events, [
+            ("save-settings", {"word_wrap": True}),
+            ("queue-wrap-reflow", True),
+            ("refresh-ui-state", True),
+            ("update-title", True),
+        ])
         self.assertEqual(app.errors, [])
 
-    def test_persistence_failure_rolls_back_menu_and_runtime(self):
+    def test_persistence_failure_keeps_logical_state_and_reprojects(self):
         app = _App(enabled=False, persist=False)
-        item = _Item(True)
-        self.assertFalse(self.callback(app, item))
+        self.assertFalse(self.set_wrap(app, True))
         self.assertFalse(app.word_wrap)
-        self.assertEqual(app.events, [("save-settings", {"word_wrap": True})])
-        self.assertEqual(item.events[-1], ("set-active", False))
+        self.assertEqual(app.events, [
+            ("save-settings", {"word_wrap": True}),
+            ("refresh-ui-state", False),
+        ])
         self.assertEqual(app.errors, ["Could not save the Word Wrap preference."])
-        self.assertFalse(getattr(app, "_syncing_word_wrap_item", False))
 
-    def test_noop_does_not_persist_or_reapply(self):
+    def test_noop_only_reprojects(self):
         app = _App(enabled=True, persist=True)
-        item = _Item(True)
-        self.assertFalse(self.callback(app, item))
-        self.assertEqual(app.events, [])
-        self.assertEqual(app.errors, [])
+        self.assertFalse(self.set_wrap(app, True))
+        self.assertEqual(app.events, [("refresh-ui-state", True)])
 
-    def test_sync_guard_ignores_programmatic_rollback_signal(self):
+    def test_menu_input_is_only_requested_boolean(self):
         app = _App(enabled=False, persist=True)
-        app._syncing_word_wrap_item = True
-        item = _Item(True)
-        self.assertFalse(self.callback(app, item))
-        self.assertEqual(app.events, [])
-        self.assertFalse(app.word_wrap)
+        app.set_word_wrap = lambda requested: self.set_wrap(app, requested)
+        self.assertTrue(self.on_wrap(app, _Item(True)))
+        self.assertTrue(app.word_wrap)
+
+    def test_no_menu_sync_guard_or_widget_rollback_remains(self):
+        source = LAUNCHER.read_text(encoding="utf-8")
+        self.assertNotIn("_syncing_word_wrap_item", source)
+        self.assertNotIn("word_wrap_item.set_active", source)
 
 
-if __name__ == "__main__":
-    unittest.main()
+if __name__ == "__main__": unittest.main()

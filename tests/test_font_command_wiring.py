@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -20,7 +21,7 @@ def _method_source(name: str) -> str:
 
 class FontCommandWiringTests(unittest.TestCase):
     def test_visible_font_command_and_shortcut_are_unchanged(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('add_item(optm, "Font…\\tCtrl+Shift+F", app.on_font)', ui)
         self.assertIn("command_shortcut_bindings()", ui)
 
@@ -89,7 +90,7 @@ class FontCommandWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, method)
 
     def test_other_options_are_not_recomposed(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('optm = top_menu(app, "Options")', ui)
         self.assertIn('Gtk.CheckMenuItem(label="White Background")', ui)
         self.assertIn('Gtk.CheckMenuItem(label="Dark Mode")', ui)

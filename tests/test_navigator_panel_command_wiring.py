@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 SHORTCUTS = ROOT / "calamus" / "calamus_shortcuts.py"
+MENU_MODEL = ROOT / "calamus" / "calamus_menu_model.py"
 HOST = ROOT / "calamus" / "calamus_navigator_panel.py"
 VIEW = ROOT / "calamus" / "calamus_navigator_panel_view.py"
 CHROME = ROOT / "calamus" / "calamus_panel_chrome.py"
@@ -44,9 +45,9 @@ class NavigatorPanelCommandWiringTests(unittest.TestCase):
         self.assertNotIn("build_document_structure", VIEW.read_text(encoding="utf-8"))
 
     def test_navigate_menu_exposes_checkable_panel_before_commands(self):
-        source = function_source(UI, "build_menu")
-        block = source[source.index('navigatem = top_menu(app, "Navigate")'):source.index('revisem = top_menu(app, "Revise")')]
-        self.assertIn('Gtk.CheckMenuItem(label="Navigator Panel\\tCtrl+Alt+N")', block)
+        source = MENU_MODEL.read_text(encoding="utf-8")
+        block = source[source.index('MenuSpec("Navigate"'):source.index('MenuSpec("Writing"')]
+        self.assertIn('navigate.navigator-panel', block)
         self.assertLess(block.index("Navigator Panel"), block.index("Go to Line"))
         self.assertTrue(guide_has("Navigate", "Navigator Panel", "Ctrl+Alt+N"))
         self.assertIn("command_shortcut_bindings()", UI.read_text(encoding="utf-8"))
@@ -82,20 +83,22 @@ class NavigatorPanelCommandWiringTests(unittest.TestCase):
         self.assertNotIn("plugin", source.lower())
 
     def test_one_visibility_runtime_serves_menu_shortcut_and_x(self):
-        source = LAUNCHER.read_text(encoding="utf-8")
         composition = (ROOT / "calamus/calamus_navigator_composition.py").read_text(encoding="utf-8")
         self.assertEqual(composition.count("NavigatorPanelRuntime("), 1)
         toggle = function_source(LAUNCHER, "toggle_navigator_panel")
         hide = function_source(LAUNCHER, "hide_navigator_panel")
         toggled = function_source(LAUNCHER, "on_navigator_item_toggled")
+        visibility = function_source(LAUNCHER, "on_navigator_visibility_changed")
         self.assertIn("self.navigator_panel_runtime.toggle()", toggle)
         self.assertIn("self.navigator_panel_runtime.hide()", hide)
-        self.assertIn("self.navigator_panel_runtime.on_menu_toggled(item)", toggled)
+        self.assertIn("self.navigator_panel_runtime.set_visible(bool(item.get_active()))", toggled)
+        self.assertIn("self.refresh_ui_state()", visibility)
         host_source = HOST.read_text(encoding="utf-8")
         self.assertIn("class NavigatorPanelRuntime", host_source)
         self.assertIn("self._host.show()", host_source)
         self.assertIn("self._host.hide()", host_source)
-        self.assertIn("self._sync_menu(target)", host_source)
+        self.assertIn("self._on_visibility_changed(bool(visible))", host_source)
+        self.assertNotIn("_sync_menu", host_source)
 
     def test_buffer_and_cursor_hooks_remain_thin(self):
         changed = function_source(LAUNCHER, "on_changed")

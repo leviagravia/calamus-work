@@ -87,13 +87,12 @@ def compose_core_application_components(
             text_view=app.text,
             workspace_paned=app.workspace_paned,
             queue_wrap_reflow=app.queue_wrap_reflow,
-            navigator_menu_item=app.navigator_item,
+            on_visibility_changed=app.on_navigator_visibility_changed,
         )
     )
     workspace_input = WorkspaceCompositionInput(
         left_panel_host=navigator.left_panel_host,
         state=app.state,
-        workspace_menu_item=app.workspace_item,
         text_view=app.text,
         workspace_root=app.workspace_root,
         workspace_visible=app.workspace_visible,

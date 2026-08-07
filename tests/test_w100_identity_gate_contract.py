@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 W100_BASELINE = "9a80b266cbdb41b499efdb296ff2a312cf85656f"
 W101_BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
 W102_BASELINE = "17b409a05f356477173b2bdd348a67a4cf01f43c"
-W104_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"
+W104_BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"
 
 
 class W100IdentityGateContractTests(unittest.TestCase):
@@ -21,14 +21,14 @@ class W100IdentityGateContractTests(unittest.TestCase):
         ):
             self.assertIn(token, historical)
         current = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', current)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"', current)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', current)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"', current)
         self.assertIn(f'PUBLISHED_BASELINE = "{W104_BASELINE}"', current)
 
     def test_release_manifest_owns_w100_profiles_and_w99_identity_is_not_release_gate(self):
         data = json.loads((ROOT / "tests/calamus_release_test_profiles.json").read_text(encoding="utf-8"))
         self.assertEqual(data["published_baseline"], W104_BASELINE)
-        self.assertIn("W104", data["lineage"])
+        self.assertIn("W105", data["lineage"])
         self.assertTrue(data["profiles"]["w100-headless-focused"]["release_gate"])
         self.assertFalse(data["profiles"]["w100-identity-smoke"]["release_gate"])
         self.assertFalse(data["profiles"]["w99-identity-smoke"]["release_gate"])
@@ -48,6 +48,7 @@ class W100IdentityGateContractTests(unittest.TestCase):
         self.assertIn('"CALAMUS_W101_"', text)
         self.assertIn('"CALAMUS_W102_"', text)
         self.assertIn('"CALAMUS_W104_"', text)
+        self.assertIn('"CALAMUS_W105_"', text)
         self.assertIn(W104_BASELINE, text)
 
 

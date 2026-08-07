@@ -5,6 +5,7 @@ import sys
 import unittest
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -30,7 +31,7 @@ def app_methods():
 
 class SmartTypographyLayerWiringTests(unittest.TestCase):
     def test_command_is_visible_in_revise_menu_and_not_lambda_wired(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('add_item(revisem, "Smart Typography\\tCtrl+Alt+M", app.on_smart_typography)', ui)
         self.assertIn("command_shortcut_bindings()", ui)
         self.assertNotIn('app.apply_text_transform(smart_typography, "Smart Typography")', ui)

@@ -198,30 +198,36 @@ class NavigatorPanelRuntimeTests(unittest.TestCase):
     def test_one_runtime_owns_visibility_menu_and_focus(self):
         host = FakeRuntimeHost()
         view = FakeRuntimeView()
-        item = FakeMenuItem()
         focus = []
-        runtime = NavigatorPanelRuntime(host, view, item, lambda: focus.append(True))
+        visibility = []
+        runtime = NavigatorPanelRuntime(
+            host, view, lambda: focus.append(True),
+            on_visibility_changed=visibility.append,
+        )
         self.assertTrue(runtime.toggle())
         self.assertTrue(host.is_visible)
-        self.assertTrue(item.active)
+        self.assertEqual(visibility, [True])
         self.assertEqual(view.calls, ["refresh", "sync", "filter"])
         self.assertFalse(runtime.hide())
         self.assertFalse(host.is_visible)
-        self.assertFalse(item.active)
+        self.assertEqual(visibility, [True, False])
         self.assertEqual(view.calls[-1], "cancel")
         self.assertEqual(focus, [True])
 
     def test_menu_toggled_uses_same_runtime_gateway(self):
         host = FakeRuntimeHost()
         view = FakeRuntimeView()
-        item = FakeMenuItem()
-        runtime = NavigatorPanelRuntime(host, view, item, lambda: None)
-        item.active = True
-        runtime.on_menu_toggled(item)
+        visibility = []
+        runtime = NavigatorPanelRuntime(
+            host, view, lambda: None,
+            on_visibility_changed=visibility.append,
+        )
+        self.assertTrue(runtime.set_visible(True))
         self.assertTrue(runtime.is_visible)
-        item.active = False
-        runtime.on_menu_toggled(item)
+        self.assertFalse(runtime.set_visible(False))
         self.assertFalse(runtime.is_visible)
+        self.assertEqual(visibility, [True, False])
+        self.assertFalse(hasattr(runtime, "on_menu_toggled"))
 
 
 if __name__ == "__main__":

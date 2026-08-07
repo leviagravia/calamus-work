@@ -13,9 +13,9 @@ class W103EditorTransactionContractTests(unittest.TestCase):
         source = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         contract = (ROOT / "docs/canonical/CALAMUS_W103_EDITOR_TRANSACTION_CONTRACT.md").read_text(encoding="utf-8")
         self.assertIn(BASELINE, contract)
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', source)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"', source)
-        self.assertIn('PUBLISHED_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"', source)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', source)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"', source)
+        self.assertIn('PUBLISHED_BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"', source)
 
     def test_transaction_controller_is_gtk_free(self):
         source = (ROOT / "calamus/calamus_editor_transaction.py").read_text(encoding="utf-8")

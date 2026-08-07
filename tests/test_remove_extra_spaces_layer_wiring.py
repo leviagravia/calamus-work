@@ -5,6 +5,7 @@ import sys
 import unittest
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -47,7 +48,7 @@ def app_methods():
 
 class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
     def test_command_is_visible_and_uses_explicit_entrypoint(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn(
             'add_item(revisem, "Remove Extra Spaces", app.on_remove_extra_spaces)',
             ui,

@@ -15,7 +15,7 @@ class W102DocumentSessionContractTests(unittest.TestCase):
         self.assertIn("W102 Document Session Extraction", contract)
         self.assertIn(BASELINE, contract)
         self.assertNotIn('DEVELOPMENT_WORK_ITEM = "W102"', current)
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', current)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', current)
 
     def test_session_modules_are_provenance_tracked(self):
         provenance = (ROOT / "scripts/prove-source-provenance.sh").read_text(encoding="utf-8")

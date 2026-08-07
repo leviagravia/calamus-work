@@ -40,19 +40,17 @@ def on_text_focus_out(app, widget, event):
 
 def on_typewriter_state_changed(app, enabled):
     app.typewriter_mode = bool(enabled)
-    item = getattr(app, "typewriter_item", None)
-    if item is not None and item.get_active() != app.typewriter_mode:
-        app._syncing_typewriter_item = True
-        try:
-            item.set_active(app.typewriter_mode)
-        finally:
-            app._syncing_typewriter_item = False
+    refresh = getattr(app, "refresh_ui_state", None)
+    if callable(refresh):
+        refresh()
     app.update_title()
 
 
 def on_typewriter_item_toggled(app, item):
-    if not app._syncing_typewriter_item:
-        app.typewriter_runtime.set_enabled(item.get_active())
+    requested = bool(item.get_active())
+    if requested == bool(app.typewriter_runtime.enabled):
+        return app.typewriter_runtime.enabled
+    return app.typewriter_runtime.set_enabled(requested)
 
 
 def toggle_typewriter_mode(app, *_args):

@@ -32,7 +32,7 @@ from calamus_command_registry import (  # noqa: E402
     CommandSpec,
 )
 
-BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"
+BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"
 EXPECTED_LOW_RISK = {
     "edit.lowercase", "edit.uppercase", "writing.clean-pdf",
     "writing.insert-date-time", "writing.join-lines", "writing.reflow-paragraph",
@@ -48,11 +48,11 @@ class _FakeApp:
 
 
 class W104CommandActionContractTests(unittest.TestCase):
-    def test_identity_is_exact_w104(self):
+    def test_w104_is_preserved_under_current_w105_identity(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         self.assertIn('DEVELOPMENT_BUILD_LABEL = "Development build"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"', version)
         self.assertIn(f'PUBLISHED_BASELINE = "{BASELINE}"', version)
 
     def test_catalog_is_single_stable_identity_authority(self):
@@ -142,10 +142,13 @@ class W104CommandActionContractTests(unittest.TestCase):
 
     def test_menu_and_check_callbacks_use_stable_command_identity(self):
         ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
-        self.assertIn("command_target_for_callback(callback)", ui)
-        self.assertIn("app.invoke_command(command_id, source=\"menu\", data=data)", ui)
-        self.assertIn("invoke_check_command", ui)
+        model = (ROOT / "calamus/calamus_menu_model.py").read_text(encoding="utf-8")
+        self.assertIn("class MenuGtkAdapter", ui)
+        self.assertIn("self._invoke_command(", ui)
+        self.assertIn('source="menu"', ui)
+        self.assertIn('data={"active": bool(widget.get_active())}', ui)
         self.assertIn("command_shortcut_bindings()", ui)
+        self.assertIn('MenuCommandSpec(command_id, label, kind="check")', model)
         self.assertNotIn("app.on_new()),", ui)
         self.assertEqual(set(CHECK_COMMAND_IDS.values()), {
             "options.appearance.dark", "options.line-numbers", "navigate.navigator-panel",
@@ -160,16 +163,14 @@ class W104CommandActionContractTests(unittest.TestCase):
             self.assertIn(callback, APPLICATION_METHOD_TARGETS)
 
     def test_parameterized_dynamic_families_use_one_id_plus_payload(self):
-        launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
-        ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
+        model = (ROOT / "calamus/calamus_menu_model.py").read_text(encoding="utf-8")
         application = (ROOT / "calamus/calamus_application_commands.py").read_text(encoding="utf-8")
         for command_id in (
             "file.template.open", "file.recent.open", "file.favourite.open",
-            "file.workspace.recent.open",
+            "file.workspace.recent.open", "options.opacity.set",
+            "options.font-size.adjust",
         ):
-            self.assertIn(command_id, launcher)
-        self.assertIn('"options.opacity.set"', ui)
-        self.assertIn('"options.font-size.adjust"', ui)
+            self.assertIn(command_id, model)
         self.assertIn("research.insert-clip-slot", application)
         self.assertIn("edit.move-line", application)
         self.assertIn("writing.sort-lines", application)
@@ -188,7 +189,7 @@ class W104CommandActionContractTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "bug"):
             layer.dispatch("test.bug")
 
-    def test_w105_scope_is_not_implemented(self):
+    def test_w105_extends_but_does_not_replace_w104_command_core(self):
         combined = "\n".join(
             (ROOT / rel).read_text(encoding="utf-8")
             for rel in (
@@ -198,11 +199,11 @@ class W104CommandActionContractTests(unittest.TestCase):
                 "calamus/calamus_application_commands.py",
             )
         )
-        for forbidden in (
-            "MenuStateRegistry", "UiStateRegistry", "UIStateRegistry",
-            "sensitivity_registry", "check_state_registry", "declarative_menu_model",
-        ):
-            self.assertNotIn(forbidden, combined)
+        self.assertNotIn("Gtk.", combined)
+        self.assertNotIn("MenuGtkAdapter", combined)
+        self.assertIn("class CommandAvailability", combined)
+        state = (ROOT / "calamus/calamus_ui_state.py").read_text(encoding="utf-8")
+        self.assertIn("self._availability.set_enabled(command_id, state.enabled)", state)
 
 
 if __name__ == "__main__":

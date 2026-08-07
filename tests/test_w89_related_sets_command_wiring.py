@@ -5,13 +5,14 @@ from tests.w104_command_test_support import guide_has
 from calamus_help import load_user_guide, parse_user_guide_sections
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class W89RelatedSetsCommandWiringTests(unittest.TestCase):
     def test_research_menu_and_app_register_reference_sets(self):
         app = (ROOT / "bin/calamus").read_text(encoding="utf-8")
-        ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         for required in (
             "ReferenceSetRuntime",
             "self.reference_set_runtime",

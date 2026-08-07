@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W104 Command and Action Architecture Candidate R1",
-  "published_baseline": "ca1a9774085d81d087f7a257dbffbbaa858a3889",
+  "lineage": "W105 Menu and UI-State Decoupling Candidate R1",
+  "published_baseline": "92aa832c6b72cb7a81a5a44c656890ec602d9d41",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -26,11 +26,11 @@
         "tests.test_appearance_command_wiring.AppearanceCommandWiringTests.test_settings_write_canonical_state_not_menu_state",
         "tests.test_appearance_command_wiring.AppearanceCommandWiringTests.test_startup_has_one_typed_appearance_authority",
         "tests.test_appearance_command_wiring.AppearanceCommandWiringTests.test_visible_commands_remain_in_options_without_cosmetic_recomposition",
-        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_invalid_request_rolls_back_and_reports_error",
-        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_noop_does_not_persist_or_render",
-        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_persistence_failure_rolls_back_both_menu_items_and_runtime",
-        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_success_persists_before_runtime_commit_and_apply",
-        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_sync_controls_maps_all_three_modes",
+        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_invalid_request_reprojects_and_reports",
+        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_noop_only_reprojects",
+        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_persistence_failure_keeps_runtime_and_reprojects",
+        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_success_persists_commits_projects_then_applies",
+        "tests.test_appearance_lifecycle.AppearanceLifecycleTests.test_sync_controls_projects_all_modes_without_widgets",
         "tests.test_appearance_preferences.AppearancePreferenceTests.test_legacy_impossible_true_true_state_preserves_w64_light_precedence",
         "tests.test_appearance_preferences.AppearancePreferenceTests.test_loader_defaults_and_requires_mapping",
         "tests.test_appearance_preferences.AppearancePreferenceTests.test_loader_migrates_each_legacy_state",
@@ -377,13 +377,12 @@
         "tests.test_favorite_reload_command_wiring.FavoriteReloadCommandWiringTests.test_reload_does_not_mutate_favorites_store_or_document_state",
         "tests.test_favorite_reload_command_wiring.FavoriteReloadCommandWiringTests.test_reload_is_a_compatibility_callback_not_a_new_domain_plan",
         "tests.test_favorite_reload_command_wiring.FavoriteReloadCommandWiringTests.test_visible_menu_and_shortcut_remain_unchanged",
-        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_dynamic_item_activation_uses_favorite_gateway",
-        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_empty_view_has_one_owned_disabled_placeholder",
-        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_first_population_preserves_all_existing_fixed_children",
-        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_missing_menu_is_a_safe_empty_result",
+        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_empty_projection_is_one_disabled_placeholder",
+        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_population_delegates_one_complete_snapshot_to_owned_adapter_slot",
+        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_population_without_adapter_still_returns_current_data",
+        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_projection_uses_stable_command_payload_and_tooltip",
         "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_reload_does_not_touch_document_undo_or_persistence",
-        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_repeated_refresh_has_no_dynamic_duplicates",
-        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_repopulation_removes_only_previously_owned_dynamic_items",
+        "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_repeated_population_replaces_by_slot_without_app_owned_widget_list",
         "tests.test_favorite_reload_lifecycle.FavoriteReloadLifecycleTests.test_visible_reload_delegates_once_and_returns_true",
         "tests.test_favorites_file_menu_invariants.FavoritesFileMenuInvariantTests.test_bookmarks_keep_callbacks_but_move_to_navigate_in_w95extra",
         "tests.test_favorites_file_menu_invariants.FavoritesFileMenuInvariantTests.test_domain_callbacks_do_not_depend_on_menu_parentage",
@@ -515,15 +514,13 @@
         "tests.test_line_number_command_wiring.LineNumberCommandWiringTests.test_startup_uses_one_typed_line_number_authority",
         "tests.test_line_number_command_wiring.LineNumberCommandWiringTests.test_visible_command_and_shortcut_are_unchanged",
         "tests.test_line_number_command_wiring.LineNumberCommandWiringTests.test_white_and_dark_palettes_style_only_the_drawing_gutter",
-        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_adapter_failure_restores_persistence_runtime_and_control",
-        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_forced_refresh_reapplies_the_mapped_gutter",
-        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_invalid_request_rolls_back_control_and_reports_error",
-        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_noop_refreshes_view_without_persisting",
-        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_persistence_failure_rolls_back_control_and_runtime",
-        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_refresh_force_flag_must_be_boolean",
-        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_refresh_is_safe_without_gutter_and_uses_canonical_state",
-        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_success_persists_then_renders_before_runtime_commit",
-        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_sync_control_uses_guard_and_restores_it",
+        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_adapter_failure_restores_persistence_and_runtime_then_reprojects",
+        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_invalid_request_reprojects_and_reports",
+        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_noop_refreshes_gutter_and_ui_without_persisting",
+        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_persistence_failure_keeps_state_and_reprojects",
+        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_refresh_is_safe_and_force_is_boolean",
+        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_success_persists_renders_commits_then_projects",
+        "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_sync_control_is_now_ui_state_projection_only",
         "tests.test_line_number_preferences.LineNumberPreferenceTests.test_line_number_text_is_logical_one_based_and_handles_empty_document",
         "tests.test_line_number_preferences.LineNumberPreferenceTests.test_line_number_text_rejects_invalid_counts",
         "tests.test_line_number_preferences.LineNumberPreferenceTests.test_loader_accepts_legacy_boolean_and_zero_one",
@@ -645,12 +642,12 @@
         "tests.test_opacity_command_wiring.OpacityCommandWiringTests.test_startup_has_one_typed_opacity_authority",
         "tests.test_opacity_command_wiring.OpacityCommandWiringTests.test_transparent_callback_is_thin_and_document_independent",
         "tests.test_opacity_command_wiring.OpacityCommandWiringTests.test_visible_command_and_fixed_values_share_gateway",
-        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_adapter_failure_restores_persistence_runtime_and_control",
-        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_invalid_request_rolls_back_control_and_reports_error",
-        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_noop_does_not_persist_or_apply",
-        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_persistence_failure_rolls_back_control_and_runtime",
-        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_success_persists_then_applies_before_runtime_commit",
-        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_sync_control_maps_canonical_percent",
+        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_adapter_failure_restores_persistence_runtime_and_projects",
+        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_invalid_request_reprojects_and_reports",
+        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_noop_only_reprojects",
+        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_persistence_failure_keeps_runtime_and_reprojects",
+        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_success_persists_applies_commits_then_projects",
+        "tests.test_opacity_lifecycle.OpacityLifecycleTests.test_sync_transparent_control_is_projection_only",
         "tests.test_opacity_preferences.OpacityPreferenceTests.test_loader_defaults_and_requires_mapping",
         "tests.test_opacity_preferences.OpacityPreferenceTests.test_loader_preserves_legacy_numeric_inputs_and_clamps",
         "tests.test_opacity_preferences.OpacityPreferenceTests.test_malformed_and_boolean_values_use_default",
@@ -1163,10 +1160,11 @@
         "tests.test_text_wrap_command_wiring.TextWrapCommandWiringTests.test_save_settings_now_reports_persistence_and_updates_snapshot_on_success",
         "tests.test_text_wrap_command_wiring.TextWrapCommandWiringTests.test_startup_uses_typed_loader_not_python_truthiness",
         "tests.test_text_wrap_command_wiring.TextWrapCommandWiringTests.test_visible_command_and_shortcut_remain_single_named_entrypoint",
-        "tests.test_text_wrap_lifecycle.TextWrapLifecycleTests.test_noop_does_not_persist_or_reapply",
-        "tests.test_text_wrap_lifecycle.TextWrapLifecycleTests.test_persistence_failure_rolls_back_menu_and_runtime",
-        "tests.test_text_wrap_lifecycle.TextWrapLifecycleTests.test_success_persists_before_runtime_commit_and_apply",
-        "tests.test_text_wrap_lifecycle.TextWrapLifecycleTests.test_sync_guard_ignores_programmatic_rollback_signal",
+        "tests.test_text_wrap_lifecycle.TextWrapLifecycleTests.test_menu_input_is_only_requested_boolean",
+        "tests.test_text_wrap_lifecycle.TextWrapLifecycleTests.test_no_menu_sync_guard_or_widget_rollback_remains",
+        "tests.test_text_wrap_lifecycle.TextWrapLifecycleTests.test_noop_only_reprojects",
+        "tests.test_text_wrap_lifecycle.TextWrapLifecycleTests.test_persistence_failure_keeps_logical_state_and_reprojects",
+        "tests.test_text_wrap_lifecycle.TextWrapLifecycleTests.test_success_persists_then_commits_reflows_and_projects",
         "tests.test_text_wrap_preferences.TextWrapPreferenceTests.test_loader_accepts_real_booleans_and_legacy_zero_one",
         "tests.test_text_wrap_preferences.TextWrapPreferenceTests.test_loader_rejects_truthy_strings_and_uses_default",
         "tests.test_text_wrap_preferences.TextWrapPreferenceTests.test_loader_requires_mapping_when_explicit_value_is_supplied",
@@ -1924,10 +1922,10 @@
         "tests.test_w97_bibliography_manual_fixture.W97BibliographyManualFixtureTests.test_package_entry_point_builds_complete_isolated_fixture",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_core_contract_freezes_single_authority_and_existing_client",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_core_excludes_full_and_forbidden_infrastructure",
-        "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_full_is_deferred_and_w98_core_is_allowed",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_domain_projection_is_gtk_free_and_provenance_tracked",
-        "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_mature_audit_has_all_seven_sources_and_decision_matrix",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_exact_failure_correction_is_canonical",
+        "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_full_is_deferred_and_w98_core_is_allowed",
+        "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_mature_audit_has_all_seven_sources_and_decision_matrix",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_rebuild_contract_owns_explicit_coalescing_selection_and_wait_oracle",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_search_model_source_barriers_are_executable",
         "tests.test_w97_bibliography_program.W97BibliographyProgramTests.test_simple_export_is_runtime_owned_and_app_is_thin",
@@ -1939,11 +1937,11 @@
         "tests.test_w97_bibliography_view_lifecycle.W97BibliographyViewLifecycleTests.test_row_replacement_is_one_selection_silent_transaction",
         "tests.test_w97_bibliography_view_lifecycle.W97BibliographyViewLifecycleTests.test_selection_binding_is_single_owner",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_app_remains_composition_only",
-        "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_w97_core_is_preserved_under_current_w98_identity",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_panel_has_core_list_detail_filters_and_actions",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_research_panel_renames_existing_client_without_second_manager",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_runtime_owns_duplicate_safe_delete_file_actions_and_context",
         "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_single_canonical_authority_and_existing_controller_are_reused",
+        "tests.test_w97_bibliography_wiring.W97BibliographyWiringTests.test_w97_core_is_preserved_under_current_w98_identity",
         "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95_historical_gate_is_not_bound_to_current_identity",
         "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95extra_functional_gate_remains_present",
         "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_current_identity_gate_is_exact",
@@ -2000,6 +1998,11 @@
         "CALAMUS_RELEASE_PROFILE": "w98-headless-focused"
       },
       "test_ids": [
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95_historical_gate_is_not_bound_to_current_identity",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95extra_functional_gate_remains_present",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w97_functional_product_gate_remains_historical",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_current_identity_gate_is_exact",
+        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_identity_runs_before_w98_product_gate",
         "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_active_refreshes_once_and_hidden_refreshes_once_on_activation",
         "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_document_content_is_coalesced_and_identity_cancels_pending",
         "tests.test_w98_research_panel_coordination.W98ResearchPanelCoordinatorTests.test_rejects_dynamic_or_incomplete_registration",
@@ -2008,12 +2011,7 @@
         "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_contract_freezes_core_only_coordinator_and_seven_clients",
         "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_coordinator_is_gtk_free_and_app_uses_one_context_gateway",
         "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_forbidden_infrastructure_absent",
-        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_program_removes_old_full_before_w98_gate",
-        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95_historical_gate_is_not_bound_to_current_identity",
-        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_current_identity_gate_is_exact",
-        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w98_identity_runs_before_w98_product_gate",
-        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w97_functional_product_gate_remains_historical",
-        "tests.test_w97_identity_gate_contract.W98IdentityGateContractTests.test_w95extra_functional_gate_remains_present"
+        "tests.test_w98_research_panel_program.W98ResearchPanelProgramTests.test_program_removes_old_full_before_w98_gate"
       ]
     },
     "w98-identity-smoke": {
@@ -2083,12 +2081,12 @@
         "tests.test_w99_application_lifecycle.W99ApplicationLifecycleWiringTests.test_close_gateway_uses_only_central_lifecycle_authority",
         "tests.test_w99_application_lifecycle.W99ApplicationLifecycleWiringTests.test_launcher_registers_the_complete_fixed_owner_inventory",
         "tests.test_w99_application_lifecycle.W99ResearchShutdownTests.test_research_shutdown_is_failure_complete_and_idempotent",
+        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_contract_freezes_scope_owner_inventory_and_mature_decisions",
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_every_glib_source_has_an_explicit_cancellation_owner",
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_lifecycle_coordinator_is_gtk_free",
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_concrete_ui_or_gio_boundaries",
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_pure_roles_do_not_import_gi_or_gtk",
         "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_workspace_mutation_depends_on_injected_protocol_not_gio",
-        "tests.test_w99_gtk_free_architecture.W99GtkFreeArchitectureTests.test_contract_freezes_scope_owner_inventory_and_mature_decisions",
         "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_identity_oracle_is_preserved_but_not_a_current_release_gate",
         "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_lifecycle_remains_a_historical_release_gate",
         "tests.test_w99_identity_gate_contract.W99IdentityGateContractTests.test_w99_script_retains_historical_lane_order"
@@ -2142,18 +2140,18 @@
       },
       "test_ids": [
         "tests.test_runtime_identity_working_copy.RuntimeIdentityWorkingCopyTests.test_development_identity_constants_are_exact",
+        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_current_identity_is_exact",
+        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_gtk_lane_runs_current_identity_then_historical_lifecycle",
+        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_release_manifest_owns_w100_profiles_and_w99_identity_is_not_release_gate",
+        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_release_runner_scrubs_w100_flags",
         "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_baseline_metrics_are_exact_and_growth_is_blocked",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_contract_forbids_false_decomposition_mechanisms",
         "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_every_app_method_is_assigned_once",
         "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_every_assigned_app_attribute_is_assigned_once",
-        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_whole_app_coupling_inventory_is_exact",
-        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_roadmap_is_exact_and_feature_work_is_deferred",
-        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_contract_forbids_false_decomposition_mechanisms",
         "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_mature_source_audit_records_exact_sources_and_decisions",
         "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_no_product_or_launcher_behavior_was_changed_by_w100",
-        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_current_identity_is_exact",
-        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_release_manifest_owns_w100_profiles_and_w99_identity_is_not_release_gate",
-        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_gtk_lane_runs_current_identity_then_historical_lifecycle",
-        "tests.test_w100_identity_gate_contract.W100IdentityGateContractTests.test_release_runner_scrubs_w100_flags"
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_roadmap_is_exact_and_feature_work_is_deferred",
+        "tests.test_w100_monolith_decomposition_contract.W100MonolithDecompositionContractTests.test_whole_app_coupling_inventory_is_exact"
       ]
     },
     "w100-identity-smoke": {
@@ -2201,15 +2199,15 @@
         "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_root_import_direction_is_closed_and_builders_are_local",
         "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_static_compatibility_aliases_match_the_w111_ledger",
         "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_structural_budgets_are_exact_and_w100_is_strictly_reduced",
-        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_isolated_paths_and_fixture_match_the_actual_resolver",
-        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_production_resolver_remains_home_dot_config_without_xdg_migration",
-        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_snapshot_tree_is_read_only_and_change_sensitive",
-        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_true_app_gate_enforces_config_dir_and_real_tree_integrity",
         "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_current_identity_is_exact",
         "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_gtk_lane_order_is_current_then_product_then_historical_lifecycle",
         "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_headless_lane_runs_current_then_w100_w99_and_w98",
         "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_release_manifest_owns_current_profiles_and_historical_identity_is_not_release",
-        "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_release_runner_scrubs_w101_flags_and_requires_current_baseline"
+        "tests.test_w101_identity_gate_contract.W101IdentityGateContractTests.test_release_runner_scrubs_w101_flags_and_requires_current_baseline",
+        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_isolated_paths_and_fixture_match_the_actual_resolver",
+        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_production_resolver_remains_home_dot_config_without_xdg_migration",
+        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_snapshot_tree_is_read_only_and_change_sensitive",
+        "tests.test_w101_isolation_contract.W101IsolationContractTests.test_true_app_gate_enforces_config_dir_and_real_tree_integrity"
       ]
     },
     "w101-identity-smoke": {
@@ -2405,18 +2403,18 @@
         "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_catalog_is_single_stable_identity_authority",
         "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_command_core_is_gtk_free",
         "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_context_has_no_whole_app_or_service_bag",
-        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_identity_is_exact_w104",
         "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_menu_and_check_callbacks_use_stable_command_identity",
         "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_metadata_execution_and_availability_are_separate",
         "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_only_classified_input_failures_are_absorbed",
         "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_parameterized_dynamic_families_use_one_id_plus_payload",
         "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_shortcuts_and_guide_are_catalog_projections",
-        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_w105_scope_is_not_implemented"
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_w104_is_preserved_under_current_w105_identity",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_w105_extends_but_does_not_replace_w104_command_core"
       ]
     },
     "w104-identity-smoke": {
       "kind": "unittest",
-      "release_gate": true,
+      "release_gate": false,
       "zero_skips": true,
       "capabilities": [
         "gtk-display"
@@ -2444,6 +2442,73 @@
       "unset_env": [],
       "test_ids": [
         "tests.test_w104_command_action_app_desktop_e2e.W104CommandActionRealAppE2E.test_true_app_stable_dispatch_parameterization_and_normal_close"
+      ]
+    },
+    "w105-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w105-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_w105_menu_ui_state.W105MenuUiStateTests.test_controller_drives_availability_and_projector_from_same_snapshot",
+        "tests.test_w105_menu_ui_state.W105MenuUiStateTests.test_dynamic_row_builders_are_immutable_parameterized_projections",
+        "tests.test_w105_menu_ui_state.W105MenuUiStateTests.test_late_projector_binding_replays_current_snapshot_once",
+        "tests.test_w105_menu_ui_state.W105MenuUiStateTests.test_menu_model_is_exact_and_catalog_backed",
+        "tests.test_w105_menu_ui_state.W105MenuUiStateTests.test_snapshot_requires_typed_state_values",
+        "tests.test_w105_menu_ui_state.W105MenuUiStateTests.test_ui_state_facts_validate_nonpresentation_domain",
+        "tests.test_w105_menu_ui_state.W105MenuUiStateTests.test_ui_state_snapshot_derives_exact_checked_and_workspace_availability",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_contract_freezes_exact_check_ids",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_dynamic_application_menus_are_row_projection_only",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_gateways_do_not_reach_through_to_menu_widgets",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_global_menu_widgets_are_owned_only_by_menu_gtk_adapter",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_global_state_projection_is_not_duplicated_outside_ui_adapter",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_identity_is_exact_w105",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_panel_runtime_composition_has_no_menu_item_dependency",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_same_snapshot_drives_command_availability_and_gtk_projection",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_shortcut_toggles_use_logical_state_not_menu_widgets",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_w104_command_identity_survives_and_w106_w107_are_not_implemented",
+        "tests.test_w105_menu_ui_state_contract.W105MenuUiStateContractTests.test_w105_core_modules_are_gtk_free"
+      ]
+    },
+    "w105-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W105_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w105-identity-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w105_identity_app_desktop_e2e.W105IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w105-menu-ui-state-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W105_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w105-menu-ui-state-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w105_menu_ui_state_app_desktop_e2e.W105MenuUiStateRealAppE2E.test_true_app_single_snapshot_projection_dynamic_rows_and_normal_close"
       ]
     }
   }

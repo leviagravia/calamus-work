@@ -3,10 +3,11 @@ from pathlib import Path
 import unittest
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "bin" / "calamus").read_text(encoding="utf-8")
 COMMANDS_SOURCE = (ROOT / "calamus" / "calamus_commands.py").read_text(encoding="utf-8")
-UI_SOURCE = (ROOT / "calamus" / "calamus_ui.py").read_text(encoding="utf-8")
+UI_SOURCE = legacy_menu_projection()
 
 
 def app_method_source(name):

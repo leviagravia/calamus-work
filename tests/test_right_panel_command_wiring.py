@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 HOST = ROOT / "calamus" / "calamus_right_panel.py"
@@ -108,7 +109,7 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         self.assertNotIn("save_json_file", clips)
 
     def test_visible_command_moves_coherently_to_research_without_duplication(self):
-        ui = source(UI)
+        ui = legacy_menu_projection()
         self.assertIn('"Research Panel\\tCtrl+Alt+C"', ui)
         self.assertIn("command_shortcut_bindings()", ui)
         self.assertIn('add_item(researchm, "Clip Collection", app.show_clip_collection)', ui)

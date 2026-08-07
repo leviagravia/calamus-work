@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -24,7 +25,7 @@ def _method_source(name: str) -> str:
 
 class LineNumberCommandWiringTests(unittest.TestCase):
     def test_visible_command_and_shortcut_are_unchanged(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('Gtk.CheckMenuItem(label="Line Numbers\\tCtrl+Alt+L")', ui)
         self.assertIn("command_shortcut_bindings()", ui)
 
@@ -42,7 +43,7 @@ class LineNumberCommandWiringTests(unittest.TestCase):
 
     def test_callback_is_thin_guarded_and_document_independent(self):
         method = _method_source("on_line_numbers")
-        self.assertIn("self._syncing_line_number_item", method)
+        self.assertNotIn("_syncing_line_number_item", method)
         self.assertIn("execute_line_number_preference_request", method)
         self.assertLessEqual(len(method.splitlines()), 4)
         for forbidden in (
@@ -155,7 +156,7 @@ class LineNumberCommandWiringTests(unittest.TestCase):
         self.assertIn('"calamus_line_numbers_gateway"', source)
 
     def test_other_options_are_not_recomposed(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('optm = top_menu(app, "Options")', ui)
         self.assertIn('Gtk.CheckMenuItem(label="White Background")', ui)
         self.assertIn('Gtk.CheckMenuItem(label="Dark Mode")', ui)

@@ -147,7 +147,7 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
 
             win.workspace_panel_runtime.hide()
             self.assertFalse(win.workspace_panel_runtime.is_visible)
-            win.workspace_show_item.activate()
+            win.menu_ui_adapter.widgets_for_command("file.workspace.show-panel")[0].activate()
             _pump()
             self.assertTrue(win.workspace_panel_runtime.is_visible)
             self.assertEqual(win.workspace_application_runtime.root, alt_workspace)
@@ -160,7 +160,7 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
             recent_item = next(
                 (
                     child
-                    for child in win.recent_workspaces_menu.get_children()
+                    for child in win.menu_ui_adapter.dynamic_menu("recent-workspaces").get_children()
                     if child.get_label() == alt_workspace
                 ),
                 None,
@@ -176,7 +176,7 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
 
             win.workspace_panel_runtime.hide()
             self.assertFalse(win.workspace_panel_runtime.is_visible)
-            win.workspace_item.set_active(True)
+            win.menu_ui_adapter.widgets_for_command("navigate.workspace-panel")[0].set_active(True)
             _pump()
             self.assertTrue(win.workspace_panel_runtime.is_visible)
             self.assertEqual(win.workspace_application_runtime.root, alt_workspace)

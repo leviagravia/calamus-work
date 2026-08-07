@@ -19,12 +19,10 @@ def _method_source(name: str) -> str:
 
 class FavoriteReloadCommandWiringTests(unittest.TestCase):
     def test_visible_menu_and_shortcut_remain_unchanged(self):
-        ui = UI.read_text(encoding="utf-8")
-        self.assertIn(
-            'add_item(favm, "Reload Favourites\\tCtrl+Alt+R", app.on_reload_favourites)',
-            ui,
-        )
-        self.assertIn("command_shortcut_bindings()", ui)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        self.assertIn('file.favourite.reload',model); self.assertIn('Reload Favourites',model)
+        from tests.w104_command_test_support import actual_binding_has
+        self.assertTrue(actual_binding_has('file.favourite.reload','<Control><Alt>R'))
 
     def test_reload_is_a_compatibility_callback_not_a_new_domain_plan(self):
         method = _method_source("on_reload_favourites")
@@ -42,11 +40,11 @@ class FavoriteReloadCommandWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, method)
 
     def test_menu_population_tracks_owned_dynamic_items_not_fixed_positions(self):
-        method = _method_source("populate_favourites_menu")
-        self.assertIn('getattr(self, "_favourite_dynamic_items", ())', method)
-        self.assertIn("self._favourite_dynamic_items = dynamic_items", method)
-        self.assertNotIn("children[4:]", method)
-        self.assertNotIn("Keep the first 4 fixed entries", method)
+        method=_method_source('populate_favourites_menu')
+        self.assertIn('adapter.render_dynamic("favourites", favourite_rows(items))',method)
+        self.assertNotIn('_favourite_dynamic_items',method)
+        ui=(ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8')
+        self.assertIn('self._dynamic_widgets',ui)
 
     def test_reload_does_not_mutate_favorites_store_or_document_state(self):
         method = _method_source("on_reload_favourites")

@@ -135,14 +135,14 @@ class W95ExtraTypewriterAppDesktopE2E(unittest.TestCase):
             self.assertNotIn(label, labels)
         for label in ("Insert Date", "Insert Time", "Insert Date and Time\tCtrl+Alt+D"):
             self.assertNotIn(label, revise_labels)
-        self.assertFalse(self.app.typewriter_item.get_active())
+        self.assertFalse(self.app.menu_ui_adapter.widgets_for_command("writing.typewriter-mode")[0].get_active())
 
         lines = [f"Visual line {index:03d}: alpha beta gamma delta epsilon zeta." for index in range(1, 181)]
         self.app.set_buffer("\n".join(lines), modified=False)
         offset = self.app.buffer_text().index("Visual line 110")
         self.app.set_cursor_offset(offset)
         pump()
-        self.app.typewriter_item.set_active(True)
+        self.app.menu_ui_adapter.widgets_for_command("writing.typewriter-mode")[0].set_active(True)
         until(
             lambda: (
                 self.app.typewriter_runtime.reached
@@ -152,7 +152,7 @@ class W95ExtraTypewriterAppDesktopE2E(unittest.TestCase):
             "Typewriter Mode did not reach a stable measured projection",
         )
         self.assertTrue(self.app.typewriter_runtime.enabled)
-        self.assertTrue(self.app.typewriter_item.get_active())
+        self.assertTrue(self.app.menu_ui_adapter.widgets_for_command("writing.typewriter-mode")[0].get_active())
         self.assertGreater(
             self.app.text.get_bottom_margin(),
             self.app.viewport_runtime.base_bottom_margin,
@@ -202,7 +202,7 @@ class W95ExtraTypewriterAppDesktopE2E(unittest.TestCase):
         self.assertNotEqual(self.app.scroller.get_vadjustment().get_value(), manual_value)
 
         base = self.app.viewport_runtime.base_bottom_margin
-        self.app.typewriter_item.set_active(False)
+        self.app.menu_ui_adapter.widgets_for_command("writing.typewriter-mode")[0].set_active(False)
         until(
             lambda: self.app.text.get_bottom_margin() == base,
             "Typewriter Mode did not restore the exact bottom margin",

@@ -4,6 +4,7 @@ from pathlib import Path
 import unittest
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -37,7 +38,7 @@ def _compiled_method(name, namespace=None):
 
 class ManageTemplatesWiringTests(unittest.TestCase):
     def test_menu_places_manage_templates_after_save_template_before_favorites(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         save_at = ui.index('add_item(filem, "Save as Template…", app.on_save_as_template)')
         manage_at = ui.index('add_item(filem, "Manage Templates…", app.on_manage_templates)')
         favorites_at = ui.index('app.favourites_item = Gtk.MenuItem(label="Favorites")')

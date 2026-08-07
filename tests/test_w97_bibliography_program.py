@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import unittest
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "docs/canonical/CALAMUS_W97_BIBLIOGRAPHY_MANAGER_CORE_CONTRACT.md"
 PROGRAM = ROOT / "docs/canonical/CALAMUS_W97_BIBLIOGRAPHY_MANAGER_CORE_FULL_PROGRAM.md"
@@ -120,7 +121,7 @@ class W97BibliographyProgramTests(unittest.TestCase):
     def test_simple_export_is_runtime_owned_and_app_is_thin(self):
         runtime = (ROOT / "calamus/calamus_reference_runtime.py").read_text(encoding="utf-8")
         app = (ROOT / "bin/calamus").read_text(encoding="utf-8")
-        ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn("def export_visible_bibliography", runtime)
         self.assertIn("atomic_write_utf8", runtime)
         self.assertIn("Export Bibliography as Markdown", ui)

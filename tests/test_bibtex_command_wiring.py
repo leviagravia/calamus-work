@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 from tests.w104_command_test_support import guide_has
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -17,7 +18,7 @@ class BibtexCommandWiringTests(unittest.TestCase):
         return ast.get_source_segment(source, node)
 
     def test_research_menu_exposes_exact_import_and_export_commands(self):
-        ui = self.source("calamus/calamus_ui.py")
+        ui = legacy_menu_projection()
         self.assertEqual(ui.count('"Import BibTeX/BibLaTeX…"'), 1)
         self.assertEqual(ui.count('"Export References as BibTeX/BibLaTeX…"'), 1)
         self.assertIn("app.on_import_bibtex_biblatex", ui)

@@ -5,6 +5,7 @@ import unittest
 from tests.w104_command_test_support import guide_has
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -37,7 +38,7 @@ def _compiled_method(name: str, namespace=None):
 
 class QuitCommandWiringTests(unittest.TestCase):
     def test_visible_quit_command_and_shortcut_keep_named_entrypoint(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn(r'add_item(filem, "Quit\tCtrl+Q", app.on_quit)', ui)
         self.assertIn("command_shortcut_bindings()", ui)
         self.assertTrue(guide_has("File", "Quit", "Ctrl+Q"))

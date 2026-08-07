@@ -47,6 +47,16 @@ class WidgetSignalConnection:
 
 
 @dataclass(frozen=True)
+class UiStateCompositionInput:
+    command_availability: Any
+
+
+@dataclass(frozen=True)
+class UiStateComponents:
+    controller: Any
+
+
+@dataclass(frozen=True)
 class DocumentSessionCompositionInput:
     initial_file_path: str | None
     read_buffer_text: Callable[[], str]
@@ -90,14 +100,13 @@ class NavigatorCompositionInput:
     text_view: Any
     workspace_paned: Any
     queue_wrap_reflow: Callable[[], Any]
-    navigator_menu_item: Any
+    on_visibility_changed: Callable[[bool], None]
 
 
 @dataclass(frozen=True)
 class WorkspaceCompositionInput:
     left_panel_host: Any
     state: Any
-    workspace_menu_item: Any
     text_view: Any
     workspace_root: str | None
     workspace_visible: bool

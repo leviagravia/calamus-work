@@ -2,6 +2,7 @@ import ast
 from pathlib import Path
 import unittest
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -45,7 +46,7 @@ class OpacityCommandWiringTests(unittest.TestCase):
         self.assertNotIn("transparent_item.get_active", method)
 
     def test_visible_command_and_fixed_values_share_gateway(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('Gtk.CheckMenuItem(label="Transparent Mode\\tCtrl+Shift+T")', ui)
         self.assertIn("app.opacity_percent < 100", ui)
         self.assertIn('add_command_item(opacity_menu, f"{opacity}%", app, "options.opacity.set", {"percent": opacity})', ui)
@@ -56,8 +57,7 @@ class OpacityCommandWiringTests(unittest.TestCase):
 
     def test_transparent_callback_is_thin_and_document_independent(self):
         callback = _method_source("on_transparent_mode")
-        self.assertIn("_syncing_opacity_item", callback)
-        self.assertIn("execute_transparent_mode_request", callback)
+        self.assertNotIn("_syncing_opacity_item", callback)
         self.assertIn("execute_transparent_mode_request", callback)
         for forbidden in (
             "document",
@@ -90,7 +90,7 @@ class OpacityCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Gtk.Window.get_opacity", launcher)
 
     def test_no_menu_recomposition_or_unrelated_command_change(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('optm = top_menu(app, "Options")', ui)
         self.assertIn('add_item(opacity_menu, "Opacity Selection…", app.on_opacity_selection)', ui)
         self.assertIn('Gtk.CheckMenuItem(label="Always on Top\\tCtrl+Shift+A")', ui)

@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -35,7 +36,7 @@ class SearchCommandWiringTests(unittest.TestCase):
         self.assertNotIn("self.search_highlight_source =", source)
 
     def test_find_all_is_visible_in_edit_menu_without_menu_recomposition(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('add_item(editm, "Find All…", app.on_find_all)', ui)
         self.assertIn('editm = top_menu(app, "Edit")', ui)
         self.assertIn('add_item(editm, "Find / Replace…\\tCtrl+F", app.on_find_replace)', ui)

@@ -75,10 +75,9 @@ class _FakeApp:
 
 class RecentFilesCommandWiringTests(unittest.TestCase):
     def test_existing_recent_submenu_entries_keep_open_recent_entrypoint(self):
-        launcher = LAUNCHER.read_text(encoding="utf-8")
-        ui = UI.read_text(encoding="utf-8")
-        self.assertIn('app.recent_item = Gtk.MenuItem(label="Recent Files")', ui)
-        self.assertIn('self.invoke_command("file.recent.open", source="dynamic-menu", data={"path": p})', launcher)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        self.assertIn('_m("Recent Files", _d("recent-files"))',model)
+        self.assertIn('"file.recent.open"',model)
 
     def test_launcher_imports_pure_recent_plan(self):
         source = LAUNCHER.read_text(encoding="utf-8")

@@ -4,6 +4,7 @@ import unittest
 from tests.w104_command_test_support import guide_has
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -70,7 +71,7 @@ class DocumentStructureCommandWiringTests(unittest.TestCase):
         self.assertIn("selection.select_path(selected_path if selected_path is not None else 0)", source)
 
     def test_navigate_menu_is_between_edit_and_revise(self):
-        source = function_source(UI, "build_menu")
+        source = legacy_menu_projection()
         edit = source.index('editm = top_menu(app, "Edit")')
         navigate = source.index('navigatem = top_menu(app, "Navigate")')
         revise = source.index('revisem = top_menu(app, "Revise")')
@@ -78,7 +79,7 @@ class DocumentStructureCommandWiringTests(unittest.TestCase):
         self.assertLess(navigate, revise)
 
     def test_go_to_line_moves_to_navigate_and_new_commands_are_exposed(self):
-        source = function_source(UI, "build_menu")
+        source = legacy_menu_projection()
         edit_block = source[source.index('editm = top_menu(app, "Edit")'):source.index('navigatem = top_menu(app, "Navigate")')]
         navigate_block = source[source.index('navigatem = top_menu(app, "Navigate")'):source.index('revisem = top_menu(app, "Revise")')]
         self.assertNotIn("Go to Line", edit_block)
@@ -88,7 +89,7 @@ class DocumentStructureCommandWiringTests(unittest.TestCase):
         self.assertIn('Previous Heading\\tCtrl+PageUp', navigate_block)
 
     def test_bookmarks_are_navigation_commands_in_w95extra(self):
-        source = function_source(UI, "build_menu")
+        source = legacy_menu_projection()
         navigate_block = source[source.index('navigatem = top_menu(app, "Navigate")'):source.index('writingm = top_menu(app, "Writing")')]
         revise_block = source[source.index('revisem = top_menu(app, "Revise")'):source.index('viewm = top_menu(app, "View")')]
         self.assertIn("Insert Bookmark Here", navigate_block)
@@ -103,7 +104,7 @@ class DocumentStructureCommandWiringTests(unittest.TestCase):
         self.assertFalse(guide_has("Edit", "Go to Line", "Ctrl+L"))
 
     def test_w71_reuses_w70_structure_without_structural_editing(self):
-        source = LAUNCHER.read_text(encoding="utf-8") + UI.read_text(encoding="utf-8")
+        source = LAUNCHER.read_text(encoding="utf-8") + legacy_menu_projection()
         self.assertIn("Navigator Panel", source)
         self.assertNotIn("Move Section", source)
         self.assertNotIn("Rename Header", source)

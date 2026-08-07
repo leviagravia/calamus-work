@@ -32,8 +32,8 @@ def build_navigator_components(
     panel_runtime = NavigatorPanelRuntime(
         panel_host,
         panel_view,
-        inputs.navigator_menu_item,
         inputs.text_view.grab_focus,
+        inputs.on_visibility_changed,
     )
     runtime_reference.set(panel_runtime)
     return NavigatorComponents(

@@ -39,25 +39,26 @@ class FavoritesFileMenuInvariantTests(unittest.TestCase):
             self.assertNotIn("top_menu", source)
 
     def test_bookmarks_keep_callbacks_but_move_to_navigate_in_w95extra(self):
-        source = _function_source(UI, "build_menu")
-        self.assertIn('add_item(navigatem, "Insert Bookmark Here\\tCtrl+F2", app.toggle_bookmark)', source)
-        self.assertIn('add_item(navigatem, "Next Bookmark\\tF2", app.next_bookmark)', source)
-        self.assertIn('add_item(navigatem, "Previous Bookmark\\tShift+F2", app.previous_bookmark)', source)
-        self.assertIn('add_item(navigatem, "Manage Bookmarks…", app.on_manage_bookmarks)', source)
-        self.assertNotIn('add_item(revisem, "Insert Bookmark Here', source)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        block=model[model.index('MenuSpec("Navigate"'):model.index('MenuSpec("Writing"')]
+        for cid in ('navigate.bookmark.toggle','navigate.bookmark.next','navigate.bookmark.previous','navigate.bookmark.manage'):
+            self.assertIn(cid,block)
+        revise=model[model.index('MenuSpec("Revise"'):model.index('MenuSpec("View"')]
+        self.assertNotIn('navigate.bookmark.toggle',revise)
 
     def test_recent_files_remains_a_separate_file_submenu(self):
-        source = _function_source(UI, "build_menu")
-        self.assertIn('app.recent_item = Gtk.MenuItem(label="Recent Files")', source)
-        self.assertIn('app.recent_item.set_submenu(app.recent_menu)', source)
-        self.assertIn('filem.append(app.recent_item)', source)
-        self.assertNotIn('app.recent_item.set_submenu(favm)', source)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        file_block=model[model.index('MenuSpec("File"'):model.index('MenuSpec("Edit"')]
+        self.assertIn('_m("Recent Files", _d("recent-files"))',file_block)
+        self.assertIn('_m("Favorites"',file_block)
+        self.assertNotEqual(file_block.index('Recent Files'),file_block.index('Favorites'))
 
     def test_favorites_internal_attribute_names_are_not_cosmetically_churned(self):
-        source = _function_source(UI, "build_menu")
-        self.assertIn("app.favourites_item", source)
-        self.assertIn("app.favourites_menu", source)
-        self.assertNotIn("app.favorites_menu", source)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        self.assertIn('_d("favourites")',model)
+        self.assertNotIn('_d("favorites")',model)
+        launcher=LAUNCHER.read_text(encoding='utf-8')
+        self.assertIn('populate_favourites_menu',launcher)
 
 
 if __name__ == "__main__":

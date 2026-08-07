@@ -33,9 +33,9 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
         # launcher/App surface through the accepted composition extraction.
         self.assertLess(len(self.launcher.splitlines()), metrics["launcher_lines"])
         self.assertLess(self.app.end_lineno - self.app.lineno + 1, metrics["app_lines"])
-        # W101-W103 may add bounded compatibility gateways while preserving
+        # W101-W105 may add bounded compatibility gateways while preserving
         # strict launcher/App line-count reduction from the W100 monolith.
-        self.assertEqual(len(self.methods), 277)
+        self.assertEqual(len(self.methods), 279)
         method_names = {node.name for node in self.methods}
         for name in (
             "document", "current_file", "modified", "loading",
@@ -45,7 +45,7 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
             "_project_history_restore",
         ):
             self.assertIn(name, method_names)
-        self.assertLessEqual(len(self.methods), metrics["app_method_count"] + 11)
+        self.assertLessEqual(len(self.methods), metrics["app_method_count"] + 13)
 
     def test_every_app_method_is_assigned_once(self):
         data = self.load("CALAMUS_W100_APP_METHOD_RESPONSIBILITY_INVENTORY.json")
@@ -80,8 +80,9 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
         self.assertEqual(len(records), 35)
         self.assertEqual(len(actual), 35)
         self.assertTrue(all(r["migration_work_item"] in {"W105", "W107"} for r in records))
-        # W101 added the root entry. W104 adds four explicit application-bound
-        # command/UI adapters while command core itself remains App-free.
+        # W101 added the root entry. W104 added explicit application-bound
+        # command/UI adapters; W105 removes the old check-menu compatibility
+        # entry while command/UI-state cores themselves remain App-free.
         current = []
         for path in sorted((ROOT / "calamus").glob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -91,14 +92,14 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
                 args = [a.arg for a in node.args.args + node.args.kwonlyargs]
                 if "app" in args:
                     current.append((path.name, node.name))
-        self.assertEqual(len(current), 40)
+        self.assertEqual(len(current), 39)
         w104_entries = {item for item in current if item in {
             ("calamus_application_commands.py", "invoke_check_command"),
             ("calamus_application_commands.py", "build_application_command_layer"),
             ("calamus_ui.py", "add_command_item"),
             ("calamus_ui.py", "connect_check_command"),
         }}
-        self.assertEqual(len(w104_entries), 4)
+        self.assertEqual(len(w104_entries), 3)
         self.assertEqual(
             [item for item in current if item[1] == "compose_core_application_components"],
             [("calamus_application_composition.py", "compose_core_application_components")],

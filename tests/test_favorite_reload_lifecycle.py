@@ -1,221 +1,78 @@
 import ast
 import copy
-import os
 from pathlib import Path
 import unittest
 
+from calamus_menu_model import DynamicMenuRow, favourite_rows
 
-ROOT = Path(__file__).resolve().parents[1]
-LAUNCHER = ROOT / "bin" / "calamus"
-
-
-def _method_node(name: str):
-    source = LAUNCHER.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            return node
-    raise AssertionError(f"method {name!r} not found")
+ROOT=Path(__file__).resolve().parents[1]
+LAUNCHER=ROOT/'bin/calamus'
 
 
-def _compiled_method(name: str, namespace=None):
-    node = copy.deepcopy(_method_node(name))
-    module = ast.Module(body=[node], type_ignores=[])
-    ast.fix_missing_locations(module)
-    scope = dict(namespace or {})
-    exec(compile(module, str(LAUNCHER), "exec"), scope)
-    return scope[name]
+def _method(name):
+    source=LAUNCHER.read_text(encoding='utf-8'); tree=ast.parse(source)
+    node=next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name==name)
+    module=ast.Module(body=[copy.deepcopy(node)],type_ignores=[]); ast.fix_missing_locations(module)
+    scope={'favourite_rows':favourite_rows}; exec(compile(module,str(LAUNCHER),'exec'),scope); return scope[name]
 
+POPULATE=_method('populate_favourites_menu')
+RELOAD=_method('on_reload_favourites')
 
-class _FakeMenuItem:
-    def __init__(self, label=""):
-        self.label = label
-        self.sensitive = True
-        self.tooltip = None
-        self.callbacks = []
+class _Adapter:
+    def __init__(self): self.calls=[]
+    def render_dynamic(self,slot,rows): self.calls.append((slot,tuple(rows))); return tuple(rows)
 
-    def set_sensitive(self, value):
-        self.sensitive = bool(value)
-
-    def set_tooltip_text(self, text):
-        self.tooltip = text
-
-    def connect(self, signal, callback):
-        self.callbacks.append((signal, callback))
-
-    def activate(self):
-        for signal, callback in self.callbacks:
-            if signal == "activate":
-                callback(self)
-
-
-class _FakeGtk:
-    MenuItem = _FakeMenuItem
-
-
-class _FakeMenu:
-    def __init__(self, children=None):
-        self.children = list(children or [])
-        self.remove_events = []
-        self.append_events = []
-        self.show_count = 0
-
-    def get_children(self):
-        return list(self.children)
-
-    def remove(self, child):
-        self.remove_events.append(child)
-        self.children.remove(child)
-
-    def append(self, child):
-        self.append_events.append(child)
-        self.children.append(child)
-
-    def show_all(self):
-        self.show_count += 1
-
-
-class _FakeApp:
-    def __init__(self, snapshots, *, menu=True):
-        self._snapshots = [list(items) for items in snapshots]
-        self.opened = []
-        if menu:
-            self.favourites_menu = _FakeMenu()
-
+class _App:
+    def __init__(self, snapshots, adapter=True):
+        self._snapshots=[list(x) for x in snapshots]; self.menu_ui_adapter=_Adapter() if adapter else None
     def load_favourites(self):
-        if not self._snapshots:
-            raise AssertionError("unexpected extra Favorites load")
+        if not self._snapshots: raise AssertionError('extra load')
         return self._snapshots.pop(0)
-
-    def open_favourite_path(self, path):
-        self.opened.append(path)
-        return True
-
-    def invoke_command(self, command_id, *, source="gui", data=None):
-        if command_id != "file.favourite.open":
-            raise AssertionError(f"unexpected command {command_id}")
-        self.assert_source = source
-        return self.open_favourite_path(dict(data or {})["path"])
-
-    def save_favourites(self, _items):
-        raise AssertionError("Reload must not persist Favorites")
-
-    def load_favourite_store(self):
-        raise AssertionError("Reload uses the availability view, not canonical editing")
-
-
-POPULATE = _compiled_method("populate_favourites_menu", {"Gtk": _FakeGtk, "os": os})
-RELOAD = _compiled_method("on_reload_favourites")
-
+    def populate_favourites_menu(self): return POPULATE(self)
+    def save_favourites(self,_): raise AssertionError('reload must not persist')
 
 class FavoriteReloadLifecycleTests(unittest.TestCase):
-    def test_missing_menu_is_a_safe_empty_result(self):
-        app = _FakeApp([[]], menu=False)
-        self.assertEqual(POPULATE(app), ())
-        self.assertEqual(len(app._snapshots), 1)
+    def test_empty_projection_is_one_disabled_placeholder(self):
+        rows=favourite_rows(())
+        self.assertEqual(rows,(DynamicMenuRow('No favourites',enabled=False),))
 
-    def test_first_population_preserves_all_existing_fixed_children(self):
-        fixed = [_FakeMenuItem(f"fixed-{i}") for i in range(6)]
-        app = _FakeApp([["/tmp/a.txt", "/tmp/b.txt"]])
-        app.favourites_menu = _FakeMenu(fixed)
+    def test_projection_uses_stable_command_payload_and_tooltip(self):
+        rows=favourite_rows(('/tmp/a.txt','/tmp/b.txt'))
+        self.assertEqual([r.label for r in rows],['a.txt','b.txt'])
+        self.assertEqual([r.command_id for r in rows],['file.favourite.open','file.favourite.open'])
+        self.assertEqual(rows[0].data(),{'path':'/tmp/a.txt'})
+        self.assertEqual(rows[0].tooltip,'/tmp/a.txt')
 
-        result = POPULATE(app)
+    def test_population_delegates_one_complete_snapshot_to_owned_adapter_slot(self):
+        app=_App([['/tmp/a.txt','/tmp/b.txt']])
+        result=POPULATE(app)
+        self.assertEqual(result,('/tmp/a.txt','/tmp/b.txt'))
+        self.assertEqual(len(app.menu_ui_adapter.calls),1)
+        slot,rows=app.menu_ui_adapter.calls[0]
+        self.assertEqual(slot,'favourites')
+        self.assertEqual([r.label for r in rows],['a.txt','b.txt'])
 
-        self.assertEqual(result, ("/tmp/a.txt", "/tmp/b.txt"))
-        self.assertEqual(app.favourites_menu.children[:6], fixed)
-        self.assertEqual([item.label for item in app._favourite_dynamic_items], ["a.txt", "b.txt"])
-        self.assertEqual(app.favourites_menu.remove_events, [])
-        self.assertEqual(app.favourites_menu.show_count, 1)
+    def test_repeated_population_replaces_by_slot_without_app_owned_widget_list(self):
+        app=_App([['/tmp/a.txt'],['/tmp/b.txt']])
+        POPULATE(app); POPULATE(app)
+        self.assertEqual(len(app.menu_ui_adapter.calls),2)
+        self.assertEqual([r.label for r in app.menu_ui_adapter.calls[-1][1]],['b.txt'])
+        source=LAUNCHER.read_text(encoding='utf-8')
+        self.assertNotIn('_favourite_dynamic_items',source)
 
-    def test_repopulation_removes_only_previously_owned_dynamic_items(self):
-        fixed = [_FakeMenuItem(f"fixed-{i}") for i in range(4)]
-        foreign = _FakeMenuItem("future-static-command")
-        old_a = _FakeMenuItem("old-a")
-        old_b = _FakeMenuItem("old-b")
-        app = _FakeApp([["/tmp/new.txt"]])
-        app.favourites_menu = _FakeMenu(fixed + [foreign, old_a, old_b])
-        app._favourite_dynamic_items = [old_a, old_b]
-
-        result = POPULATE(app)
-
-        self.assertEqual(result, ("/tmp/new.txt",))
-        self.assertEqual(app.favourites_menu.children[:5], fixed + [foreign])
-        self.assertIn(foreign, app.favourites_menu.children)
-        self.assertEqual(app.favourites_menu.remove_events, [old_a, old_b])
-        self.assertEqual([item.label for item in app._favourite_dynamic_items], ["new.txt"])
-
-    def test_empty_view_has_one_owned_disabled_placeholder(self):
-        fixed = [_FakeMenuItem("fixed")]
-        app = _FakeApp([[]])
-        app.favourites_menu = _FakeMenu(fixed)
-
-        result = POPULATE(app)
-
-        self.assertEqual(result, ())
-        self.assertEqual(len(app._favourite_dynamic_items), 1)
-        placeholder = app._favourite_dynamic_items[0]
-        self.assertEqual(placeholder.label, "No favourites")
-        self.assertFalse(placeholder.sensitive)
-        self.assertEqual(app.favourites_menu.children, fixed + [placeholder])
-
-    def test_dynamic_item_activation_uses_favorite_gateway(self):
-        app = _FakeApp([["/tmp/a.txt"]])
-        POPULATE(app)
-        item = app._favourite_dynamic_items[0]
-
-        item.activate()
-
-        self.assertEqual(app.opened, ["/tmp/a.txt"])
-        self.assertEqual(item.tooltip, "/tmp/a.txt")
-
-    def test_repeated_refresh_has_no_dynamic_duplicates(self):
-        fixed = [_FakeMenuItem("add"), _FakeMenuItem("edit"), _FakeMenuItem("reload")]
-        app = _FakeApp([["/tmp/a.txt"], ["/tmp/a.txt", "/tmp/b.txt"]])
-        app.favourites_menu = _FakeMenu(fixed)
-
-        POPULATE(app)
-        first_dynamic = list(app._favourite_dynamic_items)
-        POPULATE(app)
-
-        self.assertTrue(all(item not in app.favourites_menu.children for item in first_dynamic))
-        self.assertEqual(app.favourites_menu.children[:3], fixed)
-        self.assertEqual([item.label for item in app._favourite_dynamic_items], ["a.txt", "b.txt"])
-        self.assertEqual(len(app.favourites_menu.children), 5)
+    def test_population_without_adapter_still_returns_current_data(self):
+        app=_App([['/tmp/a.txt']],adapter=False)
+        self.assertEqual(POPULATE(app),('/tmp/a.txt',))
 
     def test_visible_reload_delegates_once_and_returns_true(self):
-        events = []
-
         class App:
-            def populate_favourites_menu(self):
-                events.append("populate")
-                return ("/tmp/a.txt",)
-
-        app = App()
-        self.assertTrue(RELOAD(app))
-        self.assertEqual(events, ["populate"])
+            def __init__(self): self.calls=0
+            def populate_favourites_menu(self): self.calls+=1
+        app=App(); self.assertTrue(RELOAD(app)); self.assertEqual(app.calls,1)
 
     def test_reload_does_not_touch_document_undo_or_persistence(self):
-        events = []
+        source=ast.get_source_segment(LAUNCHER.read_text(encoding='utf-8'), next(n for n in ast.walk(ast.parse(LAUNCHER.read_text(encoding='utf-8'))) if isinstance(n,ast.FunctionDef) and n.name=='on_reload_favourites'))
+        for token in ('save_favourites','current_file','history','document_session','Gtk.'):
+            self.assertNotIn(token,source)
 
-        class App:
-            current_file = "/tmp/current.txt"
-            modified = True
-
-            def populate_favourites_menu(self):
-                events.append("populate")
-
-            def save_favourites(self, _items):
-                raise AssertionError("must not persist")
-
-            def reset_undo(self):
-                raise AssertionError("must not touch Undo")
-
-        app = App()
-        before = (app.current_file, app.modified)
-        self.assertTrue(RELOAD(app))
-        self.assertEqual((app.current_file, app.modified), before)
-        self.assertEqual(events, ["populate"])
-
-
-if __name__ == "__main__":
-    unittest.main()
+if __name__=='__main__': unittest.main()

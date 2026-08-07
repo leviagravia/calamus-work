@@ -1,16 +1,13 @@
 """Application-service gateway for the Calamus opacity preference.
 
-The gateway coordinates persistence, the legacy Transparent Mode checkbox and
-runtime application.  It imports no GTK and never touches document or Undo
-state.  All opacity entry points share this gateway so the checkbox cannot
-become stale after choosing a fixed percentage.
+W105 projects Transparent Mode from the canonical opacity value. The gateway
+never reads or mutates a menu widget.
 """
 from __future__ import annotations
 
 from typing import Any
 
 from calamus_opacity import (
-    MAX_OPACITY_PERCENT,
     opacity_settings_overrides,
     prepare_opacity_preference_plan,
     transparent_mode_requested_percent,
@@ -18,22 +15,12 @@ from calamus_opacity import (
 
 
 def sync_transparent_control(host: Any) -> None:
-    host._syncing_opacity_item = True
-    try:
-        if hasattr(host, "transparent_item"):
-            host.transparent_item.set_active(host.opacity_percent < MAX_OPACITY_PERCENT)
-    finally:
-        host._syncing_opacity_item = False
+    refresh = getattr(host, "refresh_ui_state", None)
+    if callable(refresh):
+        refresh()
 
 
 def execute_opacity_preference_request(host: Any, requested_percent: int) -> bool:
-    """Persist, apply and commit one canonical opacity transition.
-
-    Persistence failure leaves runtime state unchanged.  If the GTK adapter
-    fails after persistence, the gateway performs a best-effort persistence
-    rollback, restores the previous runtime opacity and resynchronizes the
-    checkbox before reporting the error.
-    """
     try:
         plan = prepare_opacity_preference_plan(host.opacity_percent, requested_percent)
     except (TypeError, ValueError) as exc:
@@ -71,7 +58,6 @@ def execute_opacity_preference_request(host: Any, requested_percent: int) -> boo
 
 
 def execute_transparent_mode_request(host: Any, enabled: bool) -> bool:
-    """Translate the legacy checkbox state and execute the shared transition."""
     try:
         requested = transparent_mode_requested_percent(host.opacity_percent, enabled)
     except (TypeError, ValueError) as exc:

@@ -79,10 +79,11 @@ class _FakeApp:
 
 class FavoriteOpenCommandWiringTests(unittest.TestCase):
     def test_dynamic_favorite_entries_use_dedicated_entrypoint(self):
-        launcher = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn('self.invoke_command("file.favourite.open", source="dynamic-menu", data={"path": p})', launcher)
-        favorites_method = _method_source("populate_favourites_menu")
-        self.assertNotIn("open_recent_path", favorites_method)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        commands=(ROOT/'calamus/calamus_application_commands.py').read_text(encoding='utf-8')
+        self.assertIn('"file.favourite.open"',model)
+        self.assertIn('bind("file.favourite.open", lambda ctx: app.open_favourite_path',commands)
+        self.assertNotIn('open_recent_path',_method_source('open_favourite_path'))
 
     def test_launcher_imports_pure_favorite_plan(self):
         source = LAUNCHER.read_text(encoding="utf-8")

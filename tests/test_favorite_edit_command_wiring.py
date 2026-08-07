@@ -66,12 +66,10 @@ class _FakeApp:
 
 class FavoriteEditCommandWiringTests(unittest.TestCase):
     def test_visible_edit_command_and_shortcut_are_unchanged(self):
-        source = UI.read_text(encoding="utf-8")
-        self.assertIn(
-            'add_item(favm, "Edit Favourites…\\tCtrl+Shift+D", app.on_edit_favourites)',
-            source,
-        )
-        self.assertIn("command_shortcut_bindings()", source)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        self.assertIn('file.favourite.edit',model); self.assertIn('Edit Favourites…',model)
+        from tests.w104_command_test_support import actual_binding_has
+        self.assertTrue(actual_binding_has('file.favourite.edit','<Control><Shift>D'))
 
     def test_launcher_imports_edit_parser_and_plan_from_favorites_domain(self):
         source = LAUNCHER.read_text(encoding="utf-8")

@@ -8,6 +8,7 @@ import sys
 import unittest
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -57,7 +58,7 @@ def source_and_app_methods() -> tuple[str, dict[str, str]]:
 
 class InsertDateTimeLayerWiringTests(unittest.TestCase):
     def test_visible_menu_and_shortcut_use_existing_explicit_entrypoint(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn(
             'add_item(writingm, "Insert Date and Time\\tCtrl+Alt+D", app.on_insert_datetime)',
             ui,

@@ -23,7 +23,7 @@ class W96ProfileOwnedRebuildTests(unittest.TestCase):
         self.assertEqual(data["schema"], 1)
         self.assertEqual(
             data["published_baseline"],
-            "ca1a9774085d81d087f7a257dbffbbaa858a3889",
+            "92aa832c6b72cb7a81a5a44c656890ec602d9d41",
         )
         release = {
             name: profile

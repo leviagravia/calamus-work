@@ -3,6 +3,7 @@ import unittest
 from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -38,7 +39,7 @@ class CitationCommandWiringTests(unittest.TestCase):
             self.assertIn(f'"{module}"', provenance)
 
     def test_research_menu_and_shortcuts_expose_bidirectional_commands(self):
-        ui = source(UI)
+        ui = legacy_menu_projection()
         self.assertIn("Quick Cite…", ui)
         self.assertIn("Ctrl+Alt+Q", ui)
         self.assertIn("Open Citation in Bibliography", ui)

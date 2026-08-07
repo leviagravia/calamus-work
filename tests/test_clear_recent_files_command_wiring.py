@@ -66,11 +66,8 @@ class _FakeApp:
 
 class ClearRecentFilesCommandWiringTests(unittest.TestCase):
     def test_visible_menu_item_keeps_existing_entrypoint_and_label(self):
-        source = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn(
-            'self.item(self.recent_menu, "Clear Recent Files", self.on_clear_recent)',
-            source,
-        )
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        self.assertIn('DynamicMenuRow("Clear Recent Files", "file.recent.clear")',model)
 
     def test_launcher_imports_clear_recent_plan(self):
         source = LAUNCHER.read_text(encoding="utf-8")

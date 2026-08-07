@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -47,7 +48,7 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
             self.assertIn(f'"{module}"', provenance)
 
     def test_research_menu_and_shell_expose_third_real_client(self):
-        ui = source(UI)
+        ui = legacy_menu_projection()
         launcher = source(LAUNCHER)
         research_view = source(RESEARCH_VIEW)
         self.assertIn('add_item(researchm, "Source Notes", app.show_source_notes)', ui)

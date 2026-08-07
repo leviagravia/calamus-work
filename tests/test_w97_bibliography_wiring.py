@@ -20,10 +20,13 @@ class W97BibliographyWiringTests(unittest.TestCase):
 
     def test_research_panel_renames_existing_client_without_second_manager(self):
         launcher = self.source("bin/calamus")
-        ui = self.source("calamus/calamus_ui.py")
+        menu_model = self.source("calamus/calamus_menu_model.py")
+        commands = self.source("calamus/calamus_application_commands.py")
         self.assertIn('"references", "Bibliography", self.reference_panel_runtime.widget', launcher)
-        self.assertIn('add_item(researchm, "Bibliography", app.show_references)', ui)
-        self.assertIn('add_item(researchm, "Open Bibliography File", app.on_open_bibliography_file)', ui)
+        self.assertIn('_c("research.bibliography", "Bibliography")', menu_model)
+        self.assertIn('_c("research.open-bibliography", "Open Bibliography File")', menu_model)
+        self.assertIn("'show_references': ApplicationCommandTarget('research.bibliography'", commands)
+        self.assertIn("'on_open_bibliography_file': ApplicationCommandTarget('research.open-bibliography'", commands)
         self.assertEqual(launcher.count('"references", "Bibliography", self.reference_panel_runtime.widget'), 1)
         self.assertNotIn('"bibliography", "Bibliography"', launcher)
 
@@ -63,9 +66,9 @@ class W97BibliographyWiringTests(unittest.TestCase):
 
     def test_w97_core_is_preserved_under_current_w98_identity(self):
         version = self.source("calamus/calamus_version.py")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"', version)
-        self.assertIn('PUBLISHED_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"', version)
+        self.assertIn('PUBLISHED_BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"', version)
 
 
 if __name__ == "__main__":

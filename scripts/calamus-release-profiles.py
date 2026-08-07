@@ -54,6 +54,7 @@ LANE_FLAG_PREFIXES = (
     "CALAMUS_W102_",
     "CALAMUS_W103_",
     "CALAMUS_W104_",
+    "CALAMUS_W105_",
 )
 
 
@@ -82,7 +83,7 @@ def load_manifest() -> dict:
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
     if data.get("schema") != 1:
         raise RuntimeError("unsupported release-profile manifest schema")
-    if data.get("published_baseline") != "ca1a9774085d81d087f7a257dbffbbaa858a3889":
+    if data.get("published_baseline") != "92aa832c6b72cb7a81a5a44c656890ec602d9d41":
         raise RuntimeError("manifest baseline identity mismatch")
     if not isinstance(data.get("profiles"), dict) or not data["profiles"]:
         raise RuntimeError("manifest has no profiles")

@@ -72,12 +72,10 @@ class _FakeApp:
 
 class FavoriteAddCommandWiringTests(unittest.TestCase):
     def test_visible_command_label_and_shortcut_are_unchanged(self):
-        source = UI.read_text(encoding="utf-8")
-        self.assertIn(
-            'add_item(favm, "Add to Favourites\\tCtrl+Alt+B", app.on_add_favourite)',
-            source,
-        )
-        self.assertIn("command_shortcut_bindings()", source)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        self.assertIn('file.favourite.add',model); self.assertIn('Add to Favourites',model)
+        from tests.w104_command_test_support import actual_binding_has
+        self.assertTrue(actual_binding_has('file.favourite.add','<Control><Alt>B'))
 
     def test_launcher_imports_add_and_open_plans_from_same_domain_module(self):
         source = LAUNCHER.read_text(encoding="utf-8")

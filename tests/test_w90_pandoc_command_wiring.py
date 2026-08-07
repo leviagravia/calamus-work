@@ -6,13 +6,14 @@ from tests.w104_command_test_support import guide_has
 
 from calamus_help import load_user_guide, parse_user_guide_sections
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class W90PandocCommandWiringTests(unittest.TestCase):
     def test_exactly_one_research_command_is_wired(self):
         launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
-        ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         label = "Export with Pandoc/citeproc…"
         self.assertEqual(ui.count(label), 1)
         self.assertIn(f'add_item(researchm, "{label}", app.on_export_with_pandoc)', ui)

@@ -4,6 +4,7 @@ import unittest
 from tests.w104_command_test_support import guide_has
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -21,7 +22,7 @@ def _method_source(name: str) -> str:
 
 class TextWrapCommandWiringTests(unittest.TestCase):
     def test_visible_command_and_shortcut_remain_single_named_entrypoint(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('connect_check_command(app.word_wrap_item, app, "options.word-wrap")', ui)
         self.assertIn("command_shortcut_bindings()", ui)
         self.assertTrue(guide_has("Options", "Word Wrap", "Alt+Z"))
@@ -33,12 +34,18 @@ class TextWrapCommandWiringTests(unittest.TestCase):
         self.assertNotIn('self.word_wrap = bool(self.settings.get("word_wrap", True))', launcher)
 
     def test_callback_is_a_persist_then_apply_gateway(self):
-        method = _method_source("on_word_wrap")
+        callback = _method_source("on_word_wrap")
+        self.assertIn("self.set_word_wrap(bool(item.get_active()))", callback)
+        self.assertLessEqual(len(callback.splitlines()), 2)
+        self.assertNotIn("item.set_active", callback)
+
+        method = _method_source("set_word_wrap")
         self.assertIn("prepare_text_wrap_plan", method)
         self.assertIn('self.save_settings({"word_wrap": plan.enabled})', method)
-        self.assertIn("item.set_active(plan.previous_enabled)", method)
+        self.assertNotIn("item.set_active", method)
         self.assertIn("self.word_wrap = plan.enabled", method)
         self.assertIn("self.queue_wrap_reflow()", method)
+        self.assertIn("self.refresh_ui_state()", method)
         self.assertIn("self.update_title()", method)
         self.assertIn("return True", method)
         self.assertLess(method.index("self.save_settings"), method.index("self.word_wrap = plan.enabled"))
@@ -76,12 +83,12 @@ class TextWrapCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Gtk.PolicyType.NEVER", apply_method)
         self.assertIn("Gtk.PolicyType.AUTOMATIC", editor)
         self.assertIn("scroller.get_hadjustment()", editor)
-        self.assertIn("self.queue_wrap_reflow()", _method_source("on_word_wrap"))
+        self.assertIn("self.queue_wrap_reflow()", _method_source("set_word_wrap"))
         self.assertIn("self._wrap_reflow_source = GLib.idle_add(apply_deferred)", _method_source("queue_wrap_reflow"))
         self.assertIn("GLib.source_remove(source)", _method_source("queue_wrap_reflow"))
 
     def test_options_menu_is_not_recomposed_incidentally(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('optm = top_menu(app, "Options")', ui)
         self.assertIn('app.word_wrap_item = Gtk.CheckMenuItem(label="Word Wrap\\tAlt+Z")', ui)
         self.assertNotIn('Gtk.CheckMenuItem(label="Text Wrap', ui)

@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 BIN_CALAMUS = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -58,7 +59,7 @@ def _dispatch_ids() -> list[str]:
 
 class LowercaseLayerWiringTests(unittest.TestCase):
     def test_visible_menu_and_shortcut_use_one_explicit_entrypoint(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn(
             'add_item(revisem, "Lowercase (convert selected)\\tCtrl+Alt+Shift+U", app.on_lowercase)',
             ui,
@@ -71,7 +72,7 @@ class LowercaseLayerWiringTests(unittest.TestCase):
         )
 
     def test_uppercase_visible_paths_remain_explicit_and_unchanged(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn(
             'add_item(revisem, "UPPERCASE (convert selected)\\tCtrl+Alt+U", app.on_uppercase)',
             ui,

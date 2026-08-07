@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
-CURRENT_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"
+CURRENT_BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"
 NEW_MODULES = (
     "calamus_application_components.py",
     "calamus_editor_composition.py",
@@ -84,8 +84,8 @@ class W101CoreCompositionContractTests(unittest.TestCase):
 
     def test_identity_scope_and_contract_are_exact(self):
         version = (self.calamus / "calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"', version)
         self.assertIn(f'PUBLISHED_BASELINE = "{CURRENT_BASELINE}"', version)
         contract = (ROOT / "docs/canonical/CALAMUS_W101_CORE_COMPOSITION_CONTRACT.md").read_text(encoding="utf-8")
         self.assertIn("Candidate R1", contract)
@@ -185,7 +185,7 @@ class W101CoreCompositionContractTests(unittest.TestCase):
                     args = [arg.arg for arg in node.args.args + node.args.kwonlyargs]
                     if "app" in args:
                         whole_app.append((path.name, node.name))
-        self.assertEqual(len(whole_app), 40)
+        self.assertEqual(len(whole_app), 39)
         w104_whole_app = [item for item in whole_app if item[0] == "calamus_application_commands.py"]
         self.assertEqual(w104_whole_app, [
             ("calamus_application_commands.py", "invoke_check_command"),
@@ -351,14 +351,14 @@ class W101CoreCompositionContractTests(unittest.TestCase):
                 imports.add(node.module)
             elif isinstance(node, ast.Import):
                 imports.update(alias.name for alias in node.names if alias.name.startswith("calamus_"))
-        self.assertEqual(len(imports), 73)
-        self.assertEqual(len(methods), 277)
-        self.assertEqual(self.app.end_lineno - self.app.lineno + 1, 2914)
-        self.assertEqual(len(self.launcher_text.splitlines()), 3127)
+        self.assertEqual(len(imports), 76)
+        self.assertEqual(len(methods), 279)
+        self.assertEqual(self.app.end_lineno - self.app.lineno + 1, 2872)
+        self.assertEqual(len(self.launcher_text.splitlines()), 3091)
         metrics = self.load_json("CALAMUS_W100_BASELINE_METRICS.json")
-        self.assertLess(3127, metrics["launcher_lines"])
-        self.assertLess(2914, metrics["app_lines"])
-        self.assertLessEqual(277, metrics["app_method_count"] + 11)
+        self.assertLess(3091, metrics["launcher_lines"])
+        self.assertLess(2872, metrics["app_lines"])
+        self.assertLessEqual(279, metrics["app_method_count"] + 13)
 
     def test_clip_builder_uses_narrow_gateway_and_preserves_historical_wrappers(self):
         builder = (self.calamus / "calamus_clip_composition.py").read_text(encoding="utf-8")

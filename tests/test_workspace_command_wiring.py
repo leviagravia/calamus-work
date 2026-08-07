@@ -68,30 +68,23 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertLess(zero,visible)
 
     def test_menu_exposes_create_rename_duplicate_and_system_trash_only(self):
-        ui=(ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8')
-        start=ui.index('app.workspace_file_item = Gtk.MenuItem(label="Writing Workspace")')
-        end=ui.index('add_separator(filem)', start)
-        workspace_menu=ui[start:end]
-        self.assertIn('New Text File…', workspace_menu)
-        self.assertIn('New Folder…', workspace_menu)
-        self.assertIn('Rename Selected Item…', workspace_menu)
-        self.assertIn('Duplicate Selected Text File', workspace_menu)
-        self.assertIn('Move Selected Item to Trash', workspace_menu)
-        self.assertIn('Change Workspace Folder…',workspace_menu)
-        self.assertIn('Show Workspace Panel',workspace_menu)
-        self.assertIn('Close Workspace',workspace_menu)
-        for forbidden in ('Permanently Delete', 'Duplicate Folder',
-                          'Delete Workspace', 'Copy Workspace', 'Move Workspace'):
-            self.assertNotIn(forbidden,workspace_menu)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        start=model.index('_m("Writing Workspace"')
+        end=model.index('_c("file.workspace.close"', start)+120
+        workspace_menu=model[start:end]
+        for label in ('New Text File…','New Folder…','Rename Selected Item…','Duplicate Selected Text File','Move Selected Item to Trash','Change Workspace Folder…','Show Workspace Panel','Close Workspace'):
+            self.assertIn(label, workspace_menu)
+        for forbidden in ('Permanently Delete','Duplicate Folder','Delete Workspace','Copy Workspace','Move Workspace'):
+            self.assertNotIn(forbidden, workspace_menu)
 
     def test_file_menu_groups_workspace_commands_in_one_submenu(self):
-        ui=(ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8')
-        self.assertIn('app.workspace_file_item = Gtk.MenuItem(label="Writing Workspace")',ui)
-        self.assertIn('app.workspace_file_item.set_submenu(app.workspace_file_menu)',ui)
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        start=model.index('_m("Writing Workspace"')
+        end=model.index('_c("file.workspace.close"', start)+120
+        block=model[start:end]
         for label in ('Show Workspace Panel','New Text File…','New Folder…','Rename Selected Item…','Duplicate Selected Text File','Move Selected Item to Trash','Change Workspace Folder…','Recent Workspaces','Rescan Folder Contents','Reveal Workspace Folder in File Manager','Close Workspace'):
-            self.assertIn(label,ui)
-        top_level_block=ui[ui.index('app.workspace_file_item ='):ui.index('add_separator(filem)',ui.index('app.workspace_file_item ='))]
-        self.assertNotIn('add_item(filem, "Refresh Writing Workspace"',top_level_block)
+            self.assertIn(label, block)
+        self.assertNotIn('Refresh Writing Workspace', block)
 
     def test_left_panel_follows_xed_shrinkable_paned_boundary(self):
         host=(ROOT/'calamus/calamus_left_panel.py').read_text(encoding='utf-8')
@@ -107,20 +100,20 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
 
     def test_all_root_commands_converge_on_one_operational_gateway(self):
         launcher=(ROOT/'bin/calamus').read_text(encoding='utf-8')
-        self.assertIn('"file.workspace.recent.open",', launcher)
-        self.assertIn('source="dynamic-menu",', launcher)
-        self.assertIn('data={"path": path},', launcher)
-        self.assertIn('return self.activate_workspace_path(selected)', launcher)
+        commands=(ROOT/'calamus/calamus_application_commands.py').read_text(encoding='utf-8')
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
+        self.assertIn('bind("file.workspace.recent.open", lambda ctx: app.activate_workspace_path', commands)
+        self.assertIn('file.workspace.recent.open', model)
         self.assertIn('def activate_workspace_path(self, path):', launcher)
         self.assertIn('self.workspace_panel_runtime.set_visible(True)', launcher)
         self.assertIn('self.workspace_panel_view.focus_tree()', launcher)
 
     def test_rescan_is_named_and_explained_as_external_change_refresh(self):
-        ui=(ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8')
+        model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
         panel=(ROOT/'calamus/calamus_workspace_panel.py').read_text(encoding='utf-8')
-        self.assertIn('Rescan Folder Contents', ui)
+        self.assertIn('Rescan Folder Contents', model)
         self.assertIn('Rescan after files or folders changed outside Calamus', panel)
-        self.assertNotIn('"Refresh", app.on_refresh_workspace', ui)
+        self.assertNotIn('Refresh Writing Workspace', model)
 
 
     def test_new_text_file_uses_pure_plan_one_gio_commit_and_reconciliation(self):
@@ -285,7 +278,7 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('def plan_workspace_trash_identity(', identity)
         self.assertIn('self.document_session.detach(current_text)', launcher)
         self.assertNotIn('self.current_file =', launcher[launcher.index('def reconcile_workspace_trash'):launcher.index('def on_select_workspace_folder')])
-        self.assertIn('Move Selected Item to Trash', (ROOT/'calamus/calamus_ui.py').read_text(encoding='utf-8'))
+        self.assertIn('Move Selected Item to Trash', (ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8'))
         self.assertIn('def confirm_move_workspace_item_to_trash(', dialogs)
         dialog_block=dialogs[dialogs.index('def confirm_move_workspace_item_to_trash('):]
         for forbidden in ('Gio.File', 'os.unlink', 'os.remove', '.trash('):

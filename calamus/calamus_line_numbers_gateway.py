@@ -1,8 +1,6 @@
 """Application-service gateway for Calamus line numbers and custom gutter.
 
-The gateway imports no GTK. It coordinates strict preference planning,
-persist-first lifecycle, menu synchronization and the runtime gutter adapter.
-Document text and Undo state are never mutated.
+W105 removes application-menu synchronization from this GTK-free gateway.
 """
 from __future__ import annotations
 
@@ -16,16 +14,12 @@ from calamus_logging import log_nonfatal
 
 
 def sync_line_number_control(host: Any) -> None:
-    host._syncing_line_number_item = True
-    try:
-        if hasattr(host, "line_item"):
-            host.line_item.set_active(host.line_numbers_enabled)
-    finally:
-        host._syncing_line_number_item = False
+    refresh = getattr(host, "refresh_ui_state", None)
+    if callable(refresh):
+        refresh()
 
 
 def _host_line_count(host: Any) -> int:
-    """Read the authoritative GtkTextBuffer count through the view adapter."""
     return host.line_gutter.current_line_count()
 
 
@@ -47,7 +41,6 @@ def refresh_line_number_gutter(host: Any, *, force: bool = False) -> bool:
 
 
 def execute_line_number_preference_request(host: Any, requested_enabled: bool) -> bool:
-    """Persist, render and commit one line-number visibility transition."""
     try:
         plan = prepare_line_number_preference_plan(
             host.line_numbers_enabled,

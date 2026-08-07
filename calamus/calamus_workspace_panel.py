@@ -210,15 +210,13 @@ class WorkspacePanelView:
 
 
 class WorkspacePanelRuntime:
-    def __init__(self, host: Any, view: WorkspacePanelView, menu_item: Any, editor_focus: Callable[[], None], on_visibility_changed: Callable[[bool], None]) -> None:
+    def __init__(self, host: Any, view: WorkspacePanelView, editor_focus: Callable[[], None], on_visibility_changed: Callable[[bool], None]) -> None:
         if not callable(editor_focus) or not callable(on_visibility_changed):
             raise TypeError("workspace runtime callbacks must be callable")
         self._host = host
         self._view = view
-        self._menu_item = menu_item
         self._editor_focus = editor_focus
         self._on_visibility_changed = on_visibility_changed
-        self._syncing = False
         self._host.subscribe(self._host_visibility_changed)
 
     @property
@@ -233,8 +231,7 @@ class WorkspacePanelRuntime:
         else:
             self._host.hide()
             self._editor_focus()
-        self._sync_menu(target)
-        self._on_visibility_changed(target)
+        # LeftPanelHost owns the actual visibility and notifies synchronously.
         return target
 
     def toggle(self) -> bool:
@@ -243,19 +240,5 @@ class WorkspacePanelRuntime:
     def hide(self) -> bool:
         return self.set_visible(False)
 
-    def on_menu_toggled(self, menu_item: Any) -> None:
-        if not self._syncing:
-            self.set_visible(menu_item.get_active())
-
     def _host_visibility_changed(self, visible: bool) -> None:
-        self._sync_menu(visible)
         self._on_visibility_changed(bool(visible))
-
-    def _sync_menu(self, visible: bool) -> None:
-        if self._menu_item.get_active() == bool(visible):
-            return
-        self._syncing = True
-        try:
-            self._menu_item.set_active(bool(visible))
-        finally:
-            self._syncing = False

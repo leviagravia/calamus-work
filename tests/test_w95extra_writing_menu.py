@@ -6,6 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "calamus" / "calamus_ui.py"
+MENU_MODEL = ROOT / "calamus" / "calamus_menu_model.py"
 LAUNCHER = ROOT / "bin" / "calamus"
 GUIDE = ROOT / "share" / "doc" / "calamus" / "USER_GUIDE.md"
 VERSION = ROOT / "calamus" / "calamus_version.py"
@@ -18,55 +19,40 @@ HISTORY_RUNTIME = ROOT / "calamus" / "calamus_history_runtime.py"
 
 class W95ExtraWritingMenuTests(unittest.TestCase):
     def test_top_level_order_contains_bounded_writing_menu(self):
-        source = UI.read_text(encoding="utf-8")
-        roots = [node.args[1].value for node in ast.walk(ast.parse(source))
-                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-                 and node.func.id == "top_menu" and len(node.args) > 1
-                 and isinstance(node.args[1], ast.Constant)]
-        self.assertIn("Writing", roots)
-        self.assertLess(roots.index("Navigate"), roots.index("Writing"))
-        self.assertLess(roots.index("Writing"), roots.index("Revise"))
+        from calamus_menu_model import TOP_LEVEL_MENU_ORDER
+        self.assertEqual(TOP_LEVEL_MENU_ORDER, ("File", "Edit", "Research", "Navigate", "Writing", "Revise", "View", "Options", "Tools", "Help"))
 
     def test_writing_menu_is_exactly_the_authorized_initial_surface(self):
-        source = UI.read_text(encoding="utf-8")
-        start = source.index('writingm = top_menu(app, "Writing")')
-        end = source.index('revisem = top_menu(app, "Revise")')
-        menu = source[start:end]
-        for label in (
-            "Typewriter Mode\\tShift+F9",
-            "Insert Date",
-            "Insert Time",
-            "Insert Date and Time\\tCtrl+Alt+D",
-        ):
+        source=MENU_MODEL.read_text(encoding="utf-8")
+        menu=source[source.index('MenuSpec("Writing"'):source.index('MenuSpec("Revise"')]
+        for label in ("Typewriter Mode\\tShift+F9", "Insert Date", "Insert Time", "Insert Date and Time\\tCtrl+Alt+D"):
             self.assertIn(label, menu)
         for forbidden in ("Focus Mode", "Distraction-Free Mode", "Word Count", "Statistics"):
             self.assertNotIn(forbidden, menu)
-        self.assertEqual(menu.count("add_item(writingm"), 3)
-        self.assertEqual(menu.count("Gtk.CheckMenuItem"), 1)
+        self.assertEqual(menu.count('_c("writing.insert-'), 3)
+        self.assertEqual(menu.count('_k("writing.typewriter-mode"'), 1)
 
     def test_menu_taxonomy_is_unambiguous_and_duplicate_free(self):
-        source = UI.read_text(encoding="utf-8")
-        navigate = source[source.index('navigatem = top_menu(app, "Navigate")'):source.index('writingm = top_menu(app, "Writing")')]
-        writing = source[source.index('writingm = top_menu(app, "Writing")'):source.index('revisem = top_menu(app, "Revise")')]
-        revise = source[source.index('revisem = top_menu(app, "Revise")'):source.index('viewm = top_menu(app, "View")')]
+        source=MENU_MODEL.read_text(encoding="utf-8")
+        navigate=source[source.index('MenuSpec("Navigate"'):source.index('MenuSpec("Writing"')]
+        writing=source[source.index('MenuSpec("Writing"'):source.index('MenuSpec("Revise"')]
+        revise=source[source.index('MenuSpec("Revise"'):source.index('MenuSpec("View"')]
         for label in ("Insert Bookmark Here", "Next Bookmark", "Previous Bookmark", "Manage Bookmarks"):
-            self.assertIn(label, navigate)
-            self.assertNotIn(label, revise)
+            self.assertIn(label,navigate); self.assertNotIn(label,revise)
         for label in ("Insert Date", "Insert Time", "Insert Date and Time"):
-            self.assertIn(label, writing)
-            self.assertNotIn(label, revise)
+            self.assertIn(label,writing); self.assertNotIn(label,revise)
         for label in ("Paste Clean from PDF", "Clean Selected Text from PDF"):
-            self.assertIn(label, revise)
-            self.assertNotIn(label, writing)
+            self.assertIn(label,revise); self.assertNotIn(label,writing)
 
     def test_typewriter_is_checked_and_shortcut_is_unique(self):
-        source = UI.read_text(encoding="utf-8")
-        self.assertIn('app.typewriter_item = Gtk.CheckMenuItem(label="Typewriter Mode\\tShift+F9")', source)
-        self.assertIn("command_shortcut_bindings()", source)
+        source=MENU_MODEL.read_text(encoding="utf-8")
+        self.assertIn('writing.typewriter-mode', source)
+        self.assertIn('Typewriter Mode\\tShift+F9', source)
+        self.assertIn("command_shortcut_bindings()", UI.read_text(encoding="utf-8"))
         from tests.w104_command_test_support import actual_binding_has
         self.assertTrue(actual_binding_has("writing.typewriter-mode", "<Shift>F9"))
-        launcher = LAUNCHER.read_text(encoding="utf-8")
-        lifecycle = (ROOT / "calamus/calamus_application_lifecycle_app.py").read_text(encoding="utf-8")
+        launcher=LAUNCHER.read_text(encoding="utf-8")
+        lifecycle=(ROOT/"calamus/calamus_application_lifecycle_app.py").read_text(encoding="utf-8")
         self.assertIn("on_typewriter_item_toggled", launcher)
         self.assertIn("app.typewriter_runtime.shutdown", lifecycle)
 
@@ -95,12 +81,12 @@ class W95ExtraWritingMenuTests(unittest.TestCase):
             self.assertIn(label, guide)
         self.assertIn("## Typewriter Mode", guide)
         version = VERSION.read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"',
             version,
         )
-        self.assertIn("ca1a9774085d81d087f7a257dbffbbaa858a3889", version)
+        self.assertIn("92aa832c6b72cb7a81a5a44c656890ec602d9d41", version)
 
 
 if __name__ == "__main__":

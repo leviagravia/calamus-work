@@ -1,3 +1,4 @@
+from tests.w105_menu_test_support import legacy_menu_projection
 import ast
 import copy
 from pathlib import Path
@@ -50,9 +51,10 @@ class _App:
 
 class TemplateCommandWiringTests(unittest.TestCase):
     def test_visible_submenu_keeps_existing_location_and_callback(self):
-        ui=UI.read_text(encoding="utf-8");launcher=LAUNCHER.read_text(encoding="utf-8")
+        ui=legacy_menu_projection();launcher=LAUNCHER.read_text(encoding="utf-8")
         self.assertIn('app.template_item = Gtk.MenuItem(label="New from Template")',ui)
-        self.assertIn('self.invoke_command("file.template.open", source="dynamic-menu", data={"path": p})',launcher)
+        self.assertIn('self.invoke_command("file.template.open", source="dynamic-menu", data={"path": p})',ui)
+        self.assertIn('adapter.render_dynamic("templates", template_rows(templates))',launcher)
 
     def test_template_domain_remains_gtk_free(self):
         source=TEMPLATES.read_text(encoding="utf-8")

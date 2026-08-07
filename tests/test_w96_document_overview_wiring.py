@@ -13,9 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class W96DocumentOverviewWiringTests(unittest.TestCase):
     def test_navigate_menu_exposes_exact_single_entry_without_shortcut(self):
-        source = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
-        self.assertEqual(1, source.count('add_item(navigatem, "Document Overview", app.on_document_overview)'))
+        source = (ROOT / "calamus/calamus_menu_model.py").read_text(encoding="utf-8")
+        commands = (ROOT / "calamus/calamus_application_commands.py").read_text(encoding="utf-8")
+        self.assertEqual(1, source.count('_c("navigate.document-overview", "Document Overview")'))
         self.assertNotIn("Document Overview\\t", source)
+        self.assertIn("'on_document_overview': ApplicationCommandTarget('navigate.document-overview'", commands)
 
     def test_app_composes_existing_authorities_and_single_runtime(self):
         launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
@@ -66,9 +68,9 @@ class W96DocumentOverviewWiringTests(unittest.TestCase):
 
     def test_w96_help_is_preserved_and_current_identity_is_w98(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"', version)
-        self.assertIn('PUBLISHED_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"', version)
+        self.assertIn('PUBLISHED_BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"', version)
         guide = (ROOT / "share/doc/calamus/USER_GUIDE.md").read_text(encoding="utf-8")
         for token in (
             "## Document Overview",

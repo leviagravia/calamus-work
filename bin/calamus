@@ -48,7 +48,6 @@ from calamus_workspace_identity import (
     WorkspacePathReferenceSnapshot, plan_workspace_rename_identity,
     plan_workspace_trash_identity,
 )
-from calamus_workspace_menu import populate_recent_workspaces_menu as workspace_populate_recent_menu
 from calamus_workspace_external import open_external_path, reveal_in_file_manager
 import calamus_typewriter_app as typewriter_app
 import calamus_writing_app as writing_app
@@ -73,7 +72,13 @@ from calamus_dialogs import (
     run_spelling_dialog,
     show_error, show_info, show_keyboard_shortcuts, show_large_info,
 )
-from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts, add_item as ui_add_item, add_separator as ui_add_separator, top_menu as ui_top_menu
+from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts
+from calamus_menu_model import (
+    template_rows, recent_file_rows, favourite_rows, recent_workspace_rows,
+)
+from calamus_ui_state import UiStateFacts
+from calamus_application_components import UiStateCompositionInput
+from calamus_ui_state_composition import build_ui_state_components
 from calamus_command_context import CommandContext
 from calamus_command_catalog import build_pure_command_layer
 from calamus_application_commands import build_application_command_layer
@@ -153,6 +158,7 @@ from calamus_appearance_preferences import (
 )
 from calamus_appearance_gateway import execute_appearance_preference_request
 from calamus_opacity import (
+    MAX_OPACITY_PERCENT,
     load_opacity_preference,
     opacity_settings_overrides,
 )
@@ -202,6 +208,10 @@ class App(Gtk.Window):
         self.settings = self.load_settings()
         self.command_layer = build_pure_command_layer()
         self.command_actions = build_application_command_layer(self)
+        self.ui_state_components = build_ui_state_components(
+            UiStateCompositionInput(self.command_actions.availability)
+        )
+        self.ui_state_controller = self.ui_state_components.controller
         self.application_lifecycle = ApplicationLifecycleCoordinator()
 
         width = clamp_int(self.settings.get("width"), DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
@@ -217,10 +227,8 @@ class App(Gtk.Window):
         self.inline_spell_enabled = False
         appearance_preference = load_appearance_preference(self.settings)
         self.appearance_mode = appearance_preference.mode
-        self._syncing_appearance_items = False
         opacity_preference = load_opacity_preference(self.settings)
         self.opacity_percent = opacity_preference.percent
-        self._syncing_opacity_item = False
         self._opacity_widget_api = Gtk.Widget
         configured_workspace = self.settings.get("workspace_root")
         self.workspace_root = configured_workspace if isinstance(configured_workspace, str) and os.path.isdir(configured_workspace) else None
@@ -232,10 +240,8 @@ class App(Gtk.Window):
         self.print_pages = []
         line_number_preference = load_line_number_preference(self.settings)
         self.line_numbers_enabled = line_number_preference.enabled
-        self._syncing_line_number_item = False
         self.focus_mode = False
         self.typewriter_mode = False
-        self._syncing_typewriter_item = False
         self.current_line_highlight = False
         self.distraction_free = False
         self.bookmarks = []
@@ -323,6 +329,7 @@ class App(Gtk.Window):
 
         if self._components.workspace.startup_visible:
             self.workspace_panel_runtime.set_visible(True)
+        self.refresh_ui_state()
         self.update_title()
 
     @property
@@ -480,16 +487,16 @@ class App(Gtk.Window):
             **opacity_settings_overrides(self.opacity_percent),
             "font_size": self.font_size,
             "font_family": self.font_family,
-            "word_wrap": self.word_wrap_item.get_active() if hasattr(self, "word_wrap_item") else self.word_wrap,
+            "word_wrap": bool(self.word_wrap),
             "last_file": self.current_file,
             "workspace_root": getattr(self, "workspace_root", None),
             "workspace_visible": bool(getattr(self, "workspace_visible", False)),
             "spell_lang": self.spell_lang,
             "inline_spell": False,
-            "always_on_top": self.always_item.get_active() if hasattr(self, "always_item") else False,
+            "always_on_top": bool(self.always_on_top),
             **appearance_settings_overrides(self.appearance_mode),
             **line_number_settings_overrides(self.line_numbers_enabled),
-            "trim_trailing_on_save": self.trim_trailing_on_save_item.get_active() if hasattr(self, "trim_trailing_on_save_item") else self.trim_trailing_on_save,
+            "trim_trailing_on_save": bool(self.trim_trailing_on_save),
         }
         if overrides is not None:
             if not isinstance(overrides, dict):
@@ -507,20 +514,32 @@ class App(Gtk.Window):
             CommandContext(source=source, data=dict(data or {})),
         )
 
+    def ui_state_facts(self):
+        research_runtime = getattr(self, "research_panel_runtime", None)
+        navigator_runtime = getattr(self, "navigator_panel_runtime", None)
+        workspace_runtime = getattr(self, "workspace_panel_runtime", None)
+        typewriter_runtime = getattr(self, "typewriter_runtime", None)
+        return UiStateFacts(
+            research_panel_visible=bool(getattr(research_runtime, "is_visible", False)),
+            navigator_panel_visible=bool(getattr(navigator_runtime, "is_visible", False)),
+            workspace_panel_visible=bool(getattr(workspace_runtime, "is_visible", False)),
+            typewriter_enabled=bool(getattr(typewriter_runtime, "enabled", self.typewriter_mode)),
+            word_wrap=bool(self.word_wrap),
+            opacity_percent=int(self.opacity_percent),
+            always_on_top=bool(self.always_on_top),
+            appearance_mode=str(self.appearance_mode),
+            line_numbers_enabled=bool(self.line_numbers_enabled),
+            workspace_root_present=bool(self.workspace_root),
+        )
+
+    def refresh_ui_state(self):
+        return self.ui_state_controller.refresh(self.ui_state_facts())
+
     def build_menu(self):
-        ui_build_menu(self)
-
-    def top(self, label):
-        return ui_top_menu(self, label)
-
-    def item(self, menu, label, cb):
-        return ui_add_item(menu, label, cb)
-
-    def sep(self, menu):
-        return ui_add_separator(menu)
+        return ui_build_menu(self)
 
     def add_shortcuts(self):
-        ui_add_shortcuts(self)
+        return ui_add_shortcuts(self)
 
     def buffer_text(self):
         return self.document_session_controller.capture_buffer_text()
@@ -751,7 +770,7 @@ class App(Gtk.Window):
         mark = " *" if self.modified else ""
         self.set_title(f"{APP_TITLE} - {name} ({status})")
         lang = self.spell_lang.upper()
-        top_active = self.always_item.get_active() if hasattr(self, "always_item") else bool(self.settings.get("always_on_top", True))
+        top_active = bool(self.always_on_top)
         top = "top ON" if top_active else "top OFF"
         bg = {APPEARANCE_DARK: "dark bg", APPEARANCE_LIGHT: "white bg"}.get(self.appearance_mode, "default bg")
         words, chars, lines = self.text_stats()
@@ -963,26 +982,24 @@ class App(Gtk.Window):
         return self.history_runtime.sync_current_view_state()
 
     def on_top(self, item):
-        self.set_keep_above(item.get_active())
+        requested = bool(item.get_active())
+        self.always_on_top = requested
+        self.set_keep_above(requested)
         self.update_title()
-        self.save_settings()
+        saved = self.save_settings()
+        self.refresh_ui_state()
+        return saved
 
     def on_white_background(self, item):
-        if self._syncing_appearance_items:
-            return False
         requested = APPEARANCE_LIGHT if item.get_active() else APPEARANCE_SYSTEM
         return execute_appearance_preference_request(self, requested)
 
     def on_dark_mode(self, item):
-        if self._syncing_appearance_items:
-            return False
         requested = APPEARANCE_DARK if item.get_active() else APPEARANCE_SYSTEM
         return execute_appearance_preference_request(self, requested)
 
     def on_line_numbers(self, item):
-        if self._syncing_line_number_item:
-            return False
-        return execute_line_number_preference_request(self, item.get_active())
+        return execute_line_number_preference_request(self, bool(item.get_active()))
 
     def set_opacity_value(self, v):
         return execute_opacity_preference_request(self, v)
@@ -1510,21 +1527,11 @@ class App(Gtk.Window):
         self.large_info("Document Statistics", msg)
 
     def populate_template_menu(self):
-        if not hasattr(self, "template_menu"):
-            return
-        for child in list(self.template_menu.get_children()):
-            self.template_menu.remove(child)
-        templates = list_templates(self.state.config_dir)
-        if not templates:
-            item = Gtk.MenuItem(label="No templates")
-            item.set_sensitive(False)
-            self.template_menu.append(item)
-        else:
-            for name, path in templates:
-                item = Gtk.MenuItem(label=name)
-                item.connect("activate", lambda _w, p=path: self.invoke_command("file.template.open", source="dynamic-menu", data={"path": p}))
-                self.template_menu.append(item)
-        self.template_menu.show_all()
+        templates = tuple(list_templates(self.state.config_dir))
+        adapter = getattr(self, "menu_ui_adapter", None)
+        if adapter is not None:
+            adapter.render_dynamic("templates", template_rows(templates))
+        return templates
 
     def on_new_from_template(self, path):
         if not self.may_continue():
@@ -1623,49 +1630,52 @@ class App(Gtk.Window):
         self.info(f"Template deleted: {plan.target_name}")
         return list_managed_templates(self.state.config_dir)
 
-    def on_word_wrap(self, item):
-        if getattr(self, "_syncing_word_wrap_item", False):
-            return False
+    def set_word_wrap(self, requested_enabled):
         try:
-            plan = prepare_text_wrap_plan(self.word_wrap, bool(item.get_active()))
+            plan = prepare_text_wrap_plan(self.word_wrap, bool(requested_enabled))
         except (TypeError, ValueError) as e:
+            self.refresh_ui_state()
             self.error(str(e))
             return False
         if not plan.changed:
+            self.refresh_ui_state()
             return False
         if not self.save_settings({"word_wrap": plan.enabled}):
-            self._syncing_word_wrap_item = True
-            try:
-                item.set_active(plan.previous_enabled)
-            finally:
-                self._syncing_word_wrap_item = False
+            self.refresh_ui_state()
             self.error("Could not save the Word Wrap preference.")
             return False
         self.word_wrap = plan.enabled
         self.queue_wrap_reflow()
+        self.refresh_ui_state()
         self.update_title()
         return True
 
+    def on_word_wrap(self, item):
+        return self.set_word_wrap(bool(item.get_active()))
+
     def toggle_word_wrap(self, *_):
-        if hasattr(self, "word_wrap_item"):
-            self.word_wrap_item.set_active(not self.word_wrap_item.get_active())
+        return self.set_word_wrap(not self.word_wrap)
 
     def on_transparent_mode(self, item):
-        if self._syncing_opacity_item:
-            return False
-        return execute_transparent_mode_request(self, item.get_active())
+        return execute_transparent_mode_request(self, bool(item.get_active()))
 
     def toggle_transparent_mode(self, *_):
-        if hasattr(self, "transparent_item"):
-            self.transparent_item.set_active(not self.transparent_item.get_active())
+        return execute_transparent_mode_request(
+            self, not (self.opacity_percent < MAX_OPACITY_PERCENT)
+        )
 
     def toggle_always_on_top(self, *_):
-        if hasattr(self, "always_item"):
-            self.always_item.set_active(not self.always_item.get_active())
+        class _RequestedActive:
+            def __init__(self, value):
+                self._value = bool(value)
+            def get_active(self):
+                return self._value
+        return self.on_top(_RequestedActive(not self.always_on_top))
 
     def toggle_line_numbers(self, *_):
-        if hasattr(self, "line_item"):
-            self.line_item.set_active(not self.line_item.get_active())
+        return execute_line_number_preference_request(
+            self, not self.line_numbers_enabled
+        )
 
     def on_font(self, *_):
         dialog = Gtk.FontChooserDialog(title="Font", transient_for=self)
@@ -1728,33 +1738,11 @@ class App(Gtk.Window):
         return self.state.save_favourites(items, limit=50)
 
     def populate_favourites_menu(self):
-        if not hasattr(self, "favourites_menu"):
-            return ()
-
-        current_children = list(self.favourites_menu.get_children())
-        for child in getattr(self, "_favourite_dynamic_items", ()):
-            if child in current_children:
-                self.favourites_menu.remove(child)
-
-        items = self.load_favourites()
-        dynamic_items = []
-        if not items:
-            item = Gtk.MenuItem(label="No favourites")
-            item.set_sensitive(False)
-            self.favourites_menu.append(item)
-            dynamic_items.append(item)
-        else:
-            for path in items:
-                label = os.path.basename(path) or path
-                item = Gtk.MenuItem(label=label)
-                item.set_tooltip_text(path)
-                item.connect("activate", lambda _w, p=path: self.invoke_command("file.favourite.open", source="dynamic-menu", data={"path": p}))
-                self.favourites_menu.append(item)
-                dynamic_items.append(item)
-
-        self._favourite_dynamic_items = dynamic_items
-        self.favourites_menu.show_all()
-        return tuple(items)
+        items = tuple(self.load_favourites())
+        adapter = getattr(self, "menu_ui_adapter", None)
+        if adapter is not None:
+            adapter.render_dynamic("favourites", favourite_rows(items))
+        return items
 
     def open_favourite_path(self, path):
         if not self.may_continue():
@@ -1864,29 +1852,14 @@ class App(Gtk.Window):
         if not path:
             return
         self.state.add_recent_file(path, limit=10)
-        if hasattr(self, "recent_menu"):
-            self.populate_recent_menu()
+        self.populate_recent_menu()
 
     def populate_recent_menu(self):
-        if not hasattr(self, "recent_menu"):
-            return
-        for child in list(self.recent_menu.get_children()):
-            self.recent_menu.remove(child)
-        items = self.load_recent_files()
-        if not items:
-            item = Gtk.MenuItem(label="No recent files")
-            item.set_sensitive(False)
-            self.recent_menu.append(item)
-        else:
-            for path in items:
-                label = os.path.basename(path) or path
-                item = Gtk.MenuItem(label=label)
-                item.set_tooltip_text(path)
-                item.connect("activate", lambda _w, p=path: self.invoke_command("file.recent.open", source="dynamic-menu", data={"path": p}))
-                self.recent_menu.append(item)
-            self.sep(self.recent_menu)
-            self.item(self.recent_menu, "Clear Recent Files", self.on_clear_recent)
-        self.recent_menu.show_all()
+        items = tuple(self.load_recent_files())
+        adapter = getattr(self, "menu_ui_adapter", None)
+        if adapter is not None:
+            adapter.render_dynamic("recent-files", recent_file_rows(items))
+        return items
 
     def open_recent_path(self, path):
         if not self.may_continue():
@@ -2225,8 +2198,8 @@ class App(Gtk.Window):
         self.research_panel_runtime = ResearchPanelRuntime(
             self.right_panel_host,
             self.research_panel_view,
-            self.research_item,
             self.text.grab_focus,
+            on_visibility_changed=self.on_research_visibility_changed,
         )
         self.research_integrity_controller = ResearchIntegrityController(
             reference_store=self.reference_store,
@@ -2285,7 +2258,10 @@ class App(Gtk.Window):
         return self.clip_collection.refresh()
 
     def on_research_item_toggled(self, item):
-        return self.research_panel_runtime.on_menu_toggled(item)
+        return self.research_panel_runtime.set_visible(bool(item.get_active()))
+
+    def on_research_visibility_changed(self, _visible):
+        self.refresh_ui_state()
 
     def toggle_research_panel(self, *_):
         return self.research_panel_runtime.toggle()
@@ -2610,17 +2586,11 @@ class App(Gtk.Window):
         self.large_info("Bookmarks", "\n".join(lines))
 
     def populate_recent_workspaces_menu(self):
-        if not hasattr(self, "recent_workspaces_menu"):
-            return ()
-        return workspace_populate_recent_menu(
-            self.recent_workspaces_menu,
-            self.state.load_recent_workspaces(),
-            lambda path: self.invoke_command(
-                "file.workspace.recent.open",
-                source="dynamic-menu",
-                data={"path": path},
-            ),
-        )
+        paths = tuple(self.state.load_recent_workspaces())
+        adapter = getattr(self, "menu_ui_adapter", None)
+        if adapter is not None:
+            adapter.render_dynamic("recent-workspaces", recent_workspace_rows(paths))
+        return paths
 
     def show_workspace_panel(self, *_):
         if not getattr(self, "workspace_root", None):
@@ -2769,33 +2739,27 @@ class App(Gtk.Window):
         return self.workspace_application_runtime.reveal()
 
     def on_workspace_item_toggled(self, item):
-        return self.workspace_panel_runtime.on_menu_toggled(item)
+        return self.workspace_panel_runtime.set_visible(bool(item.get_active()))
 
     def toggle_workspace_panel(self, *_):
         return self.workspace_panel_runtime.toggle()
 
     def on_workspace_root_changed(self, root):
         self.workspace_root = root
-        if hasattr(self, "workspace_new_text_file_item"):
-            self.workspace_new_text_file_item.set_sensitive(bool(root))
-        if hasattr(self, "workspace_new_folder_item"):
-            self.workspace_new_folder_item.set_sensitive(bool(root))
-        if hasattr(self, "workspace_rename_item"):
-            self.workspace_rename_item.set_sensitive(bool(root))
-        if hasattr(self, "workspace_duplicate_item"):
-            self.workspace_duplicate_item.set_sensitive(bool(root))
-        if hasattr(self, "workspace_trash_item"):
-            self.workspace_trash_item.set_sensitive(bool(root))
+        self.refresh_ui_state()
 
     def on_workspace_visibility_changed(self, visible):
         target = bool(visible)
-        if getattr(self, "workspace_visible", False) == target:
-            return
-        self.workspace_visible = target
-        self.save_settings({"workspace_visible": target})
+        if getattr(self, "workspace_visible", False) != target:
+            self.workspace_visible = target
+            self.save_settings({"workspace_visible": target})
+        self.refresh_ui_state()
 
     def on_navigator_item_toggled(self, item):
-        return self.navigator_panel_runtime.on_menu_toggled(item)
+        return self.navigator_panel_runtime.set_visible(bool(item.get_active()))
+
+    def on_navigator_visibility_changed(self, _visible):
+        self.refresh_ui_state()
 
     def toggle_navigator_panel(self, *_):
         return self.navigator_panel_runtime.toggle()

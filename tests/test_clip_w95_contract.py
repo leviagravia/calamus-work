@@ -1,6 +1,6 @@
 from pathlib import Path
 import unittest
-from tests.w104_command_test_support import guide_has
+from tests.w104_command_test_support import actual_binding_has, guide_has
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,8 +25,11 @@ class ClipW95ContractTests(unittest.TestCase):
 
     def test_menu_shortcut_and_runtime_wiring_are_present(self):
         ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
+        menu_model = (ROOT / "calamus/calamus_menu_model.py").read_text(encoding="utf-8")
         app = (ROOT / "bin/calamus").read_text(encoding="utf-8")
-        self.assertIn('"Insert Clip…\\tCtrl+Alt+K", app.on_insert_clip', ui)
+        self.assertIn('research.insert-clip', menu_model)
+        self.assertIn('Insert Clip…', menu_model)
+        self.assertTrue(actual_binding_has("research.insert-clip", "<Control><Alt>K"))
         self.assertIn("command_shortcut_bindings()", ui)
         self.assertIn("def on_insert_clip", app)
         composition = (ROOT / "calamus/calamus_clip_composition.py").read_text(encoding="utf-8")
@@ -79,12 +82,12 @@ class ClipW95ContractTests(unittest.TestCase):
 
     def test_w95extra_identity_points_to_published_w95(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"',
             version,
         )
-        self.assertIn('PUBLISHED_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"', version)
+        self.assertIn('PUBLISHED_BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"', version)
 
 
 if __name__ == "__main__":

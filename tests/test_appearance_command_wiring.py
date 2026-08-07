@@ -2,6 +2,7 @@ import ast
 from pathlib import Path
 import unittest
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -30,7 +31,7 @@ def _module_function_source(path: Path, name: str) -> str:
 
 class AppearanceCommandWiringTests(unittest.TestCase):
     def test_visible_commands_remain_in_options_without_cosmetic_recomposition(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('optm = top_menu(app, "Options")', ui)
         self.assertIn('Gtk.CheckMenuItem(label="White Background")', ui)
         self.assertIn('Gtk.CheckMenuItem(label="Dark Mode")', ui)

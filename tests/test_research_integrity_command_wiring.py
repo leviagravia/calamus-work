@@ -4,9 +4,10 @@ import unittest
 from pathlib import Path
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "bin" / "calamus").read_text(encoding="utf-8")
-UI = (ROOT / "calamus" / "calamus_ui.py").read_text(encoding="utf-8")
+UI = legacy_menu_projection()
 REFERENCE_DIALOGS = (ROOT / "calamus" / "calamus_reference_dialogs.py").read_text(encoding="utf-8")
 PROVENANCE = (ROOT / "scripts" / "prove-source-provenance.sh").read_text(encoding="utf-8")
 

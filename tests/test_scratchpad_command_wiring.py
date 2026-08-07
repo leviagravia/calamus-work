@@ -3,6 +3,7 @@ import unittest
 from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -44,7 +45,7 @@ class ScratchpadCommandWiringTests(unittest.TestCase):
         self.assertIn('_TYPES = ("note", "idea", "draft", "task")', model)
         self.assertNotIn('"concept"', model)
         self.assertNotIn('"question"', model)
-        ui = source(UI)
+        ui = legacy_menu_projection()
         for command in (
             'add_item(researchm, "Scratchpad\\tCtrl+Alt+S", app.show_scratchpad)',
             '"Capture Selection in Scratchpad…\\tCtrl+Alt+Shift+S"',

@@ -23,9 +23,9 @@ ROOT = Path(__file__).resolve().parents[1]
 RUN = os.environ.get("CALAMUS_W104_RUN_REAL_GTK") == "1"
 EXPECTED = (
     "Development build",
-    "W104",
-    "Command and Action Architecture",
-    "ca1a9774085d81d087f7a257dbffbbaa858a3889",
+    "W105",
+    "Menu and UI-State Decoupling",
+    "92aa832c6b72cb7a81a5a44c656890ec602d9d41",
 )
 
 
@@ -75,9 +75,9 @@ class W104IdentityRealAppE2E(unittest.TestCase):
                         body = text_view_body(named_widget(dialog, "calamus-system-info-text", Gtk.TextView))
                         for token in (
                             "Calamus: Development build",
-                            "Work item: W104",
-                            "Work item description: Command and Action Architecture",
-                            "Published baseline: ca1a9774085d81d087f7a257dbffbbaa858a3889",
+                            "Work item: W105",
+                            "Work item description: Menu and UI-State Decoupling",
+                            "Published baseline: 92aa832c6b72cb7a81a5a44c656890ec602d9d41",
                         ):
                             self.assertIn(token, body)
                         dialog.response(Gtk.ResponseType.CLOSE)

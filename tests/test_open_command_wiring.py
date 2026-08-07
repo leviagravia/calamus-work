@@ -8,6 +8,7 @@ from calamus_document_session_controller import DocumentSessionController, Docum
 from calamus_file_lifecycle import OpenPlan
 from calamus_model import Document
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -73,7 +74,7 @@ class _App:
 
 class OpenCommandWiringTests(unittest.TestCase):
     def test_visible_open_command_and_shortcut_keep_named_entrypoint(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertIn('add_item(filem, "Open…\\tCtrl+O", app.on_open)', ui)
         self.assertIn("command_shortcut_bindings()", ui)
 

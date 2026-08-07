@@ -4,6 +4,7 @@ import unittest
 from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -20,7 +21,7 @@ class ResearchExportCommandWiringTests(unittest.TestCase):
         return ast.get_source_segment(self.source("bin/calamus"), node)
 
     def test_research_menu_exposes_one_named_export_command(self):
-        ui = self.source("calamus/calamus_ui.py")
+        ui = legacy_menu_projection()
         self.assertEqual(ui.count('"Export Research Apparatus…"'), 1)
         self.assertIn('app.on_export_research_apparatus', ui)
         self.assertNotIn("Export BibTeX", ui)

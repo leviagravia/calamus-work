@@ -131,9 +131,9 @@ class NavigatorPanelPresenter:
 
 
 class NavigatorPanelRuntime:
-    """Own Navigator visibility, menu synchronization and focus restoration."""
+    """Own Navigator visibility and focus restoration without menu widgets."""
 
-    def __init__(self, host: Any, view: Any, menu_item: Any, editor_focus: Callable[[], None]) -> None:
+    def __init__(self, host: Any, view: Any, editor_focus: Callable[[], None], on_visibility_changed: Callable[[bool], None] | None = None) -> None:
         host_methods = ("show", "hide")
         view_methods = ("refresh", "schedule_cursor_sync", "focus_filter", "cancel_pending")
         if any(not callable(getattr(host, name, None)) for name in host_methods):
@@ -142,15 +142,14 @@ class NavigatorPanelRuntime:
             raise TypeError("host does not expose is_visible")
         if any(not callable(getattr(view, name, None)) for name in view_methods):
             raise TypeError("view does not implement the Navigator runtime protocol")
-        if menu_item is None or not callable(getattr(menu_item, "get_active", None)) or not callable(getattr(menu_item, "set_active", None)):
-            raise TypeError("menu_item does not implement the check-item protocol")
         if not callable(editor_focus):
             raise TypeError("editor_focus must be callable")
+        if on_visibility_changed is not None and not callable(on_visibility_changed):
+            raise TypeError("on_visibility_changed must be callable")
         self._host = host
         self._view = view
-        self._menu_item = menu_item
         self._editor_focus = editor_focus
-        self._syncing_menu = False
+        self._on_visibility_changed = on_visibility_changed or (lambda _visible: None)
         subscribe = getattr(self._host, "subscribe", None)
         if callable(subscribe):
             subscribe(self._on_host_visibility)
@@ -170,7 +169,10 @@ class NavigatorPanelRuntime:
             self._view.cancel_pending()
             self._host.hide()
             self._editor_focus()
-        self._sync_menu(target)
+        # LeftPanelHost emits visibility callbacks synchronously. Keep an
+        # explicit callback for hosts without subscription support.
+        if not callable(getattr(self._host, "subscribe", None)):
+            self._on_visibility_changed(target)
         return target
 
     def toggle(self) -> bool:
@@ -183,21 +185,7 @@ class NavigatorPanelRuntime:
         self._view.cancel_pending()
         return True
 
-    def on_menu_toggled(self, menu_item: Any) -> None:
-        if self._syncing_menu:
-            return
-        self.set_visible(menu_item.get_active())
-
     def _on_host_visibility(self, visible: bool) -> None:
         if not visible:
             self._view.cancel_pending()
-        self._sync_menu(bool(visible))
-
-    def _sync_menu(self, visible: bool) -> None:
-        if self._menu_item.get_active() == bool(visible):
-            return
-        self._syncing_menu = True
-        try:
-            self._menu_item.set_active(bool(visible))
-        finally:
-            self._syncing_menu = False
+        self._on_visibility_changed(bool(visible))

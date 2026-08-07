@@ -6,6 +6,7 @@ import unittest
 from calamus_state import StateManager
 
 
+from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -17,14 +18,14 @@ DIALOGS = ROOT / "calamus" / "calamus_dialogs.py"
 
 class SessionRetirementTests(unittest.TestCase):
     def test_file_menu_no_longer_exposes_manual_session_commands(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertNotIn("Save Session", ui)
         self.assertNotIn("Reopen Last Session", ui)
         self.assertNotIn("app.on_save_session", ui)
         self.assertNotIn("app.on_restore_session", ui)
 
     def test_manual_session_shortcuts_are_unbound(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         self.assertNotIn('(\"<Control><Alt>S\", app.on_save_session)', ui)
         self.assertNotIn('(\"<Control><Alt>O\", app.on_restore_session)', ui)
 
@@ -67,7 +68,7 @@ class SessionRetirementTests(unittest.TestCase):
         self.assertNotIn("- Session restore", dialogs)
 
     def test_file_menu_flows_from_print_block_to_quit_without_session_block(self):
-        ui = UI.read_text(encoding="utf-8")
+        ui = legacy_menu_projection()
         print_pos = ui.index('add_item(filem, "Print…\\tCtrl+P", app.on_print)')
         quit_pos = ui.index('add_item(filem, "Quit\\tCtrl+Q", app.on_quit)')
         between = ui[print_pos:quit_pos]
