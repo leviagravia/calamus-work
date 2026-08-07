@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W106 Preferences and Application State Extraction Candidate R1",
-  "published_baseline": "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b",
+  "lineage": "W107 Subsystem Host-Port Migration Candidate R2",
+  "published_baseline": "e8befafaf7f75d958eabbd2e273f83c630042b84",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -512,7 +512,7 @@
         "tests.test_line_number_command_wiring.LineNumberCommandWiringTests.test_settings_write_canonical_state_not_menu_state",
         "tests.test_line_number_command_wiring.LineNumberCommandWiringTests.test_source_provenance_includes_new_line_number_modules",
         "tests.test_line_number_command_wiring.LineNumberCommandWiringTests.test_startup_uses_one_typed_line_number_authority",
-        "tests.test_line_number_command_wiring.LineNumberCommandWiringTests.test_visible_command_and_shortcut_are_unchanged",
+        "tests.test_line_number_command_wiring.LineNumberCommandWiringTests.test_visible_command_remains_but_linux_mint_conflicting_shortcut_is_removed",
         "tests.test_line_number_command_wiring.LineNumberCommandWiringTests.test_white_and_dark_palettes_style_only_the_drawing_gutter",
         "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_adapter_failure_restores_persistence_and_runtime_then_reprojects",
         "tests.test_line_number_lifecycle.LineNumberLifecycleTests.test_invalid_request_reprojects_and_reports",
@@ -2556,7 +2556,7 @@
     },
     "w106-identity-smoke": {
       "kind": "unittest",
-      "release_gate": true,
+      "release_gate": false,
       "zero_skips": true,
       "capabilities": [
         "gtk-display"
@@ -2584,6 +2584,69 @@
       "unset_env": [],
       "test_ids": [
         "tests.test_w106_preferences_application_state_app_desktop_e2e.W106PreferencesApplicationStateRealAppE2E.test_true_app_typed_persistence_domain_separation_restart_and_normal_close"
+      ]
+    },
+    "w107-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w107-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_w107_subsystem_host_port.W107SubsystemHostPortTests.test_port_records_reject_non_callable_capabilities",
+        "tests.test_w107_subsystem_host_port.W107SubsystemHostPortTests.test_search_replace_all_is_one_editor_transaction",
+        "tests.test_w107_subsystem_host_port.W107SubsystemHostPortTests.test_search_runtime_owns_mutation_and_projection_without_app",
+        "tests.test_w107_subsystem_host_port.W107SubsystemHostPortTests.test_spellcheck_runtime_is_widget_free_and_uses_transaction_port",
+        "tests.test_w107_subsystem_host_port.W107SubsystemHostPortTests.test_workspace_host_receives_narrow_state_direct_collaborators_and_ports",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_app_state_is_not_restored",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_app_w107_methods_are_compatibility_delegates_not_domain_owners",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_ctrl_alt_l_is_removed_from_authoritative_projections_without_replacement",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_identity_is_exact_and_w108_is_not_started",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_no_generic_application_context_service_locator_or_event_bus",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_recent_workspace_projection_waits_for_core_composition_barrier",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_research_composition_is_outside_app_and_bundle_owned",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_search_spell_print_use_one_private_typed_bundle",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_workspace_host_runtime_has_no_window_or_dialog_authority"
+      ]
+    },
+    "w107-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "unset_env": [],
+      "set_env": {
+        "CALAMUS_W107_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w107-identity-smoke"
+      },
+      "test_ids": [
+        "tests.test_w107_identity_app_desktop_e2e.W107IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w107-subsystem-host-port-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "unset_env": [],
+      "set_env": {
+        "CALAMUS_W107_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w107-subsystem-host-port-smoke"
+      },
+      "test_ids": [
+        "tests.test_w107_subsystem_host_port_app_desktop_e2e.W107SubsystemHostPortRealAppE2E.test_true_app_narrow_subsystem_owners_search_workspace_research_and_normal_close"
       ]
     }
   }

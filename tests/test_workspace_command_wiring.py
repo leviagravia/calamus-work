@@ -105,8 +105,10 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('bind("file.workspace.recent.open", lambda ctx: app.activate_workspace_path', commands)
         self.assertIn('file.workspace.recent.open', model)
         self.assertIn('def activate_workspace_path(self, path):', launcher)
-        self.assertIn('self.workspace_panel_runtime.set_visible(True)', launcher)
-        self.assertIn('self.workspace_panel_view.focus_tree()', launcher)
+        host=(ROOT/'calamus/calamus_workspace_host_runtime.py').read_text(encoding='utf-8')
+        self.assertIn('return self._components.workspace.host_runtime.activate_workspace_path(path)', launcher)
+        self.assertIn('self._panel_runtime.set_visible(True)', host)
+        self.assertIn('self._panel_view.focus_tree()', host)
 
     def test_rescan_is_named_and_explained_as_external_change_refresh(self):
         model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
@@ -181,6 +183,7 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         runtime=(ROOT/'calamus/calamus_workspace_mutation.py').read_text(encoding='utf-8')
         identity=(ROOT/'calamus/calamus_workspace_identity.py').read_text(encoding='utf-8')
         launcher=(ROOT/'bin/calamus').read_text(encoding='utf-8')
+        host=(ROOT/'calamus/calamus_workspace_host_runtime.py').read_text(encoding='utf-8')
         self.assertIn('class WorkspaceRenamePlan', planner)
         self.assertIn('def plan_workspace_rename(', planner)
         self.assertNotIn('os.rename', planner)
@@ -191,11 +194,12 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('self._workspace_runtime.refresh()', block)
         self.assertIn('self._reconcile_rename(plan, references)', block)
         self.assertIn('def plan_workspace_rename_identity(', identity)
-        self.assertIn('self.document_session.rebind_path(identity.current_file_after)', launcher)
-        self.assertIn('getattr(self, "research_document_context_changed", lambda: None)()', launcher)
-        self.assertIn('self.recent_file_store.save', launcher)
-        self.assertIn('self.favourite_store.save', launcher)
-        self.assertIn('self.application_state.record_last_file', launcher)
+        self.assertIn('self._document_session.rebind_path(identity.current_file_after)', host)
+        self.assertIn('self._ports.research_context_changed()', host)
+        self.assertIn('self._recent_files.save', host)
+        self.assertIn('self._favourites.save', host)
+        self.assertIn('self._application_state.record_last_file', host)
+        self.assertIn('self._components.workspace.host_runtime.reconcile_workspace_rename', launcher)
 
 
     def test_duplicate_uses_pure_plan_gio_copy_and_reconciliation_without_identity_transfer(self):
@@ -234,9 +238,10 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('item.internal_text', panel)
         self.assertIn('Gdk.Gravity.SOUTH_WEST', panel)
         self.assertNotIn('Gtk.Gravity.', panel)
-        self.assertIn('on_rename_item=app.on_rename_workspace_item', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
-        self.assertIn('on_duplicate_file=app.on_duplicate_workspace_file', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
-        self.assertIn('on_move_to_trash=app.on_move_workspace_item_to_trash', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
+        composition=(ROOT/'calamus/calamus_workspace_composition.py').read_text(encoding='utf-8')
+        self.assertIn('on_rename_item=lambda: host_reference.require().on_rename_workspace_item()', composition)
+        self.assertIn('on_duplicate_file=lambda: host_reference.require().on_duplicate_workspace_file()', composition)
+        self.assertIn('on_move_to_trash=lambda: host_reference.require().on_move_workspace_item_to_trash()', composition)
         for forbidden in ('Gio.File', 'set_display_name', 'os.rename', 'shutil.move'):
             self.assertNotIn(forbidden, panel)
 
@@ -263,6 +268,7 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         runtime=(ROOT/'calamus/calamus_workspace_mutation.py').read_text(encoding='utf-8')
         identity=(ROOT/'calamus/calamus_workspace_identity.py').read_text(encoding='utf-8')
         launcher=(ROOT/'bin/calamus').read_text(encoding='utf-8')
+        host=(ROOT/'calamus/calamus_workspace_host_runtime.py').read_text(encoding='utf-8')
         dialogs=(ROOT/'calamus/calamus_dialogs.py').read_text(encoding='utf-8')
         self.assertIn('class WorkspaceTrashPlan', planner)
         self.assertIn('def plan_move_to_trash(', planner)
@@ -277,8 +283,10 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('self._confirm_trash(plan, active_affected)', runtime)
         self.assertIn('self._reconcile_trash(plan, references)', runtime)
         self.assertIn('def plan_workspace_trash_identity(', identity)
-        self.assertIn('self.document_session.detach(current_text)', launcher)
-        self.assertNotIn('self.current_file =', launcher[launcher.index('def reconcile_workspace_trash'):launcher.index('def on_select_workspace_folder')])
+        self.assertIn('self._document_session.detach(self._ports.document_text())', host)
+        host_block=host[host.index('def reconcile_workspace_trash'):host.index('def on_select_workspace_folder')]
+        self.assertNotIn('self.current_file =', host_block)
+        self.assertIn('self._components.workspace.host_runtime.reconcile_workspace_trash', launcher)
         self.assertIn('Move Selected Item to Trash', (ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8'))
         self.assertIn('def confirm_move_workspace_item_to_trash(', dialogs)
         dialog_block=dialogs[dialogs.index('def confirm_move_workspace_item_to_trash('):]

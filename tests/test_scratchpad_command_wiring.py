@@ -4,6 +4,8 @@ from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 from tests.w105_menu_test_support import legacy_menu_projection
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source, workspace_host_source
+
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -15,12 +17,7 @@ def source(path):
 
 
 def method_source(name):
-    text = source(LAUNCHER)
-    tree = ast.parse(text)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            return ast.get_source_segment(text, node) or ""
-    raise AssertionError(name)
+    return authoritative_method_source(name)
 
 
 class ScratchpadCommandWiringTests(unittest.TestCase):
@@ -55,25 +52,24 @@ class ScratchpadCommandWiringTests(unittest.TestCase):
             self.assertIn(command, ui)
 
     def test_research_shell_registers_one_real_scratchpad_client(self):
-        block = method_source("build_research_panel")
-        self.assertEqual(block.count('"scratchpad"'), 1)
-        self.assertIn("ScratchpadRuntime(", block)
-        self.assertIn("self.scratchpad_runtime.activate", block)
-        composition = source(ROOT / "calamus/calamus_clip_composition.py")
-        self.assertEqual(composition.count("RightPanelHost("), 1)
+        composition = research_composition_source()
+        self.assertEqual(composition.count('"scratchpad", "Scratchpad"'), 1)
+        self.assertIn("ScratchpadRuntime(", composition)
+        self.assertIn("scratchpad_runtime.activate", composition)
+        clip_composition = source(ROOT / "calamus/calamus_clip_composition.py")
+        self.assertEqual(clip_composition.count("RightPanelHost("), 1)
         self.assertNotIn("RightPanelHost(", source(LAUNCHER))
 
     def test_document_mutation_and_clipboard_use_app_gateways(self):
-        gateway = source(ROOT / "calamus/calamus_scratchpad_gateway.py")
-        self.assertIn('app.execute_command("Insert Scratchpad Body"', gateway)
+        insert = method_source("insert_scratchpad_body")
+        copy_method = method_source("copy_scratchpad_body")
+        clipboard = source(ROOT / "calamus/calamus_clipboard_gtk.py")
+        self.assertIn('self.ports.execute_command("Insert Scratchpad Body", edit)', insert)
+        self.assertIn("self.ports.copy_text(body)", copy_method)
+        self.assertIn("clipboard.set_text", clipboard)
         self.assertTrue(guide_has("Research", "Scratchpad", "Ctrl+Alt+S"))
         self.assertTrue(guide_has("Research", "Capture Selection in Scratchpad", "Ctrl+Alt+Shift+S"))
-        self.assertIn("app.text.grab_focus()", gateway)
-        self.assertIn("clipboard.set_text", gateway)
-        self.assertNotIn("open(", gateway)
-        block = method_source("build_research_panel")
-        self.assertIn("scratchpad_insert_body(self, body)", block)
-        self.assertIn("scratchpad_copy_body(self, body)", block)
+        self.assertNotIn("open(", insert)
 
     def test_model_store_controller_are_gtk_free(self):
         for relative in (

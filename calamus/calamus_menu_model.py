@@ -277,7 +277,7 @@ APPLICATION_MENU_MODEL = MenuBarSpec((
         _s(),
         _k("options.appearance.light", "White Background"),
         _k("options.appearance.dark", "Dark Mode"),
-        _k("options.line-numbers", "Line Numbers\tCtrl+Alt+L"),
+        _k("options.line-numbers", "Line Numbers"),
         _s(),
         _c("options.font-size.adjust", "Font Bigger\tCtrl++", delta=1),
         _c("options.font-size.adjust", "Font Smaller\tCtrl+-", delta=-1),

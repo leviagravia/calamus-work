@@ -12,15 +12,19 @@ ROOT = Path(__file__).resolve().parents[1]
 class W89RelatedSetsCommandWiringTests(unittest.TestCase):
     def test_research_menu_and_app_register_reference_sets(self):
         app = (ROOT / "bin/calamus").read_text(encoding="utf-8")
+        composition = (ROOT / "calamus/calamus_research_composition.py").read_text(encoding="utf-8")
+        runtime = (ROOT / "calamus/calamus_research_application.py").read_text(encoding="utf-8")
         ui = legacy_menu_projection()
         for required in (
             "ReferenceSetRuntime",
-            "self.reference_set_runtime",
+            "reference_set_runtime = ReferenceSetRuntime",
             '"reference-sets"',
-            "def show_reference_sets",
-            "refresh_reference_sets=self.reference_set_runtime.reload",
+            "refresh_reference_sets=reference_set_runtime.reload",
         ):
-            self.assertIn(required, app)
+            self.assertIn(required, composition)
+        self.assertIn("def show_reference_sets", runtime)
+        self.assertIn('return self.components.panel_runtime.show("reference-sets")', runtime)
+        self.assertIn("self._research_components.runtime.show_reference_sets", app)
         self.assertIn('add_item(researchm, "Reference Sets", app.show_reference_sets)', ui)
         self.assertTrue(guide_has("Research", "Reference Sets", "menu"))
 

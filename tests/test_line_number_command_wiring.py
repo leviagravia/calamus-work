@@ -24,9 +24,16 @@ def _method_source(name: str) -> str:
 
 
 class LineNumberCommandWiringTests(unittest.TestCase):
-    def test_visible_command_and_shortcut_are_unchanged(self):
+    def test_visible_command_remains_but_linux_mint_conflicting_shortcut_is_removed(self):
         ui = legacy_menu_projection()
-        self.assertIn('Gtk.CheckMenuItem(label="Line Numbers\\tCtrl+Alt+L")', ui)
+        catalog = (ROOT / "calamus" / "calamus_command_catalog.py").read_text(encoding="utf-8")
+        guide = (ROOT / "share" / "doc" / "calamus" / "USER_GUIDE.md").read_text(encoding="utf-8")
+        self.assertIn('Gtk.CheckMenuItem(label="Line Numbers")', ui)
+        self.assertNotIn("Ctrl+Alt+L", ui)
+        self.assertNotIn("Ctrl+Alt+L", catalog)
+        self.assertNotIn("Ctrl+Alt+L", guide)
+        self.assertIn("'options.line-numbers', 'Line Numbers'", catalog)
+        self.assertIn('shortcuts=()', catalog)
         self.assertIn("command_shortcut_bindings()", ui)
 
     def test_startup_uses_one_typed_line_number_authority(self):

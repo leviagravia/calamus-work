@@ -107,6 +107,10 @@ class NavigatorCompositionInput:
 class WorkspaceCompositionInput:
     left_panel_host: Any
     recent_workspaces: Any
+    recent_files: Any
+    favourites: Any
+    application_state: Any
+    document_session: Any
     text_view: Any
     workspace_root: str | None
     workspace_visible: bool
@@ -114,22 +118,18 @@ class WorkspaceCompositionInput:
     open_document: Callable[[str], bool]
     record_workspace_root: Callable[[str | None], bool]
     report_error: Callable[[str], None]
-    on_root_changed: Callable[[str | None], None]
-    on_recent_changed: Callable[[], None]
-    on_visibility_changed: Callable[[bool], None]
-    on_new_text_file: Callable[..., Any]
-    on_new_folder: Callable[..., Any]
-    on_rename_item: Callable[..., Any]
-    on_duplicate_file: Callable[..., Any]
-    on_move_to_trash: Callable[..., Any]
-    on_choose_root: Callable[..., Any]
-    on_refresh: Callable[..., Any]
-    on_reveal: Callable[..., Any]
-    capture_path_references: Callable[..., Any]
-    reconcile_rename: Callable[..., bool]
-    current_document_path: Callable[[], str | None]
-    confirm_trash: Callable[..., bool]
-    reconcile_trash: Callable[..., bool]
+    render_recent_workspaces: Callable[[tuple[str, ...]], Any]
+    choose_workspace_root: Callable[[str | None], str | None]
+    prompt_new_text_file: Callable[[Any], tuple[str, str] | None]
+    prompt_new_folder: Callable[[Any], str | None]
+    prompt_rename_item: Callable[[str, bool], str | None]
+    confirm_trash: Callable[[str, bool, bool], bool]
+    show_workspace_error: Callable[[str], Any]
+    document_text: Callable[[], str]
+    research_context_changed: Callable[[], Any]
+    update_title: Callable[[], Any]
+    refresh_overview: Callable[[], Any]
+    refresh_ui_state: Callable[[], Any]
 
 
 @dataclass(frozen=True)
@@ -197,6 +197,7 @@ class WorkspaceComponents:
     mutation_runtime: Any
     panel_host: Any
     panel_runtime: Any
+    host_runtime: Any
     startup_visible: bool
 
 

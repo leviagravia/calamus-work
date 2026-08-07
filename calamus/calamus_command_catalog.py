@@ -603,14 +603,10 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     ),
     CommandSpec(
         'options.line-numbers', 'Line Numbers', menu_path='Options',
-        shortcuts=(
-            _shortcut('<Control><Alt>L', 'Ctrl+Alt+L'),
-        ),
-        risk_class='low', flags=('shortcut-guide',),
-        description='Stable W104 command identity for Line Numbers', parameter_kind='',
-        guide_entries=(
-            CommandGuideEntry('Options', 'Line Numbers', 'Ctrl+Alt+L', ''),
-        ),
+        shortcuts=(),
+        risk_class='low', flags=(),
+        description='Stable W104 command identity for Line Numbers; no default accelerator', parameter_kind='',
+        guide_entries=(),
     ),
     CommandSpec(
         'options.opacity.select', 'Opacity Selection…', menu_path='Options/Opacity',
@@ -1270,7 +1266,6 @@ GUIDE_ORDER = (
     ('options.font', 0),
     ('options.transparent-mode', 0),
     ('options.always-on-top', 0),
-    ('options.line-numbers', 0),
     ('options.font-size.adjust', 0),
     ('options.font-size.adjust', 1),
     ('tools.spellcheck', 0),

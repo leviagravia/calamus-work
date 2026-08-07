@@ -1,6 +1,7 @@
 import ast
 import os
 import unittest
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source
 from pathlib import Path
 
 
@@ -39,15 +40,16 @@ class ResearchIntegrityCommandWiringTests(unittest.TestCase):
         tree = ast.parse(APP)
         app_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "App")
         methods = {node.name: node for node in app_class.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
-        self.assertIn("ResearchIntegrityController", APP)
-        self.assertIn("ResearchIntegrityRuntime", APP)
-        self.assertIn("reference_store=self.reference_store", APP)
-        self.assertIn("reference_key_resolver=self.reference_panel_runtime.resolve_key", APP)
+        composition = research_composition_source()
+        self.assertIn("ResearchIntegrityController", composition)
+        self.assertIn("ResearchIntegrityRuntime", composition)
+        self.assertIn("reference_store=reference_store", composition)
+        self.assertIn("reference_key_resolver=reference_panel_runtime.resolve_key", composition)
         for name in ("on_rename_reference_key", "on_research_check"):
             method = methods[name]
             self.assertLessEqual(method.end_lineno - method.lineno + 1, 3)
-        replacement = ast.get_source_segment(APP, methods["replace_document_for_reference_migration"])
-        self.assertIn('self.execute_command("Rename Reference Key", edit)', replacement)
+        replacement = authoritative_method_source("replace_document_for_reference_migration")
+        self.assertIn('self.ports.execute_command("Rename Reference Key", edit)', replacement)
         self.assertNotIn("set_text(", replacement)
 
     def test_generic_reference_dialog_cannot_edit_key_or_aliases(self):

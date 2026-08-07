@@ -154,7 +154,7 @@ Undo and Redo preserve the **exact caret and selection** recorded at the edit bo
 - **Always on Top — `Ctrl+Shift+A`**: keep the main window above ordinary windows.
 - **White Background**: select the light appearance.
 - **Dark Mode**: select the dark appearance.
-- **Line Numbers — `Ctrl+Alt+L`**: show or hide logical line numbers.
+- **Line Numbers**: show or hide logical line numbers. No default keyboard shortcut is assigned.
 - **Font Bigger — `Ctrl++`**: increase the editor font size.
 - **Font Smaller — `Ctrl+-`**: decrease the editor font size.
 - **Opacity**: set an exact window opacity.

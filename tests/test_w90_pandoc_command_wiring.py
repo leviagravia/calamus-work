@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 class W90PandocCommandWiringTests(unittest.TestCase):
     def test_exactly_one_research_command_is_wired(self):
         launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
+        composition = (ROOT / "calamus/calamus_research_composition.py").read_text(encoding="utf-8")
+        research_runtime = (ROOT / "calamus/calamus_research_application.py").read_text(encoding="utf-8")
         ui = legacy_menu_projection()
         label = "Export with Pandoc/citeproc…"
         self.assertEqual(ui.count(label), 1)
@@ -21,19 +23,20 @@ class W90PandocCommandWiringTests(unittest.TestCase):
         for token in (
             "PandocExportController",
             "PandocExportRuntime",
-            "self.pandoc_export_controller",
-            "self.pandoc_export_runtime",
-            "def on_export_with_pandoc",
-            "return self.pandoc_export_runtime.export()",
+            "pandoc_export_controller = PandocExportController",
+            "pandoc_export_runtime = PandocExportRuntime",
         ):
-            self.assertIn(token, launcher)
+            self.assertIn(token, composition)
+        self.assertIn("def on_export_with_pandoc", research_runtime)
+        self.assertIn("return self.components.pandoc_export_runtime.export()", research_runtime)
+        self.assertIn("self._research_components.runtime.on_export_with_pandoc", launcher)
 
     def test_app_is_only_composition_callback_and_close_gateway(self):
         launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
         lifecycle = (ROOT / "calamus/calamus_application_lifecycle_app.py").read_text(encoding="utf-8")
         self.assertIn("app.pandoc_export_runtime.shutdown", lifecycle)
         callback = launcher.split("    def on_export_with_pandoc", 1)[1].split("\n    def ", 1)[0]
-        self.assertIn("return self.pandoc_export_runtime.export()", callback)
+        self.assertIn("self._research_components.runtime.on_export_with_pandoc", callback)
         for forbidden in ("subprocess", "--citeproc", "export_references(", "os.replace("):
             self.assertNotIn(forbidden, callback)
 

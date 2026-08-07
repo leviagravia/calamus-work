@@ -92,7 +92,8 @@ class FontCommandWiringTests(unittest.TestCase):
         self.assertIn('optm = top_menu(app, "Options")', ui)
         self.assertIn('Gtk.CheckMenuItem(label="White Background")', ui)
         self.assertIn('Gtk.CheckMenuItem(label="Dark Mode")', ui)
-        self.assertIn('Gtk.CheckMenuItem(label="Line Numbers\\tCtrl+Alt+L")', ui)
+        self.assertIn('Gtk.CheckMenuItem(label="Line Numbers")', ui)
+        self.assertNotIn("Ctrl+Alt+L", ui)
 
 
 if __name__ == "__main__":

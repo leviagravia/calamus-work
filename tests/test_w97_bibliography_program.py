@@ -121,12 +121,14 @@ class W97BibliographyProgramTests(unittest.TestCase):
     def test_simple_export_is_runtime_owned_and_app_is_thin(self):
         runtime = (ROOT / "calamus/calamus_reference_runtime.py").read_text(encoding="utf-8")
         app = (ROOT / "bin/calamus").read_text(encoding="utf-8")
+        research_runtime = (ROOT / "calamus/calamus_research_application.py").read_text(encoding="utf-8")
         ui = legacy_menu_projection()
         self.assertIn("def export_visible_bibliography", runtime)
         self.assertIn("atomic_write_utf8", runtime)
         self.assertIn("Export Bibliography as Markdown", ui)
         self.assertIn("Export Bibliography as Text", ui)
-        self.assertIn("return self.reference_panel_runtime.export_visible_bibliography", app)
+        self.assertIn("return self.components.reference_panel_runtime.export_visible_bibliography", research_runtime)
+        self.assertIn("self._research_components.runtime.on_export_bibliography_", app)
 
 
 if __name__ == "__main__":

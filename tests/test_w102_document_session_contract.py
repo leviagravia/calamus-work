@@ -15,7 +15,7 @@ class W102DocumentSessionContractTests(unittest.TestCase):
         self.assertIn("W102 Document Session Extraction", contract)
         self.assertIn(BASELINE, contract)
         self.assertNotIn('DEVELOPMENT_WORK_ITEM = "W102"', current)
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W106"', current)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', current)
 
     def test_session_modules_are_provenance_tracked(self):
         provenance = (ROOT / "scripts/prove-source-provenance.sh").read_text(encoding="utf-8")
@@ -93,8 +93,10 @@ class W102DocumentSessionContractTests(unittest.TestCase):
 
     def test_workspace_reads_session_port_not_app_alias(self):
         source = (ROOT / "calamus/calamus_application_composition.py").read_text(encoding="utf-8")
-        self.assertIn("current_document_path=document_session.session.current_path", source)
-        self.assertNotIn("current_document_path=lambda: app.current_file", source)
+        self.assertIn("document_session=document_session.session", source)
+        host = (ROOT / "calamus/calamus_workspace_host_runtime.py").read_text(encoding="utf-8")
+        self.assertIn("current_file = self._document_session.file_path", host)
+        self.assertNotIn("app.current_file", host)
 
     def test_core_build_order_begins_with_document_session(self):
         source = (ROOT / "calamus/calamus_application_composition.py").read_text(encoding="utf-8")
@@ -108,10 +110,11 @@ class W102DocumentSessionContractTests(unittest.TestCase):
             "self.document_session_controller.open_path(path)",
             "self.document_session_controller.execute_open(plan)",
             "self.document_session_controller.execute_save(plan)",
-            "self.document_session.rebind_path(identity.current_file_after)",
-            "self.document_session.detach(current_text)",
         ):
             self.assertIn(token, source)
+        workspace = (ROOT / "calamus/calamus_workspace_host_runtime.py").read_text(encoding="utf-8")
+        self.assertIn("self._document_session.rebind_path(identity.current_file_after)", workspace)
+        self.assertIn("self._document_session.detach(self._ports.document_text())", workspace)
 
     def test_no_new_persistence_or_feature_scope(self):
         for rel in (

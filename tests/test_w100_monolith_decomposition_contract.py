@@ -35,7 +35,7 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
         self.assertLess(self.app.end_lineno - self.app.lineno + 1, metrics["app_lines"])
         # W101-W105 may add bounded compatibility gateways while preserving
         # strict launcher/App line-count reduction from the W100 monolith.
-        self.assertEqual(len(self.methods), 295)
+        self.assertEqual(len(self.methods), 296)
         method_names = {node.name for node in self.methods}
         for name in (
             "document", "current_file", "modified", "loading",

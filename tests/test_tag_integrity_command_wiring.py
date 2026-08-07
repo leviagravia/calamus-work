@@ -1,5 +1,6 @@
 import ast
 import unittest
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source
 from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
@@ -36,11 +37,13 @@ class TagIntegrityCommandWiringTests(unittest.TestCase):
         methods = {node.name: node for node in app_class.body if isinstance(node, ast.FunctionDef)}
         method = methods["on_tag_integrity"]
         self.assertLessEqual(method.end_lineno - method.lineno + 1, 3)
-        self.assertIn("TagIntegrityController", APP)
-        self.assertIn("TagIntegrityRuntime", APP)
-        self.assertIn("reference_store=self.reference_store", APP)
-        self.assertIn("document_path_provider=lambda: self.document.file_path", APP)
-        self.assertIn("self.tag_integrity_runtime.manage()", ast.get_source_segment(APP, method))
+        composition = research_composition_source()
+        self.assertIn("TagIntegrityController", composition)
+        self.assertIn("TagIntegrityRuntime", composition)
+        self.assertIn("reference_store=reference_store", composition)
+        self.assertIn("document_path_provider=lambda: inputs.document_session.file_path", composition)
+        runtime_method = authoritative_method_source("on_tag_integrity")
+        self.assertIn("self.components.tag_integrity_runtime.manage()", runtime_method)
 
     def test_pure_projection_has_no_gtk_or_persistence(self):
         pure = (ROOT / "calamus" / "calamus_tag_integrity.py").read_text(encoding="utf-8").casefold()

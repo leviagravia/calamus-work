@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
-CURRENT_BASELINE = "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b"
+CURRENT_BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"
 NEW_MODULES = (
     "calamus_application_components.py",
     "calamus_editor_composition.py",
@@ -40,7 +40,7 @@ EXPECTED_BUNDLE_FIELDS = {
     ),
     "WorkspaceComponents": (
         "controller", "panel_view", "application_runtime", "mutation_controller",
-        "mutation_runtime", "panel_host", "panel_runtime", "startup_visible",
+        "mutation_runtime", "panel_host", "panel_runtime", "host_runtime", "startup_visible",
     ),
     "ClipCollectionComponents": ("view", "controller", "runtime"),
     "CoreApplicationComponents": (
@@ -84,8 +84,8 @@ class W101CoreCompositionContractTests(unittest.TestCase):
 
     def test_identity_scope_and_contract_are_exact(self):
         version = (self.calamus / "calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W106"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Preferences and Application State Extraction"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"', version)
         self.assertIn(f'PUBLISHED_BASELINE = "{CURRENT_BASELINE}"', version)
         contract = (ROOT / "docs/canonical/CALAMUS_W101_CORE_COMPOSITION_CONTRACT.md").read_text(encoding="utf-8")
         self.assertIn("Candidate R1", contract)
@@ -129,6 +129,7 @@ class W101CoreCompositionContractTests(unittest.TestCase):
             "calamus_editor_transaction_composition",
             "calamus_navigator_composition",
             "calamus_workspace_composition",
+            "calamus_workspace_host_gtk",
         })
         for name in BUILDERS:
             tree = parse(self.calamus / name)
@@ -250,7 +251,7 @@ class W101CoreCompositionContractTests(unittest.TestCase):
     def test_named_set_once_cycles_are_bounded_and_complete(self):
         expected = {
             "calamus_navigator_composition.py": 1,
-            "calamus_workspace_composition.py": 2,
+            "calamus_workspace_composition.py": 3,
             "calamus_clip_composition.py": 1,
         }
         for name, count in expected.items():
@@ -261,7 +262,7 @@ class W101CoreCompositionContractTests(unittest.TestCase):
             ]
             self.assertEqual(len(creations), count, name)
             calls = [dotted(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)]
-            self.assertGreaterEqual(calls.count("runtime_reference.set") + calls.count("application_reference.set") + calls.count("panel_reference.set"), count)
+            self.assertGreaterEqual(calls.count("runtime_reference.set") + calls.count("application_reference.set") + calls.count("panel_reference.set") + calls.count("host_reference.set"), count)
             self.assertTrue(any(value and value.endswith(".require") for value in calls), name)
         components = (self.calamus / "calamus_application_components.py").read_text(encoding="utf-8")
         self.assertIn("used before assignment", components)
@@ -326,7 +327,12 @@ class W101CoreCompositionContractTests(unittest.TestCase):
     def test_research_document_overview_and_lifecycle_remain_in_app_boundary(self):
         build_research = next(node for node in self.app.body if isinstance(node, ast.FunctionDef) and node.name == "build_research_panel")
         research_calls = {dotted(node.func) for node in ast.walk(build_research) if isinstance(node, ast.Call)}
-        self.assertIn("ResearchPanelCoordinator", research_calls)
+        self.assertIn("build_research_subsystem", research_calls)
+        research_composition = parse(self.calamus / "calamus_research_composition.py")
+        self.assertTrue(any(
+            isinstance(node, ast.Call) and dotted(node.func) == "ResearchPanelCoordinator"
+            for node in ast.walk(research_composition)
+        ))
         init = next(node for node in self.app.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
         init_calls = [dotted(node.func) for node in ast.walk(init) if isinstance(node, ast.Call)]
         self.assertIn("self.build_research_panel", init_calls)
@@ -351,13 +357,13 @@ class W101CoreCompositionContractTests(unittest.TestCase):
                 imports.add(node.module)
             elif isinstance(node, ast.Import):
                 imports.update(alias.name for alias in node.names if alias.name.startswith("calamus_"))
-        self.assertEqual(len(imports), 74)
-        self.assertEqual(len(methods), 295)
-        self.assertEqual(self.app.end_lineno - self.app.lineno + 1, 2898)
-        self.assertEqual(len(self.launcher_text.splitlines()), 3100)
+        self.assertEqual(len(imports), 47)
+        self.assertEqual(len(methods), 296)
+        self.assertEqual(self.app.end_lineno - self.app.lineno + 1, 2355)
+        self.assertEqual(len(self.launcher_text.splitlines()), 2494)
         metrics = self.load_json("CALAMUS_W100_BASELINE_METRICS.json")
-        self.assertLess(3100, metrics["launcher_lines"])
-        self.assertLess(2898, metrics["app_lines"])
+        self.assertLess(2493, metrics["launcher_lines"])
+        self.assertLess(2354, metrics["app_lines"])
         self.assertGreaterEqual(len(methods), 279)
 
     def test_clip_builder_uses_narrow_gateway_and_preserves_historical_wrappers(self):

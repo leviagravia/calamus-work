@@ -22,6 +22,7 @@ from calamus_document_session_composition import build_document_session_componen
 from calamus_editor_composition import build_editor_infrastructure
 from calamus_editor_transaction_composition import build_editor_transaction_components
 from calamus_navigator_composition import build_navigator_components
+from calamus_workspace_host_gtk import WorkspaceHostGtkAdapter
 from calamus_workspace_composition import (
     bind_workspace_startup,
     build_workspace_components,
@@ -92,9 +93,16 @@ def compose_core_application_components(
             on_visibility_changed=app.on_navigator_visibility_changed,
         )
     )
+    workspace_gtk = WorkspaceHostGtkAdapter(
+        app, app.menu_ui_adapter
+    )
     workspace_input = WorkspaceCompositionInput(
         left_panel_host=navigator.left_panel_host,
         recent_workspaces=app.recent_workspace_store,
+        recent_files=app.recent_file_store,
+        favourites=app.favourite_store,
+        application_state=app.application_state,
+        document_session=document_session.session,
         text_view=app.text,
         workspace_root=(app.persisted_application_state.workspace_root if app.persisted_application_state.workspace_root and os.path.isdir(app.persisted_application_state.workspace_root) else None),
         workspace_visible=app.persisted_application_state.workspace_visible,
@@ -102,22 +110,18 @@ def compose_core_application_components(
         open_document=app.open_path,
         record_workspace_root=app.application_state.record_workspace_root,
         report_error=app.error,
-        on_root_changed=app.on_workspace_root_changed,
-        on_recent_changed=app.populate_recent_workspaces_menu,
-        on_visibility_changed=app.on_workspace_visibility_changed,
-        on_new_text_file=app.on_new_workspace_text_file,
-        on_new_folder=app.on_new_workspace_folder,
-        on_rename_item=app.on_rename_workspace_item,
-        on_duplicate_file=app.on_duplicate_workspace_file,
-        on_move_to_trash=app.on_move_workspace_item_to_trash,
-        on_choose_root=app.on_select_workspace_folder,
-        on_refresh=app.on_refresh_workspace,
-        on_reveal=app.on_reveal_workspace,
-        capture_path_references=app.capture_workspace_path_references,
-        reconcile_rename=app.reconcile_workspace_rename,
-        current_document_path=document_session.session.current_path,
-        confirm_trash=app.confirm_workspace_trash,
-        reconcile_trash=app.reconcile_workspace_trash,
+        render_recent_workspaces=workspace_gtk.render_recent_workspaces,
+        choose_workspace_root=workspace_gtk.choose_root,
+        prompt_new_text_file=workspace_gtk.prompt_new_text_file,
+        prompt_new_folder=workspace_gtk.prompt_new_folder,
+        prompt_rename_item=workspace_gtk.prompt_rename_item,
+        confirm_trash=workspace_gtk.confirm_trash,
+        show_workspace_error=workspace_gtk.show_error,
+        document_text=app.buffer_text,
+        research_context_changed=app.research_document_context_changed,
+        update_title=app.update_title,
+        refresh_overview=app.refresh_document_overview_if_open,
+        refresh_ui_state=app.refresh_ui_state,
     )
     workspace = build_workspace_components(workspace_input)
     right_panel_host = build_right_panel_host(

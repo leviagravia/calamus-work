@@ -57,17 +57,21 @@ class GtkBoundaryPolicyTests(unittest.TestCase):
 
     def test_launcher_versions_every_direct_namespace_before_import(self):
         text = (ROOT / "bin/calamus").read_text(encoding="utf-8")
-        imported = "from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo"
+        imported = "from gi.repository import Gtk, Gdk, GLib, Pango"
         self.assertIn(imported, text)
         import_at = text.index(imported)
         for token in (
             'gi.require_version("Gtk", "3.0")',
             'gi.require_version("Gdk", "3.0")',
             'gi.require_version("Pango", "1.0")',
-            'gi.require_version("PangoCairo", "1.0")',
         ):
             self.assertIn(token, text)
             self.assertLess(text.index(token), import_at)
+        self.assertNotIn("PangoCairo", text)
+        print_runtime = (ROOT / "calamus/calamus_print_runtime.py").read_text(encoding="utf-8")
+        pango_cairo_import = "from gi.repository import Gtk, Pango, PangoCairo"
+        self.assertIn(pango_cairo_import, print_runtime)
+        self.assertLess(print_runtime.index('gi.require_version("PangoCairo", "1.0")'), print_runtime.index(pango_cairo_import))
 
     def test_modal_calls_are_confined_to_one_gtk_free_session_owner(self):
         adapter = (ROOT / "calamus/calamus_modal_dialog.py").read_text(

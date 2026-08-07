@@ -12,23 +12,25 @@ class W97BibliographyWiringTests(unittest.TestCase):
     def test_single_canonical_authority_and_existing_controller_are_reused(self):
         runtime = self.source("calamus/calamus_reference_runtime.py")
         launcher = self.source("bin/calamus")
+        composition = self.source("calamus/calamus_research_composition.py")
         self.assertIn("MarkdownReferenceStore", runtime)
         self.assertIn("ReferenceController", runtime)
         self.assertNotIn("sqlite", runtime.casefold())
         self.assertNotIn("json.dump", runtime)
-        self.assertEqual(launcher.count("self.reference_store = MarkdownReferenceStore()"), 1)
+        self.assertEqual(composition.count("reference_store = MarkdownReferenceStore()"), 1)
 
     def test_research_panel_renames_existing_client_without_second_manager(self):
         launcher = self.source("bin/calamus")
+        composition = self.source("calamus/calamus_research_composition.py")
         menu_model = self.source("calamus/calamus_menu_model.py")
         commands = self.source("calamus/calamus_application_commands.py")
-        self.assertIn('"references", "Bibliography", self.reference_panel_runtime.widget', launcher)
+        self.assertIn('"references", "Bibliography", reference_panel_runtime.widget', composition)
         self.assertIn('_c("research.bibliography", "Bibliography")', menu_model)
         self.assertIn('_c("research.open-bibliography", "Open Bibliography File")', menu_model)
         self.assertIn("'show_references': ApplicationCommandTarget('research.bibliography'", commands)
         self.assertIn("'on_open_bibliography_file': ApplicationCommandTarget('research.open-bibliography'", commands)
-        self.assertEqual(launcher.count('"references", "Bibliography", self.reference_panel_runtime.widget'), 1)
-        self.assertNotIn('"bibliography", "Bibliography"', launcher)
+        self.assertEqual(composition.count('"references", "Bibliography", reference_panel_runtime.widget'), 1)
+        self.assertNotIn('"bibliography", "Bibliography"', composition)
 
     def test_panel_has_core_list_detail_filters_and_actions(self):
         panel = self.source("calamus/calamus_reference_panel.py")
@@ -66,9 +68,9 @@ class W97BibliographyWiringTests(unittest.TestCase):
 
     def test_w97_core_is_preserved_under_current_w98_identity(self):
         version = self.source("calamus/calamus_version.py")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W106"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Preferences and Application State Extraction"', version)
-        self.assertIn('PUBLISHED_BASELINE = "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"', version)
+        self.assertIn('PUBLISHED_BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"', version)
 
 
 if __name__ == "__main__":

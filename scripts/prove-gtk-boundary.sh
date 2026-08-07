@@ -29,6 +29,10 @@ pure_modules = (
     "calamus/calamus_pandoc.py",
     "calamus/calamus_pandoc_process.py",
     "calamus/calamus_pandoc_controller.py",
+    "calamus/calamus_search_runtime.py",
+    "calamus/calamus_spellcheck_runtime.py",
+    "calamus/calamus_workspace_host_runtime.py",
+    "calamus/calamus_research_application.py",
 )
 for relative in pure_modules:
     path = root / relative
@@ -49,12 +53,11 @@ print("GTK_BOUNDARY_W89_PURE_MODULES=PASS")
 print("GTK_BOUNDARY_W90_PURE_MODULES=PASS")
 
 launcher = (root / "bin/calamus").read_text(encoding="utf-8")
-import_line = "from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo"
+import_line = "from gi.repository import Gtk, Gdk, GLib, Pango"
 requirements = {
     "Gtk": 'gi.require_version("Gtk", "3.0")',
     "Gdk": 'gi.require_version("Gdk", "3.0")',
     "Pango": 'gi.require_version("Pango", "1.0")',
-    "PangoCairo": 'gi.require_version("PangoCairo", "1.0")',
 }
 if import_line not in launcher:
     raise SystemExit("launcher GI import contract is missing")
@@ -64,7 +67,22 @@ for namespace, required in requirements.items():
         raise SystemExit(
             f"{namespace} version must be required before the launcher import"
         )
+if "PangoCairo" in launcher:
+    raise SystemExit("PangoCairo must remain in the W107 print adapter, not App")
+print_runtime = (root / "calamus/calamus_print_runtime.py").read_text(encoding="utf-8")
+print_import = "from gi.repository import Gtk, Pango, PangoCairo"
+if print_import not in print_runtime:
+    raise SystemExit("W107 print adapter GI import contract is missing")
+print_import_at = print_runtime.index(print_import)
+for namespace, required in {
+    "Gtk": 'gi.require_version("Gtk", "3.0")',
+    "Pango": 'gi.require_version("Pango", "1.0")',
+    "PangoCairo": 'gi.require_version("PangoCairo", "1.0")',
+}.items():
+    if required not in print_runtime or print_runtime.index(required) > print_import_at:
+        raise SystemExit(f"{namespace} version must be required before W107 print import")
 print("GTK_BOUNDARY_LAUNCHER_NAMESPACE_VERSIONS=PASS")
+print("GTK_BOUNDARY_W107_PRINT_NAMESPACE_VERSIONS=PASS")
 
 changed_gtk_files = (
     "bin/calamus",
@@ -79,6 +97,8 @@ changed_gtk_files = (
     "calamus/calamus_identity_dialogs.py",
     "calamus/calamus_pandoc_dialogs.py",
     "calamus/calamus_pandoc_runtime.py",
+    "calamus/calamus_print_runtime.py",
+    "calamus/calamus_clipboard_gtk.py",
 )
 version_map = {
     "Gtk": "3.0",

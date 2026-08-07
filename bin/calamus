@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 import os
-import json
-import shutil
-import subprocess
-import re
 import sys
 import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("Pango", "1.0")
-gi.require_version("PangoCairo", "1.0")
-from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo
+from gi.repository import Gtk, Gdk, GLib, Pango
 
 sys.path.insert(0, os.environ.get("CALAMUS_LIB_DIR", "/usr/lib/calamus"))
 from calamus_config import CONFIG_DIR
@@ -36,16 +31,10 @@ from calamus_templates import (
     suggest_template_filename,
     write_template_atomic,
 )
-from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
-from calamus_search import WORD_RE, text_stats as calc_text_stats
-from calamus_search_dialogs import run_find_all_dialog, run_find_replace_dialog
+from calamus_commands import replace_range as command_replace_range, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
+from calamus_search import text_stats as calc_text_stats
 import calamus_document_dossier_app as document_dossier_app
 from calamus_navigation_dialogs import run_go_to_line_dialog, run_go_to_section_dialog
-from calamus_workspace_identity import (
-    WorkspacePathReferenceSnapshot, plan_workspace_rename_identity,
-    plan_workspace_trash_identity,
-)
-from calamus_workspace_external import open_external_path, reveal_in_file_manager
 import calamus_typewriter_app as typewriter_app
 import calamus_writing_app as writing_app
 from calamus_history import HistoryState
@@ -55,24 +44,13 @@ from calamus_writing import (
     remove_trailing_spaces, join_lines, reflow_paragraph, smart_typography,
     title_case, sentence_case, document_statistics,
 )
-from calamus_spellcheck import (
-    hunspell_dict as spell_hunspell_dict,
-    hunspell_base_command as spell_hunspell_base_command,
-    hunspell_misspelled_words as spell_hunspell_misspelled_words,
-    hunspell_suggestions as spell_hunspell_suggestions,
-)
 from calamus_dialogs import (
-    SHORTCUT_ROWS, ask_save as dialog_ask_save, choose_open_file, choose_workspace_folder, choose_save_file,
-    choose_save_template, confirm_move_workspace_item_to_trash,
-    prompt_new_workspace_folder, prompt_new_workspace_text_file,
-    prompt_rename_workspace_item, run_manage_templates_dialog,
-    run_spelling_dialog,
+    SHORTCUT_ROWS, ask_save as dialog_ask_save, choose_open_file, choose_save_file,
+    choose_save_template, run_manage_templates_dialog,
     show_error, show_info, show_keyboard_shortcuts, show_large_info,
 )
 from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts
-from calamus_menu_model import (
-    template_rows, recent_file_rows, favourite_rows, recent_workspace_rows,
-)
+from calamus_menu_model import template_rows, recent_file_rows, favourite_rows
 from calamus_ui_state import UiStateFacts
 from calamus_application_components import UiStateCompositionInput
 from calamus_ui_state_composition import build_ui_state_components
@@ -82,6 +60,11 @@ from calamus_application_commands import build_application_command_layer
 from calamus_application_composition import compose_core_application_components
 from calamus_preferences_composition import build_preferences_application_state_components
 from calamus_preferences_controller import PreferenceProjectionError
+from calamus_subsystem_composition import (
+    SubsystemHostCompositionInput,
+    build_subsystem_host_components,
+)
+from calamus_research_composition import ResearchCompositionInput, build_research_subsystem
 from calamus_editor_transaction import EditorChangeKind
 
 APP_TITLE = "Calamus Copy"
@@ -108,41 +91,7 @@ import calamus_application_lifecycle_app as application_lifecycle_app
 from calamus_help import load_user_guide
 from calamus_help_dialogs import show_user_guide
 from calamus_editor import build_editor_widgets, apply_text_wrap_policy
-from calamus_reference_runtime import ReferencePanelRuntime
-from calamus_reference_store import MarkdownReferenceStore
-from calamus_reference_set_store import MarkdownReferenceSetStore
-from calamus_reference_set_runtime import ReferenceSetRuntime
-from calamus_citation_controller import CitationController
-from calamus_citation_dialogs import choose_citation_key, run_quick_cite_dialog
-from calamus_source_note_runtime import SourceNotePanelRuntime
-from calamus_authoring_bridge import EditorSelectionSnapshot, HeadingLinkPlan
-from calamus_authoring_bridge_runtime import AuthoringBridgeRuntime
-from calamus_research_integrity_controller import ResearchIntegrityController
-from calamus_research_integrity_runtime import ResearchIntegrityRuntime
-from calamus_tag_integrity_controller import TagIntegrityController
-from calamus_tag_integrity_runtime import TagIntegrityRuntime
-from calamus_tags_runtime import TagsRuntime
-from calamus_research_export_controller import ResearchExportController
-from calamus_research_export_runtime import ResearchExportRuntime
-from calamus_bibtex_controller import BibtexController
-from calamus_bibtex_runtime import BibtexRuntime
-from calamus_pandoc_controller import PandocExportController
-from calamus_pandoc_runtime import PandocExportRuntime
-from calamus_research_panel import ResearchPanelRuntime
-from calamus_research_panel_view import ResearchPanelViewAdapter
-from calamus_research_coordination import (
-    ResearchClientSpec,
-    ResearchInvalidationReason,
-    ResearchPanelCoordinator,
-)
-from calamus_scratchpad_runtime import ScratchpadRuntime
-from calamus_scratchpad_gateway import (
-    current_section_target as scratchpad_current_section_target,
-    selected_text as scratchpad_selected_text,
-    insert_body as scratchpad_insert_body,
-    copy_body as scratchpad_copy_body, sync_document as scratchpad_sync_document,
-)
-from calamus_navigation import line_to_buffer_index
+from calamus_research_coordination import ResearchInvalidationReason
 from calamus_view_preferences import prepare_text_wrap_plan
 from calamus_typography import (
     DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE,
@@ -172,18 +121,6 @@ MIN_WINDOW_HEIGHT = 360
 MAX_WINDOW_WIDTH = 1600
 MAX_WINDOW_HEIGHT = 1000
 
-def _sync_source_notes_document(app, *, force=False):
-    if hasattr(app, "source_note_panel_runtime"):
-        app.source_note_panel_runtime.sync_document(force=force)
-    scratchpad_sync_document(app, force=force)
-    return True
-
-def _research_document_context_changed(app):
-    coordinator = getattr(app, "research_coordinator", None)
-    if coordinator is not None:
-        coordinator.publish((ResearchInvalidationReason.DOCUMENT_IDENTITY,))
-    return True
-
 class App(Gtk.Window):
     def __init__(self):
         super().__init__(title=APP_TITLE)
@@ -212,7 +149,6 @@ class App(Gtk.Window):
         self.spell_source = None
         self.word_count_source = None
         self._wrap_reflow_source = None
-        self.print_pages = []
         self.focus_mode = False
         self.typewriter_mode = False
         self.current_line_highlight = False
@@ -260,6 +196,25 @@ class App(Gtk.Window):
         self._components = compose_core_application_components(
             self,
             clip_invalidation_reason=ResearchInvalidationReason.CLIPS,
+        )
+        self.populate_recent_workspaces_menu()
+        self._w107_subsystems = build_subsystem_host_components(
+            SubsystemHostCompositionInput(
+                dialog_parent=self,
+                text_view=self.text,
+                misspelling_tag=self.tag,
+                search_controller=self.search_controller,
+                editor_transaction=self.editor_transaction,
+                editor_buffer_adapter=self.editor_buffer_adapter,
+                document_text=self.buffer_text,
+                language_provider=lambda: self.spell_lang,
+                update_language=lambda lang: self.update_preferences(spell_lang=lang),
+                show_info=self.info,
+                show_error=self.error,
+                update_title=self.update_title,
+                project_committed_change=lambda label: self._project_committed_editor_change(command_name=label),
+                font_provider=lambda: (self.font_family, self.font_size),
+            )
         )
         self.build_research_panel()
         document_dossier_app.build_document_overview(self)
@@ -492,6 +447,11 @@ class App(Gtk.Window):
     @property
     def trim_trailing_on_save(self):
         return self.preference_snapshot.trim_trailing_on_save
+
+    @property
+    def print_pages(self):
+        hosts = getattr(self, "_w107_subsystems", None)
+        return list(hosts.printer.pages) if hosts is not None else []
 
     @property
     def workspace_root(self):
@@ -2023,508 +1983,219 @@ class App(Gtk.Window):
         d.destroy()
 
     def build_research_panel(self):
-        self.reference_store = MarkdownReferenceStore()
-        self.reference_set_store = MarkdownReferenceSetStore()
-        self.reference_panel_runtime = ReferencePanelRuntime(
-            self,
-            store=self.reference_store,
-            quick_cite=self.quick_cite_key,
-            document_text_provider=self.buffer_text,
-            source_notes_provider=lambda: self.source_notes_snapshot(),
-            reference_sets_provider=lambda: self.reference_set_runtime.sets_snapshot(force=True),
-            open_external=open_external_path,
-            reveal_external=reveal_in_file_manager,
-            on_changed=lambda: self.publish_research_invalidation(
-                ResearchInvalidationReason.REFERENCES
-            ),
-        )
-        self.reference_set_runtime = ReferenceSetRuntime(
-            self,
-            records_provider=lambda: self.reference_panel_runtime.records,
-            show_reference=self.show_reference_key,
-            store=self.reference_set_store,
-            on_changed=lambda: self.publish_research_invalidation(
-                ResearchInvalidationReason.REFERENCE_SETS
-            ),
-        )
-        self.citation_controller = CitationController(
-            reference_records_provider=lambda: self.reference_panel_runtime.records,
-            insert_text=self.insert_citation_text,
-            show_reference=self.show_reference_key,
-            choose_key=lambda keys: choose_citation_key(self, keys),
-            on_error=lambda message: show_error(self, message),
-        )
-        self.source_note_panel_runtime = SourceNotePanelRuntime(
-            self,
-            document_path_provider=lambda: self.document.file_path,
-            reference_keys_provider=lambda: self.reference_panel_runtime.keys,
-            document_structure_provider=lambda: self.navigation_controller.structure,
-            show_reference=self.show_reference_key,
-            reference_key_resolver=self.reference_panel_runtime.resolve_key,
-            show_target=self.show_heading_target,
-            on_changed=lambda: self.publish_research_invalidation(
-                ResearchInvalidationReason.SOURCE_NOTES
-            ),
-        )
-        self.authoring_bridge_runtime = AuthoringBridgeRuntime(
-            self,
-            reference_records_provider=lambda: self.reference_panel_runtime.records_snapshot(force=True),
-            document_text_provider=self.buffer_text,
-            source_notes_provider=self.source_notes_snapshot,
-            document_structure_provider=lambda: self.navigation_controller.structure,
-            selected_reference_provider=lambda: self.reference_panel_runtime.selected_key,
-            current_heading_provider=self.current_heading_identifier,
-            selection_provider=self.authoring_selection_snapshot,
-            navigate_document=self.navigate_authoring_occurrence,
-            show_source_note=self.show_source_note_id,
-            show_reference=self.show_reference_key,
-            create_source_note_from_snapshot=self.create_source_note_from_authoring_snapshot,
-            apply_heading_link_plan=self.apply_heading_link_plan,
-            on_error=lambda message: show_error(self, message),
-        )
-        self.scratchpad_runtime = ScratchpadRuntime(
-            self,
-            document_path_provider=lambda: self.document.file_path,
-            document_structure_provider=lambda: self.navigation_controller.structure,
-            current_section_provider=lambda: scratchpad_current_section_target(self),
-            selected_text_provider=lambda: scratchpad_selected_text(self),
-            show_target=self.show_heading_target,
-            insert_body=lambda body: scratchpad_insert_body(self, body),
-            copy_body=lambda body: scratchpad_copy_body(self, body),
-            on_changed=lambda: self.publish_research_invalidation(
-                ResearchInvalidationReason.SCRATCHPAD
-            ),
-        )
-        self.tag_integrity_controller = TagIntegrityController(
-            reference_store=self.reference_store,
-            document_path_provider=lambda: self.document.file_path,
-            refresh_references=self.reference_panel_runtime.reload,
-            refresh_source_notes=lambda: self.source_note_panel_runtime.sync_document(force=True),
-            refresh_scratchpad=lambda: self.scratchpad_runtime.sync_document(force=True),
-        )
-        self.tags_runtime = TagsRuntime(
-            self,
-            self.tag_integrity_controller,
-            show_reference=self.show_reference_key,
-            show_source_note=self.show_source_note_id,
-            show_scratchpad_entry=self.show_scratchpad_entry_id,
-            on_changed=lambda: self.publish_research_invalidation(
-                ResearchInvalidationReason.REFERENCES,
-                ResearchInvalidationReason.SOURCE_NOTES,
-                ResearchInvalidationReason.SCRATCHPAD,
-            ),
-        )
-        self.tag_integrity_runtime = TagIntegrityRuntime(
-            self,
-            self.tag_integrity_controller,
-        )
-        self.research_panel_view = ResearchPanelViewAdapter(
-            lambda: self.research_panel_runtime.hide(),
-        )
-        self.research_coordinator = ResearchPanelCoordinator(
-            active_client_provider=lambda: self.research_panel_view.active_client,
-            schedule=lambda delay, callback: GLib.timeout_add(delay, callback),
-            cancel=lambda source_id: GLib.source_remove(source_id),
-        )
-        client_specs = (
-            ResearchClientSpec(
-                "clip-collection", "Clips", self.clip_collection.widget,
-                self.clip_collection_runtime.activate,
-                frozenset({ResearchInvalidationReason.CLIPS}),
-                self.clip_collection_runtime.refresh_for_invalidation,
-                self.clip_collection_runtime.shutdown,
-            ),
-            ResearchClientSpec(
-                "scratchpad", "Scratchpad", self.scratchpad_runtime.widget,
-                self.scratchpad_runtime.activate,
-                frozenset({
-                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
-                    ResearchInvalidationReason.DOCUMENT_CONTENT,
-                    ResearchInvalidationReason.SCRATCHPAD,
-                }),
-                self.scratchpad_runtime.refresh_for_invalidation,
-                self.scratchpad_runtime.shutdown,
-            ),
-            ResearchClientSpec(
-                "references", "Bibliography", self.reference_panel_runtime.widget,
-                self.reference_panel_runtime.activate,
-                frozenset({
-                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
-                    ResearchInvalidationReason.DOCUMENT_CONTENT,
-                    ResearchInvalidationReason.REFERENCES,
-                    ResearchInvalidationReason.SOURCE_NOTES,
-                    ResearchInvalidationReason.REFERENCE_SETS,
-                }),
-                self.reference_panel_runtime.refresh_for_invalidation,
-                self.reference_panel_runtime.shutdown,
-            ),
-            ResearchClientSpec(
-                "tags", "Tags", self.tags_runtime.widget,
-                self.tags_runtime.activate,
-                frozenset({
-                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
-                    ResearchInvalidationReason.REFERENCES,
-                    ResearchInvalidationReason.SOURCE_NOTES,
-                    ResearchInvalidationReason.SCRATCHPAD,
-                }),
-                self.tags_runtime.refresh_for_invalidation,
-                self.tags_runtime.shutdown,
-            ),
-            ResearchClientSpec(
-                "reference-sets", "Reference Sets", self.reference_set_runtime.widget,
-                self.reference_set_runtime.activate,
-                frozenset({
-                    ResearchInvalidationReason.REFERENCES,
-                    ResearchInvalidationReason.REFERENCE_SETS,
-                }),
-                self.reference_set_runtime.refresh_for_invalidation,
-                self.reference_set_runtime.shutdown,
-            ),
-            ResearchClientSpec(
-                "source-notes", "Source Notes", self.source_note_panel_runtime.widget,
-                self.source_note_panel_runtime.activate,
-                frozenset({
-                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
-                    ResearchInvalidationReason.DOCUMENT_CONTENT,
-                    ResearchInvalidationReason.REFERENCES,
-                    ResearchInvalidationReason.SOURCE_NOTES,
-                }),
-                self.source_note_panel_runtime.refresh_for_invalidation,
-                self.source_note_panel_runtime.shutdown,
-            ),
-            ResearchClientSpec(
-                "authoring-bridge", "Authoring Bridge", self.authoring_bridge_runtime.widget,
-                self.authoring_bridge_runtime.activate,
-                frozenset({
-                    ResearchInvalidationReason.DOCUMENT_IDENTITY,
-                    ResearchInvalidationReason.DOCUMENT_CONTENT,
-                    ResearchInvalidationReason.REFERENCES,
-                    ResearchInvalidationReason.SOURCE_NOTES,
-                }),
-                self.authoring_bridge_runtime.refresh_for_invalidation,
-                self.authoring_bridge_runtime.shutdown,
-            ),
-        )
-        for spec in client_specs:
-            self.research_coordinator.register(spec)
-            self.research_panel_view.register_client(
-                spec.client_id, spec.title, spec.widget,
-                lambda client_id=spec.client_id: self.research_coordinator.activate(client_id),
+        self._research_components = build_research_subsystem(
+            ResearchCompositionInput(
+                dialog_parent=self,
+                right_panel_host=self.right_panel_host,
+                text_view=self.text,
+                document_session=self.document_session,
+                navigation_controller=self.navigation_controller,
+                clip_collection=self.clip_collection,
+                clip_collection_runtime=self.clip_collection_runtime,
+                document_text=self.buffer_text,
+                execute_command=self.execute_command,
+                set_cursor_offset=self.set_cursor_offset,
+                refresh_ui_state=self.refresh_ui_state,
+                schedule=lambda delay, callback: GLib.timeout_add(delay, callback),
+                cancel=lambda source_id: GLib.source_remove(source_id),
             )
-        self.research_coordinator.assert_complete()
-        self.right_panel_host.register("research", self.research_panel_view.widget)
-        self.research_panel_runtime = ResearchPanelRuntime(
-            self.right_panel_host,
-            self.research_panel_view,
-            self.text.grab_focus,
-            on_visibility_changed=self.on_research_visibility_changed,
         )
-        self.research_integrity_controller = ResearchIntegrityController(
-            reference_store=self.reference_store,
-            document_path_provider=lambda: self.document.file_path,
-            document_text_provider=self.buffer_text,
-            document_structure_provider=lambda: self.navigation_controller.structure,
-            replace_document_text=self.replace_document_for_reference_migration,
-            refresh_references=self.reference_panel_runtime.reload,
-            refresh_source_notes=lambda: self.source_note_panel_runtime.sync_document(force=True),
-            reference_set_store=self.reference_set_store,
-            refresh_reference_sets=self.reference_set_runtime.reload,
-        )
-        self.research_integrity_runtime = ResearchIntegrityRuntime(
-            self,
-            self.research_integrity_controller,
-            records_provider=lambda: self.reference_panel_runtime.records,
-            selected_key_provider=lambda: self.reference_panel_runtime.selected_key,
-        )
-        self.research_export_controller = ResearchExportController(
-            reference_store=self.reference_store,
-            document_path_provider=lambda: self.document.file_path,
-            document_text_provider=self.buffer_text,
-            document_structure_provider=lambda: self.navigation_controller.structure,
-        )
-        self.research_export_runtime = ResearchExportRuntime(
-            self,
-            self.research_export_controller,
-            document_path_provider=lambda: self.document.file_path,
-            show_error=lambda message: show_error(self, message),
-            show_info=lambda message: show_info(self, message),
-        )
-        self.bibtex_controller = BibtexController(
-            self.reference_store,
-            refresh_references=self.reference_panel_runtime.reload,
-        )
-        self.bibtex_runtime = BibtexRuntime(self, self.bibtex_controller)
-        self.pandoc_export_controller = PandocExportController(
-            self.reference_store,
-            self.reference_set_store,
-            document_path_provider=lambda: self.document.file_path,
-            document_text_provider=self.buffer_text,
-        )
-        self.pandoc_export_runtime = PandocExportRuntime(
-            self,
-            self.pandoc_export_controller,
-            document_path_provider=lambda: self.document.file_path,
-            reference_set_names_provider=lambda: tuple(
-                item.name for item in self.reference_set_runtime.sets_snapshot(force=True)
-            ),
-        )
+        c = self._research_components
+        self.reference_store = c.reference_store
+        self.reference_set_store = c.reference_set_store
+        self.reference_panel_runtime = c.reference_panel_runtime
+        self.reference_set_runtime = c.reference_set_runtime
+        self.citation_controller = c.citation_controller
+        self.source_note_panel_runtime = c.source_note_panel_runtime
+        self.authoring_bridge_runtime = c.authoring_bridge_runtime
+        self.scratchpad_runtime = c.scratchpad_runtime
+        self.tag_integrity_controller = c.tag_integrity_controller
+        self.tags_runtime = c.tags_runtime
+        self.tag_integrity_runtime = c.tag_integrity_runtime
+        self.research_panel_view = c.panel_view
+        self.research_coordinator = c.coordinator
+        self.research_panel_runtime = c.panel_runtime
+        self.research_integrity_controller = c.research_integrity_controller
+        self.research_integrity_runtime = c.research_integrity_runtime
+        self.research_export_controller = c.research_export_controller
+        self.research_export_runtime = c.research_export_runtime
+        self.bibtex_controller = c.bibtex_controller
+        self.bibtex_runtime = c.bibtex_runtime
+        self.pandoc_export_controller = c.pandoc_export_controller
+        self.pandoc_export_runtime = c.pandoc_export_runtime
+        return c
 
     on_document_overview = document_dossier_app.on_document_overview
     refresh_document_overview_if_open = document_dossier_app.refresh_document_overview_if_open
 
     def refresh_clip_list(self):
-        return self.clip_collection.refresh()
+        return self._research_components.runtime.refresh_clip_list()
 
     def on_research_item_toggled(self, item):
-        return self.research_panel_runtime.set_visible(bool(item.get_active()))
+        return self._research_components.runtime.on_research_item_toggled(item)
 
     def on_research_visibility_changed(self, _visible):
-        self.refresh_ui_state()
+        return self._research_components.runtime.on_research_visibility_changed(_visible)
 
     def toggle_research_panel(self, *_):
-        return self.research_panel_runtime.toggle()
+        return self._research_components.runtime.toggle_research_panel(*_)
 
     def show_clip_collection(self, *_):
-        return self.research_panel_runtime.show("clip-collection")
+        return self._research_components.runtime.show_clip_collection(*_)
 
     def show_scratchpad(self, *_):
-        return self.research_panel_runtime.show("scratchpad")
+        return self._research_components.runtime.show_scratchpad(*_)
 
     def on_capture_selection_in_scratchpad(self, *_):
-        return self.scratchpad_runtime.capture_selection()
+        return self._research_components.runtime.on_capture_selection_in_scratchpad(*_)
 
     def on_new_scratchpad_for_current_section(self, *_):
-        return self.scratchpad_runtime.new_for_current_section()
+        return self._research_components.runtime.on_new_scratchpad_for_current_section(*_)
 
     def on_show_scratchpad_for_current_section(self, *_):
-        self.research_panel_runtime.show("scratchpad")
-        return self.scratchpad_runtime.show_for_current_section()
+        return self._research_components.runtime.on_show_scratchpad_for_current_section(*_)
 
     def show_references(self, *_):
-        return self.research_panel_runtime.show("references")
+        return self._research_components.runtime.show_references(*_)
 
     def on_open_bibliography_file(self, *_):
-        if self.reference_panel_runtime.open_bibliography_file():
-            return True
-        show_error(self, "The bibliography file is not available.")
-        return False
+        return self._research_components.runtime.on_open_bibliography_file(*_)
 
     def on_export_bibliography_markdown(self, *_):
-        return self.reference_panel_runtime.export_visible_bibliography(markdown=True)
+        return self._research_components.runtime.on_export_bibliography_markdown(*_)
 
     def on_export_bibliography_text(self, *_):
-        return self.reference_panel_runtime.export_visible_bibliography(markdown=False)
+        return self._research_components.runtime.on_export_bibliography_text(*_)
 
     def show_tags(self, *_):
-        return self.research_panel_runtime.show("tags")
+        return self._research_components.runtime.show_tags(*_)
 
     def show_source_notes(self, *_):
-        return self.research_panel_runtime.show("source-notes")
+        return self._research_components.runtime.show_source_notes(*_)
 
     def show_reference_sets(self, *_):
-        return self.research_panel_runtime.show("reference-sets")
+        return self._research_components.runtime.show_reference_sets(*_)
 
     def show_authoring_bridge(self, *_):
-        return self.research_panel_runtime.show("authoring-bridge")
+        return self._research_components.runtime.show_authoring_bridge(*_)
 
     def source_notes_snapshot(self):
-        return self.source_note_panel_runtime.notes_snapshot(force=True)
+        return self._research_components.runtime.source_notes_snapshot()
 
     def current_heading_identifier(self):
-        heading = self.navigation_controller.current_heading()
-        if heading is None or heading.identifier is None:
-            return None
-        matches = self.navigation_controller.structure.headings_for_identifier(heading.identifier)
-        return heading.identifier if len(matches) == 1 else None
+        return self._research_components.runtime.current_heading_identifier()
 
     def authoring_selection_snapshot(self):
-        text = self.buffer_text()
-        buffer = self.text.get_buffer()
-        if buffer.get_has_selection():
-            start, end = buffer.get_selection_bounds()
-            return EditorSelectionSnapshot(text, start.get_offset(), end.get_offset())
-        cursor = buffer.get_iter_at_mark(buffer.get_insert()).get_offset()
-        return EditorSelectionSnapshot(text, cursor, cursor)
+        return self._research_components.runtime.authoring_selection_snapshot()
 
     def navigate_authoring_occurrence(self, start, end, _occurrence_id):
-        if not all(isinstance(value, int) and not isinstance(value, bool) for value in (start, end)):
-            return False
-        if start < 0 or end <= start or end > len(self.buffer_text()):
-            return False
-        self.select_range(start, end)
-        self.text.grab_focus()
-        return True
+        return self._research_components.runtime.navigate_authoring_occurrence(start, end, _occurrence_id)
 
     def show_source_note_id(self, note_id):
-        self.research_panel_runtime.show("source-notes")
-        return self.source_note_panel_runtime.show_note(note_id)
+        return self._research_components.runtime.show_source_note_id(note_id)
 
     def show_scratchpad_entry_id(self, entry_id):
-        self.research_panel_runtime.show("scratchpad")
-        return self.scratchpad_runtime.show_entry(entry_id)
+        return self._research_components.runtime.show_scratchpad_entry_id(entry_id)
 
-    def create_source_note_from_authoring_snapshot(
-        self, snapshot, reference_key, target
-    ):
-        if not isinstance(snapshot, EditorSelectionSnapshot):
-            return False
-        created = self.source_note_panel_runtime.add_from_selection(
-            snapshot.selected_text,
-            reference_key=reference_key,
-            target=target,
-        )
-        if created:
-            self.show_source_notes()
-        return created
+    def create_source_note_from_authoring_snapshot(self, snapshot, reference_key, target):
+        return self._research_components.runtime.create_source_note_from_authoring_snapshot(snapshot, reference_key, target)
 
     def on_create_source_note_from_selection(self, *_):
-        return self.authoring_bridge_runtime.on_create_source_note()
+        return self._research_components.runtime.on_create_source_note_from_selection(*_)
 
     def on_insert_link_to_heading(self, *_):
-        return self.authoring_bridge_runtime.on_insert_heading_link()
+        return self._research_components.runtime.on_insert_link_to_heading(*_)
 
     def apply_heading_link_plan(self, plan):
-        if not isinstance(plan, HeadingLinkPlan) or not plan.changed:
-            return False
-        if self.buffer_text() != plan.document_before:
-            show_error(self, "The document changed before link insertion. Refresh and retry.")
-            return False
-
-        def edit(buffer):
-            start = buffer.get_iter_at_offset(plan.replace_start)
-            end = buffer.get_iter_at_offset(plan.replace_end)
-            buffer.delete(start, end)
-            buffer.insert(buffer.get_iter_at_offset(plan.replace_start), plan.replacement)
-
-        changed = self.execute_command(
-            "Insert Link to Heading",
-            edit,
-            select_range=(plan.cursor_after, plan.cursor_after),
-        )
-        if changed:
-            self.text.grab_focus()
-        return bool(changed)
+        return self._research_components.runtime.apply_heading_link_plan(plan)
 
     def show_reference_key(self, key):
-        self.research_panel_runtime.show("references")
-        return self.reference_panel_runtime.show_key(key)
+        return self._research_components.runtime.show_reference_key(key)
 
     def insert_citation_text(self, citation):
-        if not isinstance(citation, str) or not citation:
-            return False
-        buf = self.text.get_buffer()
-        cursor = buf.get_iter_at_mark(buf.get_insert()).get_offset()
-        _, inserted_range = command_insert_at(self.buffer_text(), cursor, citation)
-
-        def edit(buffer):
-            buffer.insert(buffer.get_iter_at_offset(cursor), citation)
-
-        changed = self.execute_command("Quick Cite", edit)
-        if changed:
-            self.set_cursor_offset(inserted_range[1])
-            self.text.grab_focus()
-        return changed
+        return self._research_components.runtime.insert_citation_text(citation)
 
     def run_quick_cite(self, initial_key=None):
-        records = self.reference_panel_runtime.records
-        if not records:
-            show_error(self, "References is empty. Add a reference before using Quick Cite.")
-            return False
-        result = run_quick_cite_dialog(self, records, initial_key=initial_key)
-        if result is None:
-            return False
-        key, locator = result
-        return self.citation_controller.quick_cite(key, locator)
+        return self._research_components.runtime.run_quick_cite(initial_key)
 
     def on_quick_cite(self, *_):
-        return self.run_quick_cite()
+        return self._research_components.runtime.on_quick_cite(*_)
 
     def quick_cite_key(self, key):
-        return self.run_quick_cite(initial_key=key)
+        return self._research_components.runtime.quick_cite_key(key)
 
     def on_open_citation_in_references(self, *_):
-        buf = self.text.get_buffer()
-        cursor = buf.get_iter_at_mark(buf.get_insert()).get_offset()
-        return self.citation_controller.open_citation(self.buffer_text(), cursor)
+        return self._research_components.runtime.on_open_citation_in_references(*_)
 
     def replace_document_for_reference_migration(self, before, after):
-        if not isinstance(before, str) or not isinstance(after, str):
-            return False
-        if before == after or self.buffer_text() != before:
-            return False
-
-        def edit(buffer):
-            start, end = buffer.get_bounds()
-            buffer.delete(start, end)
-            buffer.insert(buffer.get_start_iter(), after)
-
-        changed = self.execute_command("Rename Reference Key", edit)
-        return bool(changed and self.buffer_text() == after)
+        return self._research_components.runtime.replace_document_for_reference_migration(before, after)
 
     def on_rename_reference_key(self, *_):
-        changed = self.research_integrity_runtime.rename_reference_key()
-        return self.finish_research_mutation(changed, ResearchInvalidationReason.REFERENCES, ResearchInvalidationReason.SOURCE_NOTES, ResearchInvalidationReason.REFERENCE_SETS, ResearchInvalidationReason.DOCUMENT_CONTENT)
+        return self._research_components.runtime.on_rename_reference_key(*_)
 
     def on_research_check(self, *_):
-        return self.research_integrity_runtime.research_check()
+        return self._research_components.runtime.on_research_check(*_)
 
     def on_tag_integrity(self, *_):
-        changed = self.tag_integrity_runtime.manage()
-        return self.finish_research_mutation(changed, ResearchInvalidationReason.REFERENCES, ResearchInvalidationReason.SOURCE_NOTES, ResearchInvalidationReason.SCRATCHPAD)
+        return self._research_components.runtime.on_tag_integrity(*_)
 
     def on_import_bibtex_biblatex(self, *_):
-        changed = self.bibtex_runtime.import_references()
-        return self.finish_research_mutation(changed, ResearchInvalidationReason.REFERENCES)
+        return self._research_components.runtime.on_import_bibtex_biblatex(*_)
 
     def on_export_references_bibtex_biblatex(self, *_):
-        return self.bibtex_runtime.export_references()
+        return self._research_components.runtime.on_export_references_bibtex_biblatex(*_)
 
     def on_export_research_apparatus(self, *_):
-        return self.research_export_runtime.export()
+        return self._research_components.runtime.on_export_research_apparatus(*_)
 
     def on_export_with_pandoc(self, *_):
-        return self.pandoc_export_runtime.export()
+        return self._research_components.runtime.on_export_with_pandoc(*_)
 
     def show_heading_target(self, target):
-        return self.navigation_controller.navigate_identifier(target) is not None
+        return self._research_components.runtime.show_heading_target(target)
 
     def finish_research_mutation(self, changed, *reasons):
-        if changed:
-            self.publish_research_invalidation(*reasons)
-        return changed
+        return self._research_components.runtime.finish_research_mutation(changed, *reasons)
 
     def publish_research_invalidation(self, *reasons):
-        coordinator = getattr(self, "research_coordinator", None)
-        if coordinator is not None:
-            coordinator.publish(reasons)
+        components = getattr(self, "_research_components", None)
+        runtime = components.runtime if components is not None else None
+        if runtime is not None:
+            return runtime.publish_research_invalidation(*reasons)
+        return None
 
     def research_document_context_changed(self):
-        _sync_source_notes_document(self, force=True)
-        return _research_document_context_changed(self)
+        components = getattr(self, "_research_components", None)
+        runtime = components.runtime if components is not None else None
+        if runtime is None:
+            return True
+        return runtime.research_document_context_changed()
 
     def sync_source_notes_document(self, *, force=False):
-        return _sync_source_notes_document(self, force=force)
+        components = getattr(self, "_research_components", None)
+        runtime = components.runtime if components is not None else None
+        if runtime is None:
+            return True
+        return runtime.sync_source_notes_document(force=force)
 
     def toggle_clip_collection(self, *_):
-        return self.show_clip_collection()
+        return self._research_components.runtime.toggle_clip_collection(*_)
 
     def insert_clip_number(self, number):
-        if self.clip_collection.select_number(number):
-            return self.clip_collection_runtime.on_insert()
-        return False
+        return self._research_components.runtime.insert_clip_number(number)
 
     def on_insert_clip(self, *_):
-        return self.clip_collection_runtime.on_quick_insert()
+        return self._research_components.runtime.on_insert_clip(*_)
 
     # Compatibility callbacks retained for tests and older menu wiring.
     def on_clip_add_selection(self, *_):
-        return self.clip_collection_runtime.on_capture()
+        return self._research_components.runtime.on_clip_add_selection(*_)
 
     def on_clip_insert(self, *_):
-        return self.clip_collection_runtime.on_insert()
+        return self._research_components.runtime.on_clip_insert(*_)
 
     def on_clip_delete(self, *_):
-        return self.clip_collection_runtime.on_delete()
+        return self._research_components.runtime.on_clip_delete(*_)
 
     on_typewriter_state_changed = typewriter_app.on_typewriter_state_changed
     on_typewriter_item_toggled = typewriter_app.on_typewriter_item_toggled
@@ -2604,166 +2275,76 @@ class App(Gtk.Window):
         self.large_info("Bookmarks", "\n".join(lines))
 
     def populate_recent_workspaces_menu(self):
-        paths = tuple(self.recent_workspace_store.visible())
-        adapter = getattr(self, "menu_ui_adapter", None)
-        if adapter is not None:
-            adapter.render_dynamic("recent-workspaces", recent_workspace_rows(paths))
-        return paths
+        return self._components.workspace.host_runtime.populate_recent_workspaces_menu()
 
     def show_workspace_panel(self, *_):
-        if not getattr(self, "workspace_root", None):
-            return self.on_select_workspace_folder()
-        return self.workspace_panel_runtime.set_visible(True)
+        return self._components.workspace.host_runtime.show_workspace_panel(*_)
 
     def on_new_workspace_text_file(self, *_):
-        selected = self.workspace_panel_view.selected_item()
-        try:
-            destination = self.workspace_mutation_controller.destination_for_selection(selected)
-        except (OSError, TypeError, ValueError) as exc:
-            self.error(str(exc))
-            return False
-        request = prompt_new_workspace_text_file(self, destination)
-        if request is None:
-            return False
-        name, suffix = request
-        return self.create_workspace_text_file(name, suffix)
+        return self._components.workspace.host_runtime.on_new_workspace_text_file(*_)
 
     def create_workspace_text_file(self, name, suffix=".txt"):
-        return self.workspace_mutation_runtime.create_new_text_file(
-            self.workspace_panel_view.selected_item(),
-            name,
-            suffix=suffix,
-        )
+        return self._components.workspace.host_runtime.create_workspace_text_file(name, suffix)
 
     def on_new_workspace_folder(self, *_):
-        selected = self.workspace_panel_view.selected_item()
-        try:
-            destination = self.workspace_mutation_controller.destination_for_selection(selected)
-        except (OSError, TypeError, ValueError) as exc:
-            self.error(str(exc))
-            return False
-        name = prompt_new_workspace_folder(self, destination)
-        if name is None:
-            return False
-        return self.create_workspace_folder(name)
+        return self._components.workspace.host_runtime.on_new_workspace_folder(*_)
 
     def create_workspace_folder(self, name):
-        return self.workspace_mutation_runtime.create_new_folder(
-            self.workspace_panel_view.selected_item(),
-            name,
-        )
+        return self._components.workspace.host_runtime.create_workspace_folder(name)
 
     def on_duplicate_workspace_file(self, *_):
-        return self.workspace_mutation_runtime.duplicate_text_file(
-            self.workspace_panel_view.selected_item()
-        )
+        return self._components.workspace.host_runtime.on_duplicate_workspace_file(*_)
 
     def on_move_workspace_item_to_trash(self, *_):
-        return self.workspace_mutation_runtime.move_to_trash(
-            self.workspace_panel_view.selected_item()
-        )
+        return self._components.workspace.host_runtime.on_move_workspace_item_to_trash(*_)
 
     def confirm_workspace_trash(self, trash_plan, active_document_affected):
-        return confirm_move_workspace_item_to_trash(
-            self,
-            trash_plan.source_name,
-            is_directory=trash_plan.source_is_directory,
-            active_document_affected=active_document_affected,
-        )
+        return self._components.workspace.host_runtime.confirm_workspace_trash(trash_plan, active_document_affected)
 
     def on_rename_workspace_item(self, *_):
-        selected = self.workspace_panel_view.selected_item()
-        if selected is None:
-            self.error("Select one Workspace file or folder to rename.")
-            return False
-        name = prompt_rename_workspace_item(
-            self, selected.name, is_directory=selected.is_directory
-        )
-        if name is None:
-            return False
-        return self.rename_workspace_item(name)
+        return self._components.workspace.host_runtime.on_rename_workspace_item(*_)
 
     def rename_workspace_item(self, name):
-        return self.workspace_mutation_runtime.rename_item(
-            self.workspace_panel_view.selected_item(), name
-        )
+        return self._components.workspace.host_runtime.rename_workspace_item(name)
 
     def capture_workspace_path_references(self):
-        return WorkspacePathReferenceSnapshot(
-            recent_files=tuple(self.recent_file_store.canonical()),
-            favourites=tuple(self.favourite_store.canonical()),
-        )
+        return self._components.workspace.host_runtime.capture_workspace_path_references()
 
     def reconcile_workspace_rename(self, rename_plan, references):
-        identity = plan_workspace_rename_identity(
-            self.current_file, references, rename_plan.source_path, rename_plan.target_path,
-            source_is_directory=rename_plan.source_is_directory,
-        )
-        if identity.document_identity_changed:
-            self.document_session.rebind_path(identity.current_file_after)
-            getattr(self, "research_document_context_changed", lambda: None)()
-            self.update_title()
-            getattr(self, "refresh_document_overview_if_open", lambda: False)()
-        recent_saved = self.recent_file_store.save(list(identity.recent_files_after))
-        favourites_saved = self.favourite_store.save(list(identity.favourites_after))
-        state_saved = self.application_state.record_last_file(self.current_file)
-        return bool(recent_saved and favourites_saved and state_saved)
+        return self._components.workspace.host_runtime.reconcile_workspace_rename(rename_plan, references)
 
     def reconcile_workspace_trash(self, trash_plan, references):
-        identity = plan_workspace_trash_identity(
-            self.current_file, references, trash_plan.source_path,
-            source_is_directory=trash_plan.source_is_directory,
-        )
-        if identity.active_document_detached:
-            current_text = self.buffer_text()
-            self.document_session.detach(current_text)
-            getattr(self, "research_document_context_changed", lambda: None)()
-            self.update_title()
-            getattr(self, "refresh_document_overview_if_open", lambda: False)()
-        recent_saved = self.recent_file_store.save(list(identity.recent_files_after))
-        favourites_saved = self.favourite_store.save(list(identity.favourites_after))
-        state_saved = self.application_state.record_last_file(self.current_file)
-        return bool(recent_saved and favourites_saved and state_saved)
+        return self._components.workspace.host_runtime.reconcile_workspace_trash(trash_plan, references)
 
     def on_select_workspace_folder(self, *_):
-        selected = choose_workspace_folder(self, getattr(self, "workspace_root", None))
-        if not selected:
-            return False
-        return self.activate_workspace_path(selected)
+        return self._components.workspace.host_runtime.on_select_workspace_folder(*_)
 
     def open_workspace_path(self, path):
-        return self.workspace_application_runtime.open_root(path)
+        return self._components.workspace.host_runtime.open_workspace_path(path)
 
     def activate_workspace_path(self, path):
-        """Commit one root and expose the same operational panel for every caller."""
-        if not self.open_workspace_path(path):
-            return False
-        self.workspace_panel_runtime.set_visible(True)
-        self.workspace_panel_view.focus_tree()
-        return True
+        return self._components.workspace.host_runtime.activate_workspace_path(path)
 
     def on_close_workspace(self, *_):
-        self.workspace_panel_runtime.hide()
-        return self.workspace_application_runtime.close_root()
+        return self._components.workspace.host_runtime.on_close_workspace(*_)
 
     def on_refresh_workspace(self, *_):
-        return self.workspace_application_runtime.refresh()
+        return self._components.workspace.host_runtime.on_refresh_workspace(*_)
 
     def on_reveal_workspace(self, *_):
-        return self.workspace_application_runtime.reveal()
+        return self._components.workspace.host_runtime.on_reveal_workspace(*_)
 
     def on_workspace_item_toggled(self, item):
-        return self.workspace_panel_runtime.set_visible(bool(item.get_active()))
+        return self._components.workspace.host_runtime.on_workspace_item_toggled(item)
 
     def toggle_workspace_panel(self, *_):
-        return self.workspace_panel_runtime.toggle()
+        return self._components.workspace.host_runtime.toggle_workspace_panel(*_)
 
     def on_workspace_root_changed(self, _root):
-        self.refresh_ui_state()
+        return self._components.workspace.host_runtime.on_workspace_root_changed(_root)
 
     def on_workspace_visibility_changed(self, visible):
-        self.application_state.record_workspace_visible(bool(visible))
-        self.refresh_ui_state()
+        return self._components.workspace.host_runtime.on_workspace_visibility_changed(visible)
 
     def on_navigator_item_toggled(self, item):
         return self.navigator_panel_runtime.set_visible(bool(item.get_active()))
@@ -2798,269 +2379,82 @@ class App(Gtk.Window):
         return heading is not None
 
     def on_find_replace(self, *_):
-        run_find_replace_dialog(
-            self,
-            self.search_controller,
-            self.replace_current_match,
-            self.replace_all_literal,
-        )
+        return self._w107_subsystems.search.on_find_replace(*_)
 
     def on_find_all(self, *_):
-        run_find_all_dialog(self, self.search_controller)
+        return self._w107_subsystems.search.on_find_all(*_)
 
     def on_find_next(self, *_):
-        if not self.search_controller.has_query():
-            self.on_find_replace()
-            return
-        if not self.search_controller.repeat():
-            self.info("No match found.")
+        return self._w107_subsystems.search.on_find_next(*_)
 
     def on_find_previous(self, *_):
-        if not self.search_controller.has_query():
-            self.on_find_replace()
-            return
-        if not self.search_controller.repeat(backwards=True):
-            self.info("No previous match found.")
+        return self._w107_subsystems.search.on_find_previous(*_)
 
     def search_matches(self, needle, match_case=False, whole_word=False):
-        return self.search_controller.matches(
-            needle,
-            match_case=match_case,
-            whole_word=whole_word,
-            wrap=self.search_controller.query.options.wrap,
-        )
+        return self._w107_subsystems.search.search_matches(needle, match_case, whole_word)
 
     def highlight_all_search(self, needle, match_case=False, whole_word=False):
-        return self.search_controller.highlight(
-            needle,
-            match_case=match_case,
-            whole_word=whole_word,
-            wrap=self.search_controller.query.options.wrap,
-        )
+        return self._w107_subsystems.search.highlight_all_search(needle, match_case, whole_word)
 
     def find_text(self, needle, backwards=False, match_case=False, whole_word=False, wrap=True):
-        return self.search_controller.find(
-            needle,
-            backwards=backwards,
-            match_case=match_case,
-            whole_word=whole_word,
-            wrap=wrap,
-        )
+        return self._w107_subsystems.search.find_text(needle, backwards, match_case, whole_word, wrap)
 
     def find_text_previous(self, needle):
-        return self.search_controller.find(needle, backwards=True)
+        return self._w107_subsystems.search.find_text_previous(needle)
 
     def replace_current_match(self, needle_or_replacement, replacement=None, match_case=False, whole_word=False):
-        if replacement is None:
-            replacement = needle_or_replacement
-        else:
-            self.search_controller.configure(
-                needle_or_replacement,
-                match_case=match_case,
-                whole_word=whole_word,
-                wrap=self.search_controller.query.options.wrap,
-            )
-        plan = self.search_controller.prepare_current_replacement(replacement)
-        if plan is None:
-            return False
-        start, end, replacement_text, next_match = plan
-        self.replace_buffer_range(start, end, replacement_text)
-        self.search_controller.commit_current_replacement(next_match)
-        return True
+        return self._w107_subsystems.search.replace_current_match(needle_or_replacement, replacement, match_case, whole_word)
 
     def replace_all_literal(self, old_or_replacement, new=None, match_case=False, whole_word=False):
-        if new is None:
-            replacement = old_or_replacement
-        else:
-            self.search_controller.configure(
-                old_or_replacement,
-                match_case=match_case,
-                whole_word=whole_word,
-                wrap=self.search_controller.query.options.wrap,
-            )
-            replacement = new
-        text = self.buffer_text()
-        replaced, count = self.search_controller.prepare_replace_all(replacement)
-        if not count or replaced == text:
-            return 0
-        def edit(buf):
-            start, end = buf.get_bounds()
-            buf.delete(start, end)
-            buf.insert(buf.get_start_iter(), replaced)
-        self.execute_command("Replace All", edit)
-        self.search_controller.clear_current_match()
-        return count
+        return self._w107_subsystems.search.replace_all_literal(old_or_replacement, new, match_case, whole_word)
 
     def on_print_preview(self, *_):
-        op = Gtk.PrintOperation()
-        op.set_job_name("Calamus")
-        op.connect("begin-print", self.on_begin_print)
-        op.connect("draw-page", self.on_draw_page)
-        try:
-            op.run(Gtk.PrintOperationAction.PREVIEW, self)
-        except Exception as e:
-            self.error(str(e))
+        return self._w107_subsystems.printer.on_print_preview(*_)
 
     def on_print(self, *_):
-        op = Gtk.PrintOperation()
-        op.set_job_name("Calamus")
-        op.connect("begin-print", self.on_begin_print)
-        op.connect("draw-page", self.on_draw_page)
-        try:
-            op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self)
-        except Exception as e:
-            self.error(str(e))
+        return self._w107_subsystems.printer.on_print(*_)
 
     def on_begin_print(self, operation, context):
-        text = self.buffer_text()
-        lines = text.splitlines() or [""]
-        # Conservative pagination for lightweight, dependency-free printing.
-        # GTK/Pango renders the actual page; this just decides page chunks.
-        lines_per_page = 54
-        self.print_pages = ["\n".join(lines[i:i+lines_per_page]) for i in range(0, len(lines), lines_per_page)] or [""]
-        operation.set_n_pages(len(self.print_pages))
+        return self._w107_subsystems.printer.on_begin_print(operation, context)
 
     def on_draw_page(self, operation, context, page_nr):
-        cr = context.get_cairo_context()
-        layout = context.create_pango_layout()
-        layout.set_text(self.print_pages[page_nr], -1)
-        desc = Pango.FontDescription(f"{self.font_family} {self.font_size}")
-        layout.set_font_description(desc)
-        layout.set_width(int(context.get_width() * Pango.SCALE))
-        cr.move_to(0, 0)
-        PangoCairo.show_layout(cr, layout)
+        return self._w107_subsystems.printer.on_draw_page(operation, context, page_nr)
 
     def on_lang(self, item, lang):
-        if item.get_active():
-            return self.update_preferences(spell_lang=lang)
-        return False
+        return self._w107_subsystems.spellcheck.on_lang(item, lang)
 
     def clear_spell_tags(self):
-        b = self.text.get_buffer()
-        s, e = b.get_bounds()
-        b.remove_tag(self.tag, s, e)
+        return self._w107_subsystems.spellcheck.clear_spell_tags()
 
     def hunspell_dict(self):
-        return spell_hunspell_dict(self.spell_lang)
+        return self._w107_subsystems.spellcheck.hunspell_dict()
 
     def hunspell_base_command(self):
-        return spell_hunspell_base_command(self.spell_lang)
+        return self._w107_subsystems.spellcheck.hunspell_base_command()
 
     def hunspell_misspelled_words(self, text):
-        return spell_hunspell_misspelled_words(text, self.spell_lang)
+        return self._w107_subsystems.spellcheck.hunspell_misspelled_words(text)
 
     def hunspell_suggestions(self, word):
-        return spell_hunspell_suggestions(word, self.spell_lang)
+        return self._w107_subsystems.spellcheck.hunspell_suggestions(word)
 
     def find_next_error(self, start_offset, misspelled):
-        text = self.buffer_text()
-        for m in WORD_RE.finditer(text, max(0, start_offset)):
-            word = m.group(0)
-            if word in misspelled:
-                return m.start(), m.end(), word
-        return None
+        return self._w107_subsystems.spellcheck.find_next_error(start_offset, misspelled)
 
     def select_range(self, start, end):
-        b = self.text.get_buffer()
-        it1 = b.get_iter_at_offset(start)
-        it2 = b.get_iter_at_offset(end)
-        b.select_range(it1, it2)
-        self.text.scroll_to_iter(it1, 0.15, False, 0, 0)
+        return self._w107_subsystems.spellcheck.select_range(start, end)
 
     def spelling_dialog(self, word, suggestions):
-        return run_spelling_dialog(self, word, suggestions)
+        return self._w107_subsystems.spellcheck.spelling_dialog(word, suggestions)
 
     def replace_buffer_range(self, start, end, replacement):
-        def edit(buf):
-            it1 = buf.get_iter_at_offset(start)
-            it2 = buf.get_iter_at_offset(end)
-            buf.delete(it1, it2)
-            buf.insert(buf.get_iter_at_offset(start), replacement)
-        self.execute_command("Replace Selection", edit, select_range=(start, start + len(replacement)))
+        return self._w107_subsystems.spellcheck.replace_buffer_range(start, end, replacement)
 
     def replace_all_word(self, old, new, from_offset=0):
-        text = self.buffer_text()
-        pattern = re.compile(r"(?<![A-Za-zÀ-ÖØ-öø-ÿ'])" + re.escape(old) + r"(?![A-Za-zÀ-ÖØ-öø-ÿ'])")
-        matches = list(pattern.finditer(text, max(0, from_offset)))
-        if not matches:
-            return 0
-        def edit(buf):
-            shift = 0
-            for m in matches:
-                s = m.start() + shift
-                e = m.end() + shift
-                it1 = buf.get_iter_at_offset(s)
-                it2 = buf.get_iter_at_offset(e)
-                buf.delete(it1, it2)
-                buf.insert(buf.get_iter_at_offset(s), new)
-                shift += len(new) - len(old)
-        self.execute_command("Replace All Word", edit)
-        return len(matches)
+        return self._w107_subsystems.spellcheck.replace_all_word(old, new, from_offset)
 
     def on_check(self, *_):
-        self.clear_spell_tags()
-        try:
-            if not self.hunspell_base_command():
-                self.error("Hunspell was not found. Install hunspell and the required dictionaries, for example hunspell-it and hunspell-en-us.")
-                return
-            misspelled = self.hunspell_misspelled_words(self.buffer_text())
-            if misspelled is None:
-                self.error("Hunspell was not found.")
-                return
-            if not misspelled:
-                self.info("No spelling issues found.")
-                return
-
-            ignored = set()
-            offset = 0
-            fixed = 0
-            ignored_count = 0
-
-            while True:
-                active_errors = misspelled - ignored
-                found = self.find_next_error(offset, active_errors)
-                if not found:
-                    break
-                start, end, word = found
-                self.select_range(start, end)
-                suggestions = self.hunspell_suggestions(word)
-                response, replacement = self.spelling_dialog(word, suggestions)
-
-                if response == Gtk.ResponseType.CANCEL:
-                    self.clear_spell_tags()
-                    self.update_title()
-                    return
-                if response == 10:  # Ignore
-                    ignored_count += 1
-                    offset = end
-                    continue
-                if response == 11:  # Ignore all
-                    ignored.add(word)
-                    ignored_count += 1
-                    offset = end
-                    continue
-                if response == 20:  # Replace
-                    if replacement and replacement != word:
-                        self.replace_buffer_range(start, end, replacement)
-                        fixed += 1
-                        offset = start + len(replacement)
-                    else:
-                        offset = end
-                    continue
-                if response == 21:  # Replace all
-                    if replacement and replacement != word:
-                        fixed += self.replace_all_word(word, replacement, start)
-                        misspelled.discard(word)
-                        offset = start + len(replacement)
-                    else:
-                        offset = end
-                    continue
-
-            self.clear_spell_tags()
-            self.update_title()
-            self.info(f"Spellcheck complete. Replacements: {fixed}. Ignored: {ignored_count}.")
-        except Exception as e:
-            self.error(str(e))
+        return self._w107_subsystems.spellcheck.on_check(*_)
 
     def shortcut_rows(self):
         return SHORTCUT_ROWS

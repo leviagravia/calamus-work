@@ -4,6 +4,8 @@ from pathlib import Path
 
 
 from tests.w105_menu_test_support import legacy_menu_projection
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source, workspace_host_source
+
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -23,12 +25,7 @@ def source(path):
 
 
 def method_source(name):
-    text = source(LAUNCHER)
-    tree = ast.parse(text)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            return ast.get_source_segment(text, node) or ""
-    raise AssertionError(name)
+    return authoritative_method_source(name)
 
 
 class SourceNotesCommandWiringTests(unittest.TestCase):
@@ -49,12 +46,11 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
 
     def test_research_menu_and_shell_expose_third_real_client(self):
         ui = legacy_menu_projection()
-        launcher = source(LAUNCHER)
         research_view = source(RESEARCH_VIEW)
+        composition = research_composition_source()
         self.assertIn('add_item(researchm, "Source Notes", app.show_source_notes)', ui)
-        self.assertIn('"source-notes"', method_source("build_research_panel"))
-        self.assertIn('"Source Notes"', method_source("build_research_panel"))
-        self.assertIn("SourceNotePanelRuntime(", launcher)
+        self.assertIn('"source-notes", "Source Notes"', composition)
+        self.assertIn("SourceNotePanelRuntime(", composition)
         self.assertIn("ResearchClientSelector", research_view)
         self.assertIn("Gtk.MenuButton", research_view)
         self.assertIn("Gtk.Popover", research_view)
@@ -85,27 +81,27 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Gtk", controller)
 
     def test_source_note_targets_reuse_canonical_heading_structure_and_navigation(self):
-        launcher = source(LAUNCHER)
         runtime = source(RUNTIME)
         panel = source(PANEL)
         dialogs = source(DIALOGS)
         structure = source(STRUCTURE)
         navigation = source(NAVIGATION)
         store = source(STORE)
-
+        composition = research_composition_source()
+        show_target = method_source("show_heading_target")
         self.assertIn('("Target", "target")', store)
-        self.assertIn('document_structure_provider=lambda: self.navigation_controller.structure', launcher)
-        self.assertIn('show_target=self.show_heading_target', launcher)
-        self.assertIn('navigate_identifier(target)', method_source("show_heading_target"))
-        self.assertIn('def headings_for_identifier', structure)
-        self.assertIn('def unique_heading_for_identifier', structure)
-        self.assertIn('def navigate_identifier', navigation)
-        self.assertIn('Open Target', panel)
-        self.assertIn('Document Target', dialogs)
-        self.assertIn('self.on_open_target', runtime)
-        self.assertNotIn('build_document_structure(', runtime)
-        self.assertNotIn('build_document_structure(', panel)
-        self.assertNotIn('build_document_structure(', dialogs)
+        self.assertIn("document_structure_provider=lambda: inputs.navigation_controller.structure", composition)
+        self.assertIn("show_target=runtime.show_heading_target", composition)
+        self.assertIn("self.navigation_controller.navigate_identifier(target)", show_target)
+        self.assertIn("def headings_for_identifier", structure)
+        self.assertIn("def unique_heading_for_identifier", structure)
+        self.assertIn("def navigate_identifier", navigation)
+        self.assertIn("Open Target", panel)
+        self.assertIn("Document Target", dialogs)
+        self.assertIn("self.on_open_target", runtime)
+        self.assertNotIn("build_document_structure(", runtime)
+        self.assertNotIn("build_document_structure(", panel)
+        self.assertNotIn("build_document_structure(", dialogs)
 
     def test_dialog_keeps_generated_source_note_id_stable(self):
         dialogs = source(ROOT / "calamus" / "calamus_source_note_dialogs.py")
@@ -127,17 +123,12 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
 
     def test_app_only_composes_and_exposes_thin_wrappers(self):
         launcher = source(LAUNCHER)
-        for forbidden in (
-            "SourceNote(",
-            "serialize_source_notes_markdown",
-            "atomic_write_utf8",
-            "MarkdownSourceNoteStore(",
-        ):
+        for forbidden in ("SourceNote(", "serialize_source_notes_markdown", "atomic_write_utf8", "MarkdownSourceNoteStore("):
             self.assertNotIn(forbidden, launcher)
-        self.assertLessEqual(len(method_source("show_source_notes").splitlines()), 2)
-        self.assertLessEqual(len(method_source("sync_source_notes_document").splitlines()), 3)
-        self.assertLessEqual(len(method_source("show_reference_key").splitlines()), 3)
-        self.assertLessEqual(len(method_source("show_heading_target").splitlines()), 2)
+        for name in ("show_source_notes", "sync_source_notes_document", "show_reference_key", "show_heading_target"):
+            self.assertLessEqual(len(app_method_source(name).splitlines()), 6)
+        self.assertIn("self._research_components.runtime", app_method_source("show_source_notes"))
+        self.assertIn("self.components.source_note_panel_runtime.sync_document", method_source("sync_source_notes_document"))
 
     def test_w77_keeps_source_notes_free_of_pdf_concept_and_check_features(self):
         combined = "\n".join(

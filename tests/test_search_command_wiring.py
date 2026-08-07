@@ -4,6 +4,8 @@ import unittest
 
 
 from tests.w105_menu_test_support import legacy_menu_projection
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source, workspace_host_source
+
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -15,12 +17,7 @@ PROVENANCE = ROOT / "scripts" / "prove-source-provenance.sh"
 
 
 def method_source(name):
-    source = LAUNCHER.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            return ast.get_source_segment(source, node) or ""
-    raise AssertionError(name)
+    return authoritative_method_source(name)
 
 
 class SearchCommandWiringTests(unittest.TestCase):
@@ -47,11 +44,13 @@ class SearchCommandWiringTests(unittest.TestCase):
         self.assertNotIn('top_menu(app, "Search")', ui)
 
     def test_find_all_callback_is_thin(self):
+        app_method = app_method_source("on_find_all")
         method = method_source("on_find_all")
-        self.assertIn("run_find_all_dialog(self, self.search_controller)", method)
-        self.assertLessEqual(len(method.splitlines()), 2)
-        for token in ("get_buffer", "TreeView", "ListStore", "search_matches", "select_range"):
-            self.assertNotIn(token, method)
+        composition = (ROOT / "calamus" / "calamus_subsystem_composition.py").read_text(encoding="utf-8")
+        self.assertIn("self._w107_subsystems.search.on_find_all", app_method)
+        self.assertIn("self.ports.open_find_all()", method)
+        self.assertIn("run_find_all_dialog", composition)
+        self.assertLessEqual(len(app_method.splitlines()), 2)
 
     def test_find_replace_dialog_moved_out_of_generic_dialog_module(self):
         self.assertNotIn("def run_find_replace_dialog", DIALOGS.read_text(encoding="utf-8"))
@@ -104,10 +103,11 @@ class SearchCommandWiringTests(unittest.TestCase):
     def test_search_session_options_are_reused_by_next_and_previous(self):
         next_method = method_source("on_find_next")
         previous_method = method_source("on_find_previous")
-        self.assertIn("self.search_controller.repeat()", next_method)
-        self.assertIn("self.search_controller.repeat(backwards=True)", previous_method)
-        self.assertNotIn("match_case=False", next_method)
-        self.assertNotIn("whole_word=False", previous_method)
+        self.assertIn("self.controller.has_query()", next_method)
+        self.assertIn("self.controller.repeat()", next_method)
+        self.assertIn("self.controller.has_query()", previous_method)
+        self.assertIn("self.controller.repeat(backwards=True)", previous_method)
+        self.assertNotIn("SearchController(", next_method + previous_method)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 from tests.w105_menu_test_support import legacy_menu_projection
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source, workspace_host_source
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -13,12 +15,8 @@ class ResearchExportCommandWiringTests(unittest.TestCase):
         return (ROOT / relative).read_text(encoding="utf-8")
 
     def method(self, name):
-        tree = ast.parse(self.source("bin/calamus"))
-        node = next(
-            item for item in ast.walk(tree)
-            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == name
-        )
-        return ast.get_source_segment(self.source("bin/calamus"), node)
+        return authoritative_method_source(name)
+
 
     def test_research_menu_exposes_one_named_export_command(self):
         ui = legacy_menu_projection()
@@ -28,18 +26,21 @@ class ResearchExportCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Export Bibliography of All References", ui)
 
     def test_app_entrypoint_is_thin_and_uses_runtime(self):
+        app_method = app_method_source("on_export_research_apparatus")
         method = self.method("on_export_research_apparatus")
-        self.assertIn("self.research_export_runtime.export()", method)
+        self.assertIn("self.components.research_export_runtime.export()", method)
+        self.assertIn("self._research_components.runtime.on_export_research_apparatus", app_method)
+        self.assertLessEqual(len(app_method.splitlines()), 2)
         for forbidden in ("open(", "atomic_write", "Gtk.", "references.md", "source-notes"):
-            self.assertNotIn(forbidden, method)
+            self.assertNotIn(forbidden, app_method)
 
     def test_app_builds_controller_from_existing_research_authorities(self):
-        build = self.method("build_research_panel")
-        self.assertIn("ResearchExportController(", build)
-        self.assertIn("reference_store=self.reference_store", build)
-        self.assertIn("document_text_provider=self.buffer_text", build)
-        self.assertIn("document_structure_provider=lambda: self.navigation_controller.structure", build)
-        self.assertIn("ResearchExportRuntime(", build)
+        composition = research_composition_source()
+        self.assertIn("ResearchExportController(", composition)
+        self.assertIn("reference_store=reference_store", composition)
+        self.assertIn("document_text_provider=inputs.document_text", composition)
+        self.assertIn("document_structure_provider=lambda: inputs.navigation_controller.structure", composition)
+        self.assertIn("ResearchExportRuntime(", composition)
 
     def test_pure_export_module_has_no_gtk_or_file_mutation(self):
         source = self.source("calamus/calamus_research_export.py")

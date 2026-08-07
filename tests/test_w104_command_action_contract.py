@@ -32,7 +32,7 @@ from calamus_command_registry import (  # noqa: E402
     CommandSpec,
 )
 
-BASELINE = "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b"
+BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"
 EXPECTED_LOW_RISK = {
     "edit.lowercase", "edit.uppercase", "writing.clean-pdf",
     "writing.insert-date-time", "writing.join-lines", "writing.reflow-paragraph",
@@ -51,8 +51,8 @@ class W104CommandActionContractTests(unittest.TestCase):
     def test_w104_is_preserved_under_current_w105_identity(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         self.assertIn('DEVELOPMENT_BUILD_LABEL = "Development build"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W106"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Preferences and Application State Extraction"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"', version)
         self.assertIn(f'PUBLISHED_BASELINE = "{BASELINE}"', version)
 
     def test_catalog_is_single_stable_identity_authority(self):
@@ -110,9 +110,9 @@ class W104CommandActionContractTests(unittest.TestCase):
     def test_shortcuts_and_guide_are_catalog_projections(self):
         bindings = shortcut_bindings()
         guides = shortcut_guide_entries()
-        self.assertEqual(len(bindings), 77)
-        self.assertEqual(len(guides), 94)
-        self.assertEqual(len({accelerator for accelerator, _cid, _data in bindings}), 77)
+        self.assertEqual(len(bindings), 76)
+        self.assertEqual(len(guides), 93)
+        self.assertEqual(len({accelerator for accelerator, _cid, _data in bindings}), 76)
         actual = {(a, cid, tuple(sorted(data.items()))) for a, cid, data in bindings}
         for required in (
             ("<Alt>Up", "edit.move-line", (("direction", -1),)),

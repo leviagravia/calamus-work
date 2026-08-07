@@ -5,6 +5,8 @@ from pathlib import Path
 
 
 from tests.w105_menu_test_support import legacy_menu_projection
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source, workspace_host_source
+
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -18,12 +20,7 @@ def source(path):
 
 
 def method_source(name):
-    text = source(LAUNCHER)
-    tree = ast.parse(text)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            return ast.get_source_segment(text, node) or ""
-    raise AssertionError(name)
+    return authoritative_method_source(name)
 
 
 class AuthoringBridgeCommandWiringTests(unittest.TestCase):
@@ -42,13 +39,12 @@ class AuthoringBridgeCommandWiringTests(unittest.TestCase):
 
     def test_research_menu_and_single_panel_expose_exact_w88_actions(self):
         ui = legacy_menu_projection()
-        build = method_source("build_research_panel")
+        composition = research_composition_source()
         self.assertIn('"Authoring Bridge", app.show_authoring_bridge', ui)
         self.assertIn('"Create Source Note from Selection…"', ui)
         self.assertIn('"Insert Link to Heading…"', ui)
-        self.assertIn('"authoring-bridge"', build)
-        self.assertIn('"Authoring Bridge"', build)
-        self.assertIn("AuthoringBridgeRuntime(", build)
+        self.assertIn('"authoring-bridge", "Authoring Bridge"', composition)
+        self.assertIn("AuthoringBridgeRuntime(", composition)
         self.assertEqual(source(ROOT / "calamus" / "calamus_research_panel_view.py").count("Gtk.Stack()"), 1)
 
     def test_document_mutation_uses_execute_command_and_source_note_uses_existing_runtime(self):
@@ -56,11 +52,11 @@ class AuthoringBridgeCommandWiringTests(unittest.TestCase):
         menu_method = method_source("on_create_source_note_from_selection")
         persist_method = method_source("create_source_note_from_authoring_snapshot")
         snapshot_method = method_source("authoring_selection_snapshot")
-        self.assertIn('self.execute_command(', apply_method)
+        self.assertIn('self.ports.execute_command(', apply_method)
         self.assertIn('"Insert Link to Heading"', apply_method)
-        self.assertIn('self.buffer_text() != plan.document_before', apply_method)
-        self.assertIn('self.authoring_bridge_runtime.on_create_source_note()', menu_method)
-        self.assertIn('self.source_note_panel_runtime.add_from_selection(', persist_method)
+        self.assertIn('self.ports.document_text() != plan.document_before', apply_method)
+        self.assertIn('self.components.authoring_bridge_runtime.on_create_source_note()', menu_method)
+        self.assertIn('self.components.source_note_panel_runtime.add_from_selection(', persist_method)
         self.assertIn('EditorSelectionSnapshot(', snapshot_method)
         self.assertNotIn("open(", apply_method)
         self.assertNotIn("MarkdownSourceNoteStore", persist_method)

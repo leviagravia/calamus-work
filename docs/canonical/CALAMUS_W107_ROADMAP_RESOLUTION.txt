@@ -1,0 +1,29 @@
+CALAMUS W107 ROADMAP RESOLUTION
+
+W107 — Subsystem Host-Port Migration
+Baseline: e8befafaf7f75d958eabbd2e273f83c630042b84
+Contract: FROZEN
+Implementation: AUTHORIZED / IN PROGRESS
+
+W107 scope:
+- subsystem-scoped narrow host ports;
+- Research composition extraction;
+- Workspace host migration;
+- Search runtime extraction;
+- Spellcheck runtime extraction;
+- Print runtime extraction;
+- authorized Ctrl+Alt+L Line Numbers accelerator removal with no replacement.
+
+W108 — Thin GTK Shell
+NOT STARTED. No automatic transition.
+
+W109 — Monolith Closure Gate
+NOT STARTED.
+
+W110 — Source Code Cleanup
+NOT STARTED.
+
+W111 — Product Roadmap Rebaseline
+NOT STARTED.
+
+Full product variants remain deferred.

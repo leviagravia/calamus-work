@@ -4,6 +4,8 @@ from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 from tests.w105_menu_test_support import legacy_menu_projection
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source, workspace_host_source
+
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -18,12 +20,7 @@ def source(path):
 
 
 def method_source(name):
-    text = source(LAUNCHER)
-    tree = ast.parse(text)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            return ast.get_source_segment(text, node) or ""
-    raise AssertionError(name)
+    return authoritative_method_source(name)
 
 
 class CitationCommandWiringTests(unittest.TestCase):
@@ -50,20 +47,20 @@ class CitationCommandWiringTests(unittest.TestCase):
         self.assertTrue(guide_has("Research", "Open Citation in Bibliography", "Ctrl+Alt+Shift+Q"))
 
     def test_app_composes_controller_and_keeps_insertion_in_mutation_gateway(self):
-        build = method_source("build_research_panel")
+        composition = research_composition_source()
         insert = method_source("insert_citation_text")
         quick = method_source("run_quick_cite")
         open_citation = method_source("on_open_citation_in_references")
         launcher = source(LAUNCHER)
-
-        self.assertIn("CitationController(", build)
-        self.assertIn("reference_records_provider=lambda: self.reference_panel_runtime.records", build)
-        self.assertIn("show_reference=self.show_reference_key", build)
-        self.assertIn('self.execute_command("Quick Cite", edit)', insert)
+        self.assertIn("CitationController(", composition)
+        self.assertIn("reference_records_provider=lambda: reference_panel_runtime.records", composition)
+        self.assertIn("show_reference=runtime.show_reference_key", composition)
+        self.assertIn('self.ports.execute_command("Quick Cite", edit)', insert)
         self.assertIn("command_insert_at", insert)
-        self.assertIn("run_quick_cite_dialog", quick)
-        self.assertIn("citation_controller.quick_cite", quick)
-        self.assertIn("citation_controller.open_citation", open_citation)
+        self.assertIn("self.ports.choose_quick_cite", quick)
+        self.assertIn("run_quick_cite_dialog", composition)
+        self.assertIn("self.components.citation_controller.quick_cite", quick)
+        self.assertIn("self.components.citation_controller.open_citation", open_citation)
         dialogs = source(ROOT / "calamus" / "calamus_citation_dialogs.py")
         self.assertGreaterEqual(dialogs.count("set_activates_default(True)"), 2)
         self.assertIn("set_default_response(Gtk.ResponseType.OK)", dialogs)
@@ -73,18 +70,18 @@ class CitationCommandWiringTests(unittest.TestCase):
     def test_reference_panel_quick_cite_uses_same_command(self):
         panel = source(PANEL)
         runtime = source(RUNTIME)
-        build = method_source("build_research_panel")
+        composition = research_composition_source()
         self.assertIn('("Quick Cite", on_quick_cite)', panel)
         self.assertIn("self._quick_cite(selected.key)", runtime)
-        self.assertIn("quick_cite=self.quick_cite_key", build)
+        self.assertIn("quick_cite=runtime.quick_cite_key", composition)
         self.assertIn("return self.run_quick_cite(initial_key=key)", method_source("quick_cite_key"))
 
     def test_open_citation_reuses_existing_reference_selection_gateway(self):
-        build = method_source("build_research_panel")
+        composition = research_composition_source()
         show = method_source("show_reference_key")
-        self.assertIn("show_reference=self.show_reference_key", build)
-        self.assertIn('self.research_panel_runtime.show("references")', show)
-        self.assertIn("self.reference_panel_runtime.show_key(key)", show)
+        self.assertIn("show_reference=runtime.show_reference_key", composition)
+        self.assertIn('self.components.panel_runtime.show("references")', show)
+        self.assertIn("self.components.reference_panel_runtime.show_key(key)", show)
 
     def test_w77_remains_citeproc_free_while_w90_owns_external_handoff(self):
         w77_combined = "\n".join(
@@ -96,32 +93,20 @@ class CitationCommandWiringTests(unittest.TestCase):
             )
         )
         self.assertNotIn("citeproc", w77_combined.lower())
-
-        current_surface = "\n".join(source(path) for path in (LAUNCHER, UI))
+        current_surface = source(ROOT / "calamus" / "calamus_research_composition.py") + "\n" + source(UI)
         self.assertIn("Pandoc", current_surface)
         self.assertIn("calamus_pandoc", current_surface)
-
         pandoc_modules = "\n".join(
             source(ROOT / "calamus" / f"{module}.py")
             for module in (
-                "calamus_pandoc",
-                "calamus_pandoc_process",
-                "calamus_pandoc_controller",
-                "calamus_pandoc_dialogs",
-                "calamus_pandoc_runtime",
+                "calamus_pandoc", "calamus_pandoc_process", "calamus_pandoc_controller",
+                "calamus_pandoc_dialogs", "calamus_pandoc_runtime",
             )
         )
         self.assertIn("citeproc", pandoc_modules.lower())
         self.assertIn("shell=False", pandoc_modules)
-
         combined = w77_combined + "\n" + current_surface + "\n" + pandoc_modules
-        for forbidden in (
-            "sqlite",
-            "PDF manager",
-            "DOI lookup",
-            "Bibliography Check",
-            "Concept Map",
-        ):
+        for forbidden in ("sqlite", "PDF manager", "DOI lookup", "Bibliography Check", "Concept Map"):
             self.assertNotIn(forbidden, combined)
 
 

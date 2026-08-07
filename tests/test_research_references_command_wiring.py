@@ -4,6 +4,8 @@ from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 from tests.w105_menu_test_support import legacy_menu_projection
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source, workspace_host_source
+
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
@@ -16,12 +18,7 @@ def source(path):
 
 
 def method_source(name):
-    text = source(LAUNCHER)
-    tree = ast.parse(text)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            return ast.get_source_segment(text, node) or ""
-    raise AssertionError(name)
+    return authoritative_method_source(name)
 
 
 class ResearchReferencesCommandWiringTests(unittest.TestCase):
@@ -61,15 +58,16 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
 
     def test_app_composes_authorities_but_does_not_own_reference_crud(self):
         launcher = source(LAUNCHER)
-        composition = source(ROOT / "calamus/calamus_clip_composition.py")
-        self.assertEqual(composition.count("RightPanelHost("), 1)
+        clip_composition = source(ROOT / "calamus/calamus_clip_composition.py")
+        research = research_composition_source()
+        self.assertEqual(clip_composition.count("RightPanelHost("), 1)
         self.assertNotIn("RightPanelHost(", launcher)
-        self.assertIn('self.right_panel_host.register("research", self.research_panel_view.widget)', launcher)
-        self.assertIn("ReferencePanelRuntime(", launcher)
+        self.assertIn('inputs.right_panel_host.register("research", panel_view.widget)', research)
+        self.assertIn("ReferencePanelRuntime(", research)
         for forbidden in ("ReferenceRecord(", "serialize_references_markdown", "os.replace(tmp", "resolve_external_reference_change"):
             self.assertNotIn(forbidden, launcher)
         for method in ("toggle_research_panel", "show_clip_collection", "show_references"):
-            self.assertLessEqual(len(method_source(method).splitlines()), 3)
+            self.assertLessEqual(len(app_method_source(method).splitlines()), 2)
 
     def test_shell_owns_title_selector_and_close_gateway(self):
         view = source(ROOT / "calamus" / "calamus_research_panel_view.py")
@@ -86,31 +84,21 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
         self.assertNotIn(".remove(", view)
 
     def test_real_clients_include_scratchpad_and_w94_tags_without_concepts_placeholder(self):
-        block = method_source("build_research_panel")
-        self.assertIn('"clip-collection"', block)
-        self.assertIn('"references"', block)
-        self.assertIn('"source-notes"', block)
-        self.assertIn('"scratchpad"', block)
-        self.assertIn('"tags"', block)
-        self.assertNotIn("concepts", block)
+        composition = research_composition_source()
+        for client in ('"clip-collection"', '"references"', '"source-notes"', '"scratchpad"', '"tags"'):
+            self.assertIn(client, composition)
+        self.assertNotIn('"concepts"', composition)
 
     def test_reference_panel_keeps_crud_and_quick_cite_without_import_export_ownership(self):
         runtime = source(ROOT / "calamus" / "calamus_reference_runtime.py")
         panel = source(ROOT / "calamus" / "calamus_reference_panel.py")
         combined = runtime + "\n" + panel
         self.assertIn("Quick Cite", combined)
-        for forbidden in (
-            "BibLaTeX",
-            "parse_bibliography",
-            "export_references",
-            "citeproc",
-            "DOI lookup",
-            "PDF manager",
-        ):
+        for forbidden in ("BibLaTeX", "parse_bibliography", "export_references", "citeproc", "DOI lookup", "PDF manager"):
             self.assertNotIn(forbidden, combined)
-        launcher = source(LAUNCHER)
-        self.assertIn("BibtexRuntime", launcher)
-        self.assertIn("self.reference_store", method_source("build_research_panel"))
+        composition = research_composition_source()
+        self.assertIn("BibtexRuntime", composition)
+        self.assertIn("reference_store = MarkdownReferenceStore()", composition)
 
 
 if __name__ == "__main__":

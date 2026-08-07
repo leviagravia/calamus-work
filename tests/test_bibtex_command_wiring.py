@@ -4,6 +4,8 @@ import unittest
 from tests.w104_command_test_support import guide_has
 
 from tests.w105_menu_test_support import legacy_menu_projection
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source, workspace_host_source
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -12,10 +14,8 @@ class BibtexCommandWiringTests(unittest.TestCase):
         return (ROOT / relative).read_text(encoding="utf-8")
 
     def method(self, name):
-        source = self.source("bin/calamus")
-        tree = ast.parse(source)
-        node = next(item for item in ast.walk(tree) if isinstance(item, ast.FunctionDef) and item.name == name)
-        return ast.get_source_segment(source, node)
+        return authoritative_method_source(name)
+
 
     def test_research_menu_exposes_exact_import_and_export_commands(self):
         ui = legacy_menu_projection()
@@ -25,20 +25,28 @@ class BibtexCommandWiringTests(unittest.TestCase):
         self.assertIn("app.on_export_references_bibtex_biblatex", ui)
 
     def test_app_gateways_are_thin(self):
+        app_importer = app_method_source("on_import_bibtex_biblatex")
+        app_exporter = app_method_source("on_export_references_bibtex_biblatex")
         importer = self.method("on_import_bibtex_biblatex")
         exporter = self.method("on_export_references_bibtex_biblatex")
-        self.assertIn("self.bibtex_runtime.import_references()", importer)
-        self.assertIn("self.bibtex_runtime.export_references()", exporter)
-        for method in (importer, exporter):
+        self.assertIn("self.components.bibtex_runtime.import_references()", importer)
+        self.assertIn("self.components.bibtex_runtime.export_references()", exporter)
+        self.assertIn("self._research_components.runtime.on_import_bibtex_biblatex", app_importer)
+        self.assertIn("self._research_components.runtime.on_export_references_bibtex_biblatex", app_exporter)
+        self.assertLessEqual(len(app_importer.splitlines()), 2)
+        self.assertLessEqual(len(app_exporter.splitlines()), 2)
+        for method in (importer, exporter, app_importer, app_exporter):
             for forbidden in ("open(", "Gtk.", "atomic_write", "references.md"):
                 self.assertNotIn(forbidden, method)
 
     def test_app_composes_controller_from_existing_reference_authority(self):
-        build = self.method("build_research_panel")
-        self.assertIn("BibtexController(", build)
-        self.assertIn("self.reference_store", build)
-        self.assertIn("refresh_references=self.reference_panel_runtime.reload", build)
-        self.assertIn("BibtexRuntime(self, self.bibtex_controller)", build)
+        composition = research_composition_source()
+        build = app_method_source("build_research_panel")
+        self.assertIn("BibtexController(reference_store", composition)
+        self.assertIn("refresh_references=reference_panel_runtime.reload", composition)
+        self.assertIn("BibtexRuntime(inputs.dialog_parent, bibtex_controller)", composition)
+        self.assertIn("build_research_subsystem(", build)
+        self.assertNotIn("BibtexController(", build)
 
     def test_pure_module_has_no_gtk_or_file_io(self):
         source = self.source("calamus/calamus_bibtex.py")

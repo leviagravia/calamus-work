@@ -236,7 +236,11 @@ def build_menu(app) -> MenuGtkAdapter:
     app.populate_template_menu()
     app.populate_recent_menu()
     app.populate_favourites_menu()
-    app.populate_recent_workspaces_menu()
+    # Recent Workspaces is owned by the W107 WorkspaceHostRuntime.  That
+    # runtime is constructed only after the editor/core composition barrier;
+    # projecting it here would use the host before `_components` exists.
+    # App.__init__ performs this one dynamic projection immediately after
+    # compose_core_application_components() returns.
     return adapter
 
 

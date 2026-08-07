@@ -5,6 +5,8 @@ from pathlib import Path
 
 
 from tests.w105_menu_test_support import legacy_menu_projection
+from tests.w107_source_test_support import authoritative_method_source, app_method_source, research_composition_source, workspace_host_source
+
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "bin" / "calamus"
 HOST = ROOT / "calamus" / "calamus_right_panel.py"
@@ -23,12 +25,7 @@ def source(path):
 
 
 def method_source(name):
-    text = source(LAUNCHER)
-    tree = ast.parse(text)
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
-            return ast.get_source_segment(text, node)
-    raise AssertionError(f"method not found: {name}")
+    return authoritative_method_source(name)
 
 
 class RightPanelCommandWiringTests(unittest.TestCase):
@@ -36,11 +33,12 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         launcher = source(LAUNCHER)
         composition = source(ROOT / "calamus/calamus_clip_composition.py")
         root = source(ROOT / "calamus/calamus_application_composition.py")
+        research = research_composition_source()
         self.assertEqual(composition.count("RightPanelHost("), 1)
         self.assertNotIn("RightPanelHost(", launcher)
         self.assertIn("app.right_panel_host = right_panel_host", root)
-        self.assertIn('self.right_panel_host.register("research", self.research_panel_view.widget)', launcher)
-        self.assertNotIn('self.right_panel_host.register("clip-collection"', launcher)
+        self.assertIn('inputs.right_panel_host.register("research", panel_view.widget)', research)
+        self.assertNotIn('register("clip-collection"', research)
 
     def test_launcher_no_longer_owns_raw_clip_or_reference_widgets(self):
         launcher = source(LAUNCHER)
@@ -57,11 +55,13 @@ class RightPanelCommandWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, launcher)
 
     def test_toggle_is_a_thin_research_runtime_adapter(self):
-        method = method_source("toggle_research_panel")
-        self.assertIn("self.research_panel_runtime.toggle()", method)
-        self.assertNotIn("pack2", method)
-        self.assertNotIn("set_position", method)
-        self.assertLessEqual(len(method.splitlines()), 3)
+        app_method = app_method_source("toggle_research_panel")
+        runtime_method = method_source("toggle_research_panel")
+        self.assertIn("self._research_components.runtime.toggle_research_panel", app_method)
+        self.assertIn("self.components.panel_runtime.toggle()", runtime_method)
+        self.assertNotIn("pack2", runtime_method)
+        self.assertNotIn("set_position", runtime_method)
+        self.assertLessEqual(len(app_method.splitlines()), 2)
 
     def test_clip_controller_owns_persist_first_mutations(self):
         controller = source(CONTROLLER)
@@ -87,16 +87,16 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         host = source(HOST)
         research = source(RESEARCH)
         research_view = source(RESEARCH_VIEW)
+        composition = research_composition_source()
         self.assertIn("self._sections", host)
         self.assertIn("self._paned.pack2(widget, False, True)", host)
         self.assertIn("self._detach_active(remember=True)", host)
         self.assertNotIn("references", host.lower())
         self.assertIn('self._host.show("research")', research)
         self.assertIn("register_client", research_view)
-        launcher = source(LAUNCHER).lower()
-        self.assertIn("source-notes", launcher)
-        self.assertIn("scratchpad", launcher)
-        self.assertNotIn("concepts", research_view.lower())
+        self.assertIn("source-notes", composition)
+        self.assertIn("scratchpad", composition)
+        self.assertNotIn('"concepts"', composition)
 
     def test_clip_store_is_markdown_primary_with_legacy_json_fallback(self):
         clips = source(CLIPS)
@@ -122,9 +122,11 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Clip Collection", view_block)
 
     def test_app_preserves_document_mutation_gateway_for_insert(self):
-        adapter = method_source("on_clip_insert")
+        app_adapter = app_method_source("on_clip_insert")
+        runtime_adapter = method_source("on_clip_insert")
         gateway = source(CLIP_RUNTIME)
-        self.assertIn("self.clip_collection_runtime.on_insert()", adapter)
+        self.assertIn("self._research_components.runtime.on_clip_insert", app_adapter)
+        self.assertIn("self.components.clip_collection_runtime.on_insert()", runtime_adapter)
         self.assertIn("def insert_clip_expansion_through_gateway", gateway)
         self.assertIn("def insert_clip_expansion(app", gateway)
         self.assertIn('execute_command("Insert Clip", edit)', gateway)
