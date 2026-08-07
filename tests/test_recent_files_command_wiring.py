@@ -101,57 +101,49 @@ class RecentFilesCommandWiringTests(unittest.TestCase):
 
     def test_open_path_reports_boolean_success_to_recent_gateway(self):
         method = _method_source("open_path")
-        self.assertIn("return self.execute_open_plan(plan, silent=silent)", method)
+        self.assertIn("return self.finalize_open_transition(plan, silent=silent)", method)
         self.assertIn("return False", method)
 
     def test_open_path_returns_executor_success(self):
-        def prepare(path, text, *, large_file):
-            self.assertEqual((path, text, large_file), ("/tmp/a.txt", "body", False))
-            return object()
-
         method = _compiled_method(
             "open_path",
-            {
-                "prepare_open_plan": prepare,
-                "read_text_file": lambda _path: "body",
-                "is_large_text_file": lambda _path: False,
-                "OSError": OSError,
-                "UnicodeError": UnicodeError,
-            },
+            {"OSError": OSError, "UnicodeError": UnicodeError},
         )
 
-        class App:
-            def execute_open_plan(self, _plan, silent=False):
-                return not silent
+        class Controller:
+            def open_path(self, path):
+                self.path = path
+                return object(), object()
 
+        class App:
+            def __init__(self):
+                self.document_session_controller = Controller()
+            def finalize_open_transition(self, _plan, silent=False):
+                return not silent
             def error(self, _message):
                 raise AssertionError("success path must not report an error")
 
-        self.assertTrue(method(App(), "/tmp/a.txt"))
-        self.assertFalse(method(App(), "/tmp/a.txt", silent=True))
+        app = App()
+        self.assertTrue(method(app, "/tmp/a.txt"))
+        self.assertEqual(app.document_session_controller.path, "/tmp/a.txt")
+        self.assertFalse(method(app, "/tmp/a.txt", silent=True))
 
     def test_open_path_returns_false_after_expected_read_failure(self):
-        def fail_read(_path):
-            raise OSError("read failed")
-
         method = _compiled_method(
             "open_path",
-            {
-                "prepare_open_plan": lambda *_args, **_kwargs: object(),
-                "read_text_file": fail_read,
-                "is_large_text_file": lambda _path: False,
-                "OSError": OSError,
-                "UnicodeError": UnicodeError,
-            },
+            {"OSError": OSError, "UnicodeError": UnicodeError},
         )
+
+        class Controller:
+            def open_path(self, _path):
+                raise OSError("read failed")
 
         class App:
             def __init__(self):
                 self.errors = []
-
-            def execute_open_plan(self, _plan, silent=False):
-                raise AssertionError("executor must not run after read failure")
-
+                self.document_session_controller = Controller()
+            def finalize_open_transition(self, _plan, silent=False):
+                raise AssertionError("post-open effects must not run")
             def error(self, message):
                 self.errors.append(message)
 

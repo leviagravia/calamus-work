@@ -40,11 +40,15 @@ class SaveCommandWiringTests(unittest.TestCase):
         self.assertNotIn("remove_trailing_spaces(", method)
         self.assertNotIn("trimmed =", method)
 
-    def test_shared_save_executor_keeps_gtk_and_io_boundaries_in_app(self):
+    def test_shared_save_executor_delegates_to_gtk_free_session_controller(self):
         method = _method_source("execute_save_plan")
-        self.assertIn("self.text.get_buffer().set_text(plan.text_to_write)", method)
-        self.assertIn("self.document.save(", method)
+        self.assertIn("self.document_session_controller.execute_save(plan)", method)
+        self.assertNotIn("self.text.get_buffer().set_text(plan.text_to_write)", method)
+        self.assertNotIn("self.document.save(", method)
         self.assertIn("self.error(str(e))", method)
+        controller = (ROOT / "calamus/calamus_document_session_controller.py").read_text(encoding="utf-8")
+        self.assertIn("self.ports.replace_buffer_text(plan.text_to_write)", controller)
+        self.assertIn("self.ports.write_text_file(plan.target_path, plan.text_to_write)", controller)
         lifecycle = LIFECYCLE.read_text(encoding="utf-8")
         lifecycle_tree = ast.parse(lifecycle)
         imported_modules = []

@@ -5,7 +5,8 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
+W101_BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
+W102_BASELINE = "17b409a05f356477173b2bdd348a67a4cf01f43c"
 
 
 class W101IdentityGateContractTests(unittest.TestCase):
@@ -13,19 +14,22 @@ class W101IdentityGateContractTests(unittest.TestCase):
         current = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         for token in (
             'DEVELOPMENT_BUILD_LABEL = "Development build"',
-            'DEVELOPMENT_WORK_ITEM = "W101"',
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Core Composition Boundary and Dependency Enforcement"',
-            f'PUBLISHED_BASELINE = "{BASELINE}"',
+            'DEVELOPMENT_WORK_ITEM = "W102"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Document Session Extraction"',
+            f'PUBLISHED_BASELINE = "{W102_BASELINE}"',
         ):
             self.assertIn(token, current)
 
     def test_release_manifest_owns_current_profiles_and_historical_identity_is_not_release(self):
         data = json.loads((ROOT / "tests/calamus_release_test_profiles.json").read_text(encoding="utf-8"))
-        self.assertEqual(data["published_baseline"], BASELINE)
-        self.assertEqual(data["lineage"], "W101 Core Composition Boundary — Isolation-Contract Rebuild Candidate R1")
-        for profile in ("w101-headless-focused", "w101-identity-smoke", "w101-core-composition-smoke"):
+        self.assertEqual(data["published_baseline"], W102_BASELINE)
+        self.assertEqual(data["lineage"], "W102 Document Session Extraction Candidate R1")
+        for profile in ("w102-headless-focused", "w102-identity-smoke", "w102-document-session-smoke"):
             self.assertIn(profile, data["profiles"])
             self.assertTrue(data["profiles"][profile]["release_gate"])
+        self.assertTrue(data["profiles"]["w101-headless-focused"]["release_gate"])
+        self.assertTrue(data["profiles"]["w101-core-composition-smoke"]["release_gate"])
+        self.assertFalse(data["profiles"]["w101-identity-smoke"]["release_gate"])
         self.assertFalse(data["profiles"]["w100-identity-smoke"]["release_gate"])
         self.assertFalse(data["profiles"]["w99-identity-smoke"]["release_gate"])
 
@@ -73,7 +77,7 @@ class W101IdentityGateContractTests(unittest.TestCase):
     def test_release_runner_scrubs_w101_flags_and_requires_current_baseline(self):
         text = (ROOT / "scripts/calamus-release-profiles.py").read_text(encoding="utf-8")
         self.assertIn('"CALAMUS_W101_"', text)
-        self.assertIn(BASELINE, text)
+        self.assertIn(W102_BASELINE, text)
 
         provenance = (ROOT / "scripts/prove-source-provenance.sh").read_text(encoding="utf-8")
         contract_position = provenance.index('gi.require_version(namespace, version)')

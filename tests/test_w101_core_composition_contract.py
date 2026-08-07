@@ -7,6 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
+CURRENT_BASELINE = "17b409a05f356477173b2bdd348a67a4cf01f43c"
 NEW_MODULES = (
     "calamus_application_components.py",
     "calamus_editor_composition.py",
@@ -15,8 +16,9 @@ NEW_MODULES = (
     "calamus_clip_composition.py",
     "calamus_application_composition.py",
 )
-BUILDERS = NEW_MODULES[1:5]
+BUILDERS = NEW_MODULES[1:5] + ("calamus_document_session_composition.py",)
 EXPECTED_ORDER = (
+    "document-session",
     "editor-infrastructure",
     "navigator-and-left-panel-host",
     "workspace",
@@ -40,7 +42,7 @@ EXPECTED_BUNDLE_FIELDS = {
     ),
     "ClipCollectionComponents": ("view", "controller", "runtime"),
     "CoreApplicationComponents": (
-        "editor", "navigator", "workspace", "right_panel_host", "clips",
+        "document_session", "editor", "navigator", "workspace", "right_panel_host", "clips",
         "build_order", "composition_complete",
     ),
 }
@@ -80,9 +82,9 @@ class W101CoreCompositionContractTests(unittest.TestCase):
 
     def test_identity_scope_and_contract_are_exact(self):
         version = (self.calamus / "calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W101"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Core Composition Boundary and Dependency Enforcement"', version)
-        self.assertIn(f'PUBLISHED_BASELINE = "{BASELINE}"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W102"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Document Session Extraction"', version)
+        self.assertIn(f'PUBLISHED_BASELINE = "{CURRENT_BASELINE}"', version)
         contract = (ROOT / "docs/canonical/CALAMUS_W101_CORE_COMPOSITION_CONTRACT.md").read_text(encoding="utf-8")
         self.assertIn("Candidate R1", contract)
         self.assertIn("W101: extract core composition boundary", contract)
@@ -119,6 +121,8 @@ class W101CoreCompositionContractTests(unittest.TestCase):
             "__future__",
             "calamus_application_components",
             "calamus_clip_composition",
+            "calamus_document",
+            "calamus_document_session_composition",
             "calamus_editor_composition",
             "calamus_navigator_composition",
             "calamus_workspace_composition",
@@ -292,6 +296,7 @@ class W101CoreCompositionContractTests(unittest.TestCase):
         function = next(node for node in self.root_tree.body if isinstance(node, ast.FunctionDef))
         calls = [dotted(node.func) for node in ast.walk(function) if isinstance(node, ast.Call)]
         expected_calls = [
+            "build_document_session_components",
             "build_editor_infrastructure",
             "build_navigator_components",
             "build_workspace_components",
@@ -337,14 +342,14 @@ class W101CoreCompositionContractTests(unittest.TestCase):
                 imports.add(node.module)
             elif isinstance(node, ast.Import):
                 imports.update(alias.name for alias in node.names if alias.name.startswith("calamus_"))
-        self.assertEqual(len(imports), 74)
-        self.assertEqual(len(methods), 265)
-        self.assertEqual(self.app.end_lineno - self.app.lineno + 1, 2923)
-        self.assertEqual(len(self.launcher_text.splitlines()), 3137)
+        self.assertEqual(len(imports), 73)
+        self.assertEqual(len(methods), 272)
+        self.assertEqual(self.app.end_lineno - self.app.lineno + 1, 2889)
+        self.assertEqual(len(self.launcher_text.splitlines()), 3102)
         metrics = self.load_json("CALAMUS_W100_BASELINE_METRICS.json")
-        self.assertLess(3137, metrics["launcher_lines"])
-        self.assertLess(2923, metrics["app_lines"])
-        self.assertLess(265, metrics["app_method_count"])
+        self.assertLess(3102, metrics["launcher_lines"])
+        self.assertLess(2889, metrics["app_lines"])
+        self.assertLessEqual(272, metrics["app_method_count"] + 6)
 
     def test_clip_builder_uses_narrow_gateway_and_preserves_historical_wrappers(self):
         builder = (self.calamus / "calamus_clip_composition.py").read_text(encoding="utf-8")

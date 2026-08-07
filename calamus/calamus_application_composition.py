@@ -4,15 +4,18 @@ from __future__ import annotations
 from calamus_application_components import (
     ClipCollectionCompositionInput,
     CoreApplicationComponents,
+    DocumentSessionCompositionInput,
     EditorCompositionInput,
     NavigatorCompositionInput,
     RightPanelHostInput,
     WorkspaceCompositionInput,
 )
+from calamus_document import is_large_text_file, read_text_file, write_text_file
 from calamus_clip_composition import (
     build_clip_collection_components,
     build_right_panel_host,
 )
+from calamus_document_session_composition import build_document_session_components
 from calamus_editor_composition import build_editor_infrastructure
 from calamus_navigator_composition import build_navigator_components
 from calamus_workspace_composition import (
@@ -22,6 +25,7 @@ from calamus_workspace_composition import (
 
 
 CORE_BUILD_ORDER = (
+    "document-session",
     "editor-infrastructure",
     "navigator-and-left-panel-host",
     "workspace",
@@ -36,6 +40,17 @@ def compose_core_application_components(
     *,
     clip_invalidation_reason,
 ) -> CoreApplicationComponents:
+    document_session = build_document_session_components(
+        DocumentSessionCompositionInput(
+            initial_file_path=app.settings.get("last_file") or None,
+            read_buffer_text=app._read_buffer_text_raw,
+            replace_buffer_text=app._replace_buffer_text_raw,
+            reset_undo_history=app.reset_undo_history,
+            read_text_file=read_text_file,
+            write_text_file=write_text_file,
+            is_large_text_file=is_large_text_file,
+        )
+    )
     editor = build_editor_infrastructure(
         EditorCompositionInput(
             text_view=app.text,
@@ -88,7 +103,7 @@ def compose_core_application_components(
         on_reveal=app.on_reveal_workspace,
         capture_path_references=app.capture_workspace_path_references,
         reconcile_rename=app.reconcile_workspace_rename,
-        current_document_path=lambda: app.current_file,
+        current_document_path=document_session.session.current_path,
         confirm_trash=app.confirm_workspace_trash,
         reconcile_trash=app.reconcile_workspace_trash,
     )
@@ -114,6 +129,9 @@ def compose_core_application_components(
         )
     )
     # Static compatibility projections. The typed bundles are authoritative;
+    app.document_session = document_session.session
+    app.document_session_controller = document_session.controller
+
     # these exact aliases preserve the published App surface until W111.
     app.history = editor.history
     app.viewport_runtime = editor.viewport_runtime
@@ -152,6 +170,7 @@ def compose_core_application_components(
         workspace_input.workspace_visible,
     )
     return CoreApplicationComponents(
+        document_session=document_session,
         editor=editor,
         navigator=navigator,
         workspace=workspace,

@@ -21,7 +21,7 @@ class W98ResearchPanelProgramTests(unittest.TestCase):
         for token in ('ResearchPanelCoordinator(','ResearchClientSpec(','research_document_context_changed'):
             self.assertIn(token,app)
         self.assertIn('app.research_coordinator.shutdown', lifecycle)
-        blocks=('execute_new_plan','execute_open_plan','execute_new_from_template_plan','reconcile_workspace_rename','reconcile_workspace_trash')
+        blocks=('execute_new_plan','finalize_open_transition','execute_new_from_template_plan','reconcile_workspace_rename','reconcile_workspace_trash')
         for name in blocks:
             start=app.index('    def '+name); end=app.find('\n    def ',start+5); body=app[start:end if end!=-1 else None]
             self.assertIn('research_document_context_changed', body)

@@ -16,6 +16,7 @@ from tests.w101_isolation_helpers import runtime_environment, runtime_paths, sna
 ROOT = Path(__file__).resolve().parents[1]
 RUN = os.environ.get("CALAMUS_W101_RUN_REAL_GTK") == "1"
 EXPECTED_ORDER = (
+    "document-session",
     "editor-infrastructure",
     "navigator-and-left-panel-host",
     "workspace",
@@ -24,6 +25,8 @@ EXPECTED_ORDER = (
     "workspace-startup-binding",
 )
 ALIASES = {
+    "document_session": "document_session.session",
+    "document_session_controller": "document_session.controller",
     "history": "editor.history",
     "viewport_runtime": "editor.viewport_runtime",
     "history_runtime": "editor.history_runtime",

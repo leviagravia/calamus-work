@@ -19,7 +19,7 @@ from calamus_config import (
 )
 from calamus_state import StateManager
 from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
-from calamus_file_lifecycle import prepare_new_plan, prepare_open_plan, prepare_save_as_plan, prepare_save_plan
+from calamus_file_lifecycle import NewPlan, prepare_new_plan, prepare_open_plan, prepare_save_as_plan, prepare_save_plan
 from calamus_recent_files import prepare_open_recent_plan
 from calamus_recent_files import prepare_clear_recent_plan
 from calamus_favorites import prepare_open_favorite_plan
@@ -39,7 +39,6 @@ from calamus_templates import (
     suggest_template_filename,
     write_template_atomic,
 )
-from calamus_model import Document
 from calamus_commands import replace_range as command_replace_range, insert_at as command_insert_at, transform_range as command_transform_range, duplicate_line_or_selection_plan as command_duplicate_line_or_selection_plan, paste_text_plan as command_paste_text_plan
 from calamus_search import WORD_RE, text_stats as calc_text_stats
 from calamus_search_dialogs import run_find_all_dialog, run_find_replace_dialog
@@ -222,14 +221,10 @@ class App(Gtk.Window):
         self.opacity_percent = opacity_preference.percent
         self._syncing_opacity_item = False
         self._opacity_widget_api = Gtk.Widget
-        self.document = Document(file_path=self.settings.get("last_file") or None)
-        self.current_file = self.document.file_path
         configured_workspace = self.settings.get("workspace_root")
         self.workspace_root = configured_workspace if isinstance(configured_workspace, str) and os.path.isdir(configured_workspace) else None
         self.workspace_visible = bool(self.settings.get("workspace_visible", False))
 
-        self.modified = self.document.modified
-        self.loading = False
         self.spell_source = None
         self.word_count_source = None
         self._wrap_reflow_source = None
@@ -329,6 +324,30 @@ class App(Gtk.Window):
         if self._components.workspace.startup_visible:
             self.workspace_panel_runtime.set_visible(True)
         self.update_title()
+
+    @property
+    def document(self):
+        return self.document_session.document
+
+    @property
+    def current_file(self):
+        return self.document_session.file_path
+
+    @property
+    def modified(self):
+        return self.document_session.modified
+
+    @property
+    def loading(self):
+        return self.document_session.loading
+
+    def _read_buffer_text_raw(self):
+        b = self.text.get_buffer()
+        s, e = b.get_bounds()
+        return b.get_text(s, e, True)
+
+    def _replace_buffer_text_raw(self, text):
+        self.text.get_buffer().set_text(text)
 
     def apply_window_geometry_hints(self):
         """Apply minimum geometry only.
@@ -491,24 +510,12 @@ class App(Gtk.Window):
         ui_add_shortcuts(self)
 
     def buffer_text(self):
-        b = self.text.get_buffer()
-        s, e = b.get_bounds()
-        current = b.get_text(s, e, True)
-        # Keep the non-GTK document model synchronized without making it the
-        # owner of per-keystroke TextBuffer state.
-        if hasattr(self, "document"):
-            self.document.text = current
-        return current
+        return self.document_session_controller.capture_buffer_text()
 
     def set_buffer(self, text, *, modified=False):
-        self.loading = True
-        self.text.get_buffer().set_text(text)
-        self.loading = False
-        if hasattr(self, "document"):
-            self.document.set_text(text, modified=modified)
-            self.current_file = self.document.file_path
-            self.modified = self.document.modified
-        self.reset_undo_history()
+        return self.document_session_controller.replace_current_text(
+            text, modified=modified
+        )
 
     def reset_undo_history(self):
         self.history_runtime.reset()
@@ -530,9 +537,7 @@ class App(Gtk.Window):
         if select_range:
             self.select_range(*select_range)
         self.history_runtime.finalize_command()
-        self.modified = True
-        if hasattr(self, "document"):
-            self.document.mark_modified(self.buffer_text())
+        self.document_session.mark_modified(self.buffer_text())
         self.last_command = command_name
         self.schedule_status_update()
         self.schedule_search_highlight()
@@ -562,11 +567,10 @@ class App(Gtk.Window):
         if not isinstance(state, HistoryState):
             raise TypeError("Undo/Redo restoration requires HistoryState")
         self.restoring_undo = True
-        self.loading = True
         try:
-            restore_buffer_state(self.text, state)
+            with self.document_session.replacement():
+                restore_buffer_state(self.text, state)
         finally:
-            self.loading = False
             self.restoring_undo = False
         if self.typewriter_runtime.enabled:
             self.typewriter_runtime.on_history()
@@ -574,9 +578,7 @@ class App(Gtk.Window):
             self.viewport_runtime.queue_visible_to_insert(
                 0.15, center_if_outside=True
             )
-        self.modified = True
-        if hasattr(self, "document"):
-            self.document.mark_modified(state.text)
+        self.document_session.mark_modified(state.text)
         self.schedule_status_update()
         self.schedule_search_highlight()
         self.update_line_numbers()
@@ -610,10 +612,7 @@ class App(Gtk.Window):
         # Gutter content is a view of the GtkTextBuffer and must refresh for
         # both user edits and guarded bulk replacements such as Open/New.
         self.update_line_numbers()
-        if not self.loading:
-            self.modified = True
-            if hasattr(self, "document"):
-                self.document.mark_modified(self.buffer_text())
+        if self.document_session_controller.observe_buffer_change():
             self.schedule_undo_snapshot()
             self.schedule_status_update()
             self.schedule_search_highlight()
@@ -769,7 +768,7 @@ class App(Gtk.Window):
         self.update_title()
 
     def ask_save(self):
-        return dialog_ask_save(self, self.modified)
+        return dialog_ask_save(self, self.document_session.requires_save_confirmation())
 
     def may_continue(self):
         r = self.ask_save()
@@ -838,17 +837,8 @@ class App(Gtk.Window):
         self.execute_new_plan(prepare_new_plan())
 
     def execute_new_plan(self, plan):
-        # Commit the empty document identity only after Gtk accepts the text.
-        self.loading = True
-        try:
-            self.text.get_buffer().set_text(plan.text)
-        finally:
-            self.loading = False
-        self.document.file_path = plan.target_path
-        self.document.set_text(plan.text, modified=plan.modified)
-        self.current_file = self.document.file_path
-        self.modified = self.document.modified
-        self.reset_undo_history()
+        # The controller commits identity only after Gtk accepts the text.
+        self.document_session_controller.execute_new(plan)
         getattr(self, "research_document_context_changed", lambda: None)()
         getattr(self, "refresh_document_overview_if_open", lambda: False)()
         if hasattr(self, "workspace_panel_view") and self.current_file:
@@ -865,29 +855,18 @@ class App(Gtk.Window):
 
     def open_path(self, path, silent=False):
         try:
-            plan = prepare_open_plan(
-                path,
-                read_text_file(path),
-                large_file=is_large_text_file(path),
-            )
-            return self.execute_open_plan(plan, silent=silent)
+            plan, _transition = self.document_session_controller.open_path(path)
+            return self.finalize_open_transition(plan, silent=silent)
         except (OSError, UnicodeError, TypeError, ValueError) as e:
             if not silent:
                 self.error(str(e))
             return False
 
     def execute_open_plan(self, plan, silent=False):
-        # Commit editor/document identity only after Gtk accepts loaded text.
-        self.loading = True
-        try:
-            self.text.get_buffer().set_text(plan.text)
-        finally:
-            self.loading = False
-        self.document.file_path = plan.target_path
-        self.document.set_text(plan.text, modified=False)
-        self.current_file = self.document.file_path
-        self.modified = self.document.modified
-        self.reset_undo_history()
+        self.document_session_controller.execute_open(plan)
+        return self.finalize_open_transition(plan, silent=silent)
+
+    def finalize_open_transition(self, plan, silent=False):
         self.add_recent_file(self.current_file)
         getattr(self, "research_document_context_changed", lambda: None)()
         getattr(self, "refresh_document_overview_if_open", lambda: False)()
@@ -918,16 +897,10 @@ class App(Gtk.Window):
     def execute_save_plan(self, plan):
         previous_path = self.current_file
         try:
-            if plan.replaces_buffer_text:
-                self.loading = True
-                self.text.get_buffer().set_text(plan.text_to_write)
-                self.loading = False
-            self.document.save(plan.target_path, plan.text_to_write)
-            self.current_file = self.document.file_path
-            self.modified = self.document.modified
+            self.document_session_controller.execute_save(plan)
             self.add_recent_file(self.current_file)
             if previous_path != self.current_file:
-                        getattr(self, "research_document_context_changed", lambda: None)()
+                getattr(self, "research_document_context_changed", lambda: None)()
             elif plan.replaces_buffer_text:
                 self.publish_research_invalidation(
                     ResearchInvalidationReason.DOCUMENT_CONTENT
@@ -1543,18 +1516,14 @@ class App(Gtk.Window):
             return False
 
     def execute_new_from_template_plan(self, plan):
-        # The template is only a text source.  Commit a new untitled identity
-        # only after Gtk has accepted the replacement text.
-        self.loading = True
-        try:
-            self.text.get_buffer().set_text(plan.text)
-        finally:
-            self.loading = False
-        self.document.file_path = plan.target_path
-        self.document.set_text(plan.text, modified=plan.modified)
-        self.current_file = self.document.file_path
-        self.modified = self.document.modified
-        self.reset_undo_history()
+        # Template plans share the authoritative new-document transition shape.
+        self.document_session_controller.execute_new(
+            NewPlan(
+                text=plan.text,
+                target_path=plan.target_path,
+                modified=plan.modified,
+            )
+        )
         getattr(self, "research_document_context_changed", lambda: None)()
         self.update_title()
         getattr(self, "refresh_document_overview_if_open", lambda: False)()
@@ -2718,8 +2687,7 @@ class App(Gtk.Window):
             source_is_directory=rename_plan.source_is_directory,
         )
         if identity.document_identity_changed:
-            self.document.file_path = identity.current_file_after
-            self.current_file = identity.current_file_after
+            self.document_session.rebind_path(identity.current_file_after)
             getattr(self, "research_document_context_changed", lambda: None)()
             self.update_title()
             getattr(self, "refresh_document_overview_if_open", lambda: False)()
@@ -2735,10 +2703,7 @@ class App(Gtk.Window):
         )
         if identity.active_document_detached:
             current_text = self.buffer_text()
-            self.document.file_path = None
-            self.document.set_text(current_text, modified=True)
-            self.current_file = None
-            self.modified = True
+            self.document_session.detach(current_text)
             getattr(self, "research_document_context_changed", lambda: None)()
             self.update_title()
             getattr(self, "refresh_document_overview_if_open", lambda: False)()

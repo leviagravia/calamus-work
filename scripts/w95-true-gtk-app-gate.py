@@ -484,7 +484,7 @@ def main() -> int:
         print("W95_TRUE_RESEARCH_SELECTOR_VISIBLE_ACTIVATION=PASS")
         return 0
     finally:
-        app.modified = False
+        app.document_session.mark_clean()
         app.destroy()
         drain_events()
 

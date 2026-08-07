@@ -118,7 +118,7 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
         self.assertIn("Save the document before creating Source Notes.", runtime)
         for method in (
             "execute_new_plan",
-            "execute_open_plan",
+            "finalize_open_transition",
             "execute_save_plan",
             "execute_new_from_template_plan",
         ):

@@ -77,10 +77,10 @@ class W98ResearchPanelAppDesktopE2E(unittest.TestCase):
      for client in ('clip-collection','scratchpad','references','tags','reference-sets','source-notes','authoring-bridge'):
       self.assertTrue(win.research_panel_runtime.show(client)); pump()
      win.research_panel_runtime.show('references'); win.reference_panel_runtime._view.search.set_text('alp'); win.research_panel_runtime.show('tags'); pump()
-     win.modified=False; self.assertTrue(win.request_application_close()); pump(); self.assertTrue(win.research_coordinator.is_shutdown); self.assertFalse(win.research_coordinator.pending_content)
+     win.document_session.mark_clean(); self.assertTrue(win.request_application_close()); pump(); self.assertTrue(win.research_coordinator.is_shutdown); self.assertFalse(win.research_coordinator.pending_content)
      self.assertIsNone(win.reference_panel_runtime._view._search_dispatcher); self.assertFalse(getattr(win.tags_runtime._view,'_selection_source_id',0)); win=None
      print('W98_REAL_DOCUMENT_SWITCH_ALL_CLIENTS=PASS'); print('W98_REAL_DOCUMENT_CONTENT_COALESCING=PASS'); print('W98_REAL_HIDDEN_DIRTY_ACTIVATION=PASS'); print('W98_REAL_RESEARCH_NORMAL_CLOSE=PASS')
     finally:
      if win is not None:
-      win.modified=False; win.destroy(); pump()
+      win.document_session.mark_clean(); win.destroy(); pump()
 if __name__=='__main__': unittest.main(verbosity=2)

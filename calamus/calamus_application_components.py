@@ -44,6 +44,19 @@ class WidgetSignalConnection:
     lifetime_authority: str = "gtk-widget-destruction"
 
 
+
+
+@dataclass(frozen=True)
+class DocumentSessionCompositionInput:
+    initial_file_path: str | None
+    read_buffer_text: Callable[[], str]
+    replace_buffer_text: Callable[[str], None]
+    reset_undo_history: Callable[[], None]
+    read_text_file: Callable[[str], str]
+    write_text_file: Callable[[str, str], None]
+    is_large_text_file: Callable[[str], bool]
+
+
 @dataclass(frozen=True)
 class EditorCompositionInput:
     text_view: Any
@@ -122,6 +135,14 @@ class ClipCollectionCompositionInput:
     clip_invalidation_reason: Any
 
 
+
+
+@dataclass(frozen=True)
+class DocumentSessionComponents:
+    session: Any
+    controller: Any
+
+
 @dataclass(frozen=True)
 class EditorInfrastructureComponents:
     history: Any
@@ -165,6 +186,7 @@ class ClipCollectionComponents:
 
 @dataclass(frozen=True)
 class CoreApplicationComponents:
+    document_session: DocumentSessionComponents
     editor: EditorInfrastructureComponents
     navigator: NavigatorComponents
     workspace: WorkspaceComponents

@@ -588,8 +588,7 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
             win.workspace_application_runtime.refresh()
             _activate_relative(win, "01_Drafts/W84_Active.md")
             win.text.get_buffer().set_text("W84 preserved unsaved buffer")
-            win.modified = True
-            win.document.mark_modified("W84 preserved unsaved buffer")
+            win.document_session.mark_modified("W84 preserved unsaved buffer")
             win.add_recent_file(source)
             win.state.save_favourites([source], limit=50)
 
@@ -637,8 +636,7 @@ class WorkspaceAppDesktopE2E(unittest.TestCase):
             win.workspace_application_runtime.refresh()
             _activate_relative(win, "01_Drafts/W84_Context_Folder/Inside.md")
             win.text.get_buffer().set_text("folder active buffer")
-            win.modified = True
-            win.document.mark_modified("folder active buffer")
+            win.document_session.mark_modified("folder active buffer")
 
             tree = win.workspace_panel_view.tree
             folder_path = tree.path_for_relative("01_Drafts/W84_Context_Folder")

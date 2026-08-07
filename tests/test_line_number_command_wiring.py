@@ -100,10 +100,10 @@ class LineNumberCommandWiringTests(unittest.TestCase):
     def test_bulk_buffer_replacement_refreshes_gutter_outside_loading_guard(self):
         method = _method_source("on_changed")
         self.assertIn("self.update_line_numbers()", method)
-        self.assertIn("if not self.loading:", method)
+        self.assertIn("if self.document_session_controller.observe_buffer_change():", method)
         self.assertLess(
             method.index("self.update_line_numbers()"),
-            method.index("if not self.loading:"),
+            method.index("if self.document_session_controller.observe_buffer_change():"),
         )
 
     def test_mapped_startup_forces_realized_gutter_refresh(self):

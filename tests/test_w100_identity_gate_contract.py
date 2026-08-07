@@ -7,6 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 W100_BASELINE = "9a80b266cbdb41b499efdb296ff2a312cf85656f"
 W101_BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
+W102_BASELINE = "17b409a05f356477173b2bdd348a67a4cf01f43c"
 
 
 class W100IdentityGateContractTests(unittest.TestCase):
@@ -19,13 +20,14 @@ class W100IdentityGateContractTests(unittest.TestCase):
         ):
             self.assertIn(token, historical)
         current = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W101"', current)
-        self.assertIn(f'PUBLISHED_BASELINE = "{W101_BASELINE}"', current)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W102"', current)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Document Session Extraction"', current)
+        self.assertIn(f'PUBLISHED_BASELINE = "{W102_BASELINE}"', current)
 
     def test_release_manifest_owns_w100_profiles_and_w99_identity_is_not_release_gate(self):
         data = json.loads((ROOT / "tests/calamus_release_test_profiles.json").read_text(encoding="utf-8"))
-        self.assertEqual(data["published_baseline"], W101_BASELINE)
-        self.assertIn("W101", data["lineage"])
+        self.assertEqual(data["published_baseline"], W102_BASELINE)
+        self.assertIn("W102", data["lineage"])
         self.assertTrue(data["profiles"]["w100-headless-focused"]["release_gate"])
         self.assertFalse(data["profiles"]["w100-identity-smoke"]["release_gate"])
         self.assertFalse(data["profiles"]["w99-identity-smoke"]["release_gate"])
@@ -43,7 +45,8 @@ class W100IdentityGateContractTests(unittest.TestCase):
         text = (ROOT / "scripts/calamus-release-profiles.py").read_text(encoding="utf-8")
         self.assertIn('"CALAMUS_W100_"', text)
         self.assertIn('"CALAMUS_W101_"', text)
-        self.assertIn(W101_BASELINE, text)
+        self.assertIn('"CALAMUS_W102_"', text)
+        self.assertIn(W102_BASELINE, text)
 
 
 if __name__ == "__main__":
