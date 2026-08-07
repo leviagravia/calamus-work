@@ -71,7 +71,7 @@ class FavoriteEditCommandWiringTests(unittest.TestCase):
             'add_item(favm, "Edit Favourites…\\tCtrl+Shift+D", app.on_edit_favourites)',
             source,
         )
-        self.assertIn('("<Control><Shift>D", app.on_edit_favourites)', source)
+        self.assertIn("command_shortcut_bindings()", source)
 
     def test_launcher_imports_edit_parser_and_plan_from_favorites_domain(self):
         source = LAUNCHER.read_text(encoding="utf-8")

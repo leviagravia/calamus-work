@@ -1,6 +1,7 @@
 import ast
 from pathlib import Path
 import unittest
+from tests.w104_command_test_support import guide_has
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,8 +48,8 @@ class NavigatorPanelCommandWiringTests(unittest.TestCase):
         block = source[source.index('navigatem = top_menu(app, "Navigate")'):source.index('revisem = top_menu(app, "Revise")')]
         self.assertIn('Gtk.CheckMenuItem(label="Navigator Panel\\tCtrl+Alt+N")', block)
         self.assertLess(block.index("Navigator Panel"), block.index("Go to Line"))
-        self.assertIn('ShortcutSpec("Navigate", "Navigator Panel", "Ctrl+Alt+N")', SHORTCUTS.read_text(encoding="utf-8"))
-        self.assertIn('("<Control><Alt>N", app.toggle_navigator_panel)', UI.read_text(encoding="utf-8"))
+        self.assertTrue(guide_has("Navigate", "Navigator Panel", "Ctrl+Alt+N"))
+        self.assertIn("command_shortcut_bindings()", UI.read_text(encoding="utf-8"))
 
     def test_close_button_delegates_without_layout_mutation(self):
         source = VIEW.read_text(encoding="utf-8")

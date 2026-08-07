@@ -1,6 +1,7 @@
 import ast
 import os
 import unittest
+from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -81,8 +82,7 @@ class ResearchExportCommandWiringTests(unittest.TestCase):
         )
 
     def test_shortcut_registry_marks_command_as_menu_only(self):
-        shortcuts = self.source("calamus/calamus_shortcuts.py")
-        self.assertIn('ShortcutSpec("Research", "Export Research Apparatus", "menu")', shortcuts)
+        self.assertTrue(guide_has("Research", "Export Research Apparatus", "menu"))
 
 
 if __name__ == "__main__":

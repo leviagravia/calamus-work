@@ -10,9 +10,8 @@ BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
 from calamus_writing import title_case
 
 
@@ -53,8 +52,8 @@ class TitleCaseLayerWiringTests(unittest.TestCase):
             'add_item(revisem, "Title Case\\tCtrl+Alt+Y", app.on_title_case)',
             ui,
         )
-        self.assertIn('("<Control><Alt>Y", app.on_title_case)', ui)
-        self.assertEqual(ui.count("app.on_title_case"), 2)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertEqual(ui.count("app.on_title_case"), 1)
         self.assertNotIn(
             'lambda *_: app.apply_text_transform(title_case, "Title Case")',
             ui,
@@ -70,7 +69,7 @@ class TitleCaseLayerWiringTests(unittest.TestCase):
         helper = methods["command_layer_title_case_text"]
         self.assertIn('"writing.title-case"', helper)
         self.assertIn(
-            'CommandContext(app=self, source="gui", data={"text": text})',
+            'CommandContext(source="gui", data={"text": text})',
             helper,
         )
         for forbidden in [
@@ -123,7 +122,7 @@ class TitleCaseLayerWiringTests(unittest.TestCase):
         )
 
     def test_layer_dynamic_change_noop_and_existing_semantics(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         source = "l'ALBERO della VITA e già QUI"
         changed = layer.dispatch(
             "writing.title-case",
@@ -144,7 +143,7 @@ class TitleCaseLayerWiringTests(unittest.TestCase):
         self.assertEqual(noop.value["text"], noop_text)
 
     def test_layer_matches_existing_pure_semantics_across_edge_cases(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         cases = [
             "",
             "   ",

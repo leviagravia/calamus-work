@@ -1,5 +1,6 @@
 from pathlib import Path
 import unittest
+from tests.w104_command_test_support import guide_has
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,15 +26,14 @@ class ClipW95ContractTests(unittest.TestCase):
     def test_menu_shortcut_and_runtime_wiring_are_present(self):
         ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
         app = (ROOT / "bin/calamus").read_text(encoding="utf-8")
-        shortcuts = (ROOT / "calamus/calamus_shortcuts.py").read_text(encoding="utf-8")
         self.assertIn('"Insert Clip…\\tCtrl+Alt+K", app.on_insert_clip', ui)
-        self.assertIn('("<Control><Alt>K", app.on_insert_clip)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
         self.assertIn("def on_insert_clip", app)
         composition = (ROOT / "calamus/calamus_clip_composition.py").read_text(encoding="utf-8")
         self.assertEqual(composition.count("ClipCollectionRuntime("), 1)
         self.assertEqual(composition.count("MarkdownClipStore("), 1)
         self.assertIn("compose_core_application_components", app)
-        self.assertIn('ShortcutSpec("Research", "Insert Clip", "Ctrl+Alt+K")', shortcuts)
+        self.assertTrue(guide_has("Research", "Insert Clip", "Ctrl+Alt+K"))
 
     def test_panel_does_not_restore_w94_width_regression(self):
         panel = (ROOT / "calamus/calamus_clip_panel.py").read_text(encoding="utf-8")
@@ -79,12 +79,12 @@ class ClipW95ContractTests(unittest.TestCase):
 
     def test_w95extra_identity_points_to_published_w95(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W103"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Editor Transaction Extraction"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"',
             version,
         )
-        self.assertIn('PUBLISHED_BASELINE = "c8ee3d5970a0cb1d05e4c4320a2117fe7e493368"', version)
+        self.assertIn('PUBLISHED_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"', version)
 
 
 if __name__ == "__main__":

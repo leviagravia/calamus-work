@@ -7,7 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 W101_BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
 W102_BASELINE = "17b409a05f356477173b2bdd348a67a4cf01f43c"
-W103_BASELINE = "c8ee3d5970a0cb1d05e4c4320a2117fe7e493368"
+W104_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"
 
 
 class W101IdentityGateContractTests(unittest.TestCase):
@@ -15,19 +15,22 @@ class W101IdentityGateContractTests(unittest.TestCase):
         current = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         for token in (
             'DEVELOPMENT_BUILD_LABEL = "Development build"',
-            'DEVELOPMENT_WORK_ITEM = "W103"',
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Editor Transaction Extraction"',
-            f'PUBLISHED_BASELINE = "{W103_BASELINE}"',
+            'DEVELOPMENT_WORK_ITEM = "W104"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"',
+            f'PUBLISHED_BASELINE = "{W104_BASELINE}"',
         ):
             self.assertIn(token, current)
 
     def test_release_manifest_owns_current_profiles_and_historical_identity_is_not_release(self):
         data = json.loads((ROOT / "tests/calamus_release_test_profiles.json").read_text(encoding="utf-8"))
-        self.assertEqual(data["published_baseline"], W103_BASELINE)
-        self.assertEqual(data["lineage"], "W103 Editor Transaction Extraction Candidate R1")
-        for profile in ("w103-headless-focused", "w103-identity-smoke", "w103-editor-transaction-smoke"):
+        self.assertEqual(data["published_baseline"], W104_BASELINE)
+        self.assertEqual(data["lineage"], "W104 Command and Action Architecture Candidate R1")
+        for profile in ("w104-headless-focused", "w104-identity-smoke", "w104-command-action-smoke"):
             self.assertIn(profile, data["profiles"])
             self.assertTrue(data["profiles"][profile]["release_gate"])
+        self.assertTrue(data["profiles"]["w103-headless-focused"]["release_gate"])
+        self.assertTrue(data["profiles"]["w103-editor-transaction-smoke"]["release_gate"])
+        self.assertFalse(data["profiles"]["w103-identity-smoke"]["release_gate"])
         self.assertTrue(data["profiles"]["w102-headless-focused"]["release_gate"])
         self.assertTrue(data["profiles"]["w102-document-session-smoke"]["release_gate"])
         self.assertFalse(data["profiles"]["w102-identity-smoke"]["release_gate"])
@@ -81,7 +84,8 @@ class W101IdentityGateContractTests(unittest.TestCase):
     def test_release_runner_scrubs_w101_flags_and_requires_current_baseline(self):
         text = (ROOT / "scripts/calamus-release-profiles.py").read_text(encoding="utf-8")
         self.assertIn('"CALAMUS_W101_"', text)
-        self.assertIn(W103_BASELINE, text)
+        self.assertIn('"CALAMUS_W104_"', text)
+        self.assertIn(W104_BASELINE, text)
 
         provenance = (ROOT / "scripts/prove-source-provenance.sh").read_text(encoding="utf-8")
         contract_position = provenance.index('gi.require_version(namespace, version)')

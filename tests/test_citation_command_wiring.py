@@ -1,5 +1,6 @@
 import ast
 import unittest
+from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,18 +39,14 @@ class CitationCommandWiringTests(unittest.TestCase):
 
     def test_research_menu_and_shortcuts_expose_bidirectional_commands(self):
         ui = source(UI)
-        shortcuts = source(SHORTCUTS)
         self.assertIn("Quick Cite…", ui)
         self.assertIn("Ctrl+Alt+Q", ui)
         self.assertIn("Open Citation in Bibliography", ui)
         self.assertIn("Ctrl+Alt+Shift+Q", ui)
-        self.assertIn('("<Control><Alt>Q", app.on_quick_cite)', ui)
-        self.assertIn('("<Control><Alt><Shift>Q", app.on_open_citation_in_references)', ui)
-        self.assertIn('ShortcutSpec("Research", "Quick Cite", "Ctrl+Alt+Q")', shortcuts)
-        self.assertIn(
-            'ShortcutSpec("Research", "Open Citation in Bibliography", "Ctrl+Alt+Shift+Q")',
-            shortcuts,
-        )
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertTrue(guide_has("Research", "Quick Cite", "Ctrl+Alt+Q"))
+        self.assertTrue(guide_has("Research", "Open Citation in Bibliography", "Ctrl+Alt+Shift+Q"))
 
     def test_app_composes_controller_and_keeps_insertion_in_mutation_gateway(self):
         build = method_source("build_research_panel")

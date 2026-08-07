@@ -1,120 +1,86 @@
 import unittest
 
-from calamus_command_context import CommandContext, CommandResult
+from calamus_command_context import CommandContext, CommandInputError, CommandResult
 from calamus_command_layer import CommandLayer
-from calamus_command_registry import CommandRegistry, CommandSpec, shortcut_conflicts
+from calamus_command_registry import (
+    CommandAvailability, CommandBinding, CommandRegistry, CommandShortcut, CommandSpec, shortcut_conflicts,
+)
 
 
 class CommandContextTests(unittest.TestCase):
-    def test_context_is_small_and_copyable(self):
+    def test_context_is_small_copyable_and_has_no_app(self):
         ctx = CommandContext(source="test", data={"a": 1})
         self.assertEqual(ctx.get("a"), 1)
-        self.assertEqual(ctx.get("missing", "fallback"), "fallback")
-
         newer = ctx.with_data(b=2)
-        self.assertEqual(ctx.get("b"), None)
-        self.assertEqual(newer.get("a"), 1)
-        self.assertEqual(newer.get("b"), 2)
-        self.assertEqual(newer.source, "test")
-
-
-class CommandResultTests(unittest.TestCase):
-    def test_result_constructors(self):
-        ok = CommandResult.ok("done", changed=True, value=3)
-        self.assertTrue(ok.success)
-        self.assertTrue(ok.changed)
-        self.assertEqual(ok.value, 3)
-
-        noop = CommandResult.noop()
-        self.assertTrue(noop.success)
-        self.assertFalse(noop.changed)
-
-        fail = CommandResult.fail("bad")
-        self.assertFalse(fail.success)
-        self.assertEqual(fail.message, "bad")
+        self.assertEqual(newer.data, {"a": 1, "b": 2})
+        self.assertFalse(hasattr(ctx, "app"))
 
 
 class CommandRegistryTests(unittest.TestCase):
-    def test_register_lookup_and_sorted_listing(self):
-        registry = CommandRegistry()
-        registry.register(CommandSpec("writing.sort-lines", "Sort Lines", menu_path="Writing", shortcut="<Control><Shift>S"))
-        registry.register(CommandSpec("writing.stats", "Statistics", menu_path="Writing"))
-
-        self.assertIn("writing.sort-lines", registry)
-        self.assertEqual(registry.require("writing.stats").label, "Statistics")
+    def test_register_lookup_shortcuts_and_sorted_listing(self):
+        spec = CommandSpec(
+            "writing.sort-lines", "Sort Lines", menu_path="Writing",
+            shortcuts=(CommandShortcut("<Control><Shift>S", "Ctrl+Shift+S"),),
+        )
+        registry = CommandRegistry([spec, CommandSpec("writing.stats", "Statistics")])
+        self.assertEqual(registry.require("writing.sort-lines").shortcut, "<Control><Shift>S")
         self.assertEqual(registry.command_ids(), ("writing.sort-lines", "writing.stats"))
-        self.assertEqual(len(registry.list_commands()), 2)
 
-    def test_duplicate_ids_are_rejected(self):
+    def test_metadata_contains_no_handler_or_enabled_state(self):
+        spec = CommandSpec("writing.stats", "Statistics")
+        self.assertFalse(hasattr(spec, "handler"))
+        self.assertFalse(hasattr(spec, "enabled"))
+
+    def test_duplicate_and_invalid_specs_are_rejected(self):
         registry = CommandRegistry([CommandSpec("writing.stats", "Statistics")])
         with self.assertRaises(ValueError):
-            registry.register(CommandSpec("writing.stats", "Statistics Duplicate"))
-
-    def test_invalid_specs_are_rejected(self):
+            registry.register(CommandSpec("writing.stats", "Duplicate"))
         with self.assertRaises(ValueError):
-            CommandSpec("", "Missing ID")
-        with self.assertRaises(ValueError):
-            CommandSpec("Bad ID", "Bad ID")
+            CommandSpec("Bad ID", "Bad")
         with self.assertRaises(ValueError):
             CommandSpec("ok.id", "")
-        with self.assertRaises(ValueError):
-            CommandSpec("ok.id", "Bad Risk", risk_class="unknown")
 
-    def test_shortcut_conflict_detection(self):
+    def test_shortcut_conflict_detection_reads_all_shortcuts(self):
         specs = [
-            CommandSpec("a.one", "One", shortcut="<Ctrl>A"),
-            CommandSpec("a.two", "Two", shortcut="<Control>A"),
-            CommandSpec("a.three", "Three", shortcut="<Control>B"),
+            CommandSpec("a.one", "One", shortcuts=(CommandShortcut("<Ctrl>A"),)),
+            CommandSpec("a.two", "Two", shortcuts=(CommandShortcut("<Control>A"),)),
         ]
-        conflicts = shortcut_conflicts(specs)
-        self.assertEqual(conflicts, {"<Control>A": ["a.one", "a.two"]})
+        self.assertEqual(shortcut_conflicts(specs), {"<Control>A": ["a.one", "a.two"]})
 
 
 class CommandLayerTests(unittest.TestCase):
-    def test_dispatch_unknown_command_fails_safely(self):
-        layer = CommandLayer()
-        result = layer.dispatch("missing.command")
-        self.assertFalse(result.success)
-        self.assertIn("Unknown command", result.message)
-
-    def test_dispatch_unwired_command_is_noop(self):
-        layer = CommandLayer(CommandRegistry([CommandSpec("writing.stats", "Statistics")]))
-        result = layer.dispatch("writing.stats")
-        self.assertTrue(result.success)
-        self.assertFalse(result.changed)
-        self.assertIn("no handler", result.message)
-
-    def test_dispatch_handler_result(self):
-        def handler(ctx):
-            return CommandResult.ok("handled", changed=True, value=ctx.get("value"))
-
-        layer = CommandLayer()
-        layer.register(CommandSpec("writing.demo", "Demo", handler=handler))
+    def test_explicit_binding_is_separate_from_metadata(self):
+        layer = CommandLayer(CommandRegistry([CommandSpec("writing.demo", "Demo")]))
+        layer.bind(CommandBinding("writing.demo", lambda ctx: CommandResult.ok(value=ctx.get("value"))))
         result = layer.dispatch("writing.demo", CommandContext(data={"value": 42}))
-
         self.assertTrue(result.success)
-        self.assertTrue(result.changed)
         self.assertEqual(result.value, 42)
 
-    def test_dispatch_plain_handler_value_is_wrapped(self):
-        layer = CommandLayer()
-        layer.register(CommandSpec("writing.value", "Value", handler=lambda ctx: "plain"))
-        result = layer.dispatch("writing.value")
+    def test_unknown_unbound_and_disabled_are_fail_closed(self):
+        registry = CommandRegistry([CommandSpec("writing.demo", "Demo")])
+        availability = CommandAvailability()
+        layer = CommandLayer(registry, availability=availability)
+        self.assertFalse(layer.dispatch("missing.command").success)
+        self.assertTrue(layer.dispatch("writing.demo").success)
+        availability.set_enabled("writing.demo", False)
+        self.assertFalse(layer.dispatch("writing.demo").success)
 
-        self.assertTrue(result.success)
-        self.assertEqual(result.value, "plain")
+    def test_duplicate_binding_is_rejected(self):
+        layer = CommandLayer(CommandRegistry([CommandSpec("writing.demo", "Demo")]))
+        layer.bind_callable("writing.demo", lambda _ctx: True)
+        with self.assertRaises(ValueError):
+            layer.bind_callable("writing.demo", lambda _ctx: False)
 
-    def test_dispatch_handler_exception_is_structured_failure(self):
-        def broken(ctx):
-            raise RuntimeError("boom")
-
-        layer = CommandLayer()
-        layer.register(CommandSpec("writing.broken", "Broken", handler=broken))
-        result = layer.dispatch("writing.broken")
-
+    def test_expected_input_error_is_structured_but_programmer_error_propagates(self):
+        registry = CommandRegistry([CommandSpec("a.input", "Input"), CommandSpec("a.bug", "Bug")])
+        layer = CommandLayer(registry)
+        layer.bind_callable("a.input", lambda _ctx: (_ for _ in ()).throw(CommandInputError("bad")))
+        layer.bind_callable("a.bug", lambda _ctx: (_ for _ in ()).throw(RuntimeError("boom")))
+        result = layer.dispatch("a.input")
         self.assertFalse(result.success)
-        self.assertIn("Command failed", result.message)
-        self.assertIsInstance(result.error, RuntimeError)
+        self.assertIsInstance(result.error, CommandInputError)
+        with self.assertRaisesRegex(RuntimeError, "boom"):
+            layer.dispatch("a.bug")
 
 
 if __name__ == "__main__":

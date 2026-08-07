@@ -10,9 +10,8 @@ BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
 from calamus_writing import sentence_case
 
 
@@ -53,8 +52,8 @@ class SentenceCaseLayerWiringTests(unittest.TestCase):
             'add_item(revisem, "Sentence case\\tCtrl+Alt+Shift+Y", app.on_sentence_case)',
             ui,
         )
-        self.assertIn('("<Control><Alt><Shift>Y", app.on_sentence_case)', ui)
-        self.assertEqual(ui.count("app.on_sentence_case"), 2)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertEqual(ui.count("app.on_sentence_case"), 1)
         self.assertNotIn(
             'lambda *_: app.apply_text_transform(sentence_case, "Sentence Case")',
             ui,
@@ -70,7 +69,7 @@ class SentenceCaseLayerWiringTests(unittest.TestCase):
         helper = methods["command_layer_sentence_case_text"]
         self.assertIn('"writing.sentence-case"', helper)
         self.assertIn(
-            'CommandContext(app=self, source="gui", data={"text": text})',
+            'CommandContext(source="gui", data={"text": text})',
             helper,
         )
         for forbidden in [
@@ -115,7 +114,7 @@ class SentenceCaseLayerWiringTests(unittest.TestCase):
         )
 
     def test_layer_dynamic_change_noop_and_existing_semantics(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         source = "È GIÀ QUI. POI ARRIVA L'AMICO!"
         changed = layer.dispatch(
             "writing.sentence-case",
@@ -136,7 +135,7 @@ class SentenceCaseLayerWiringTests(unittest.TestCase):
         self.assertEqual(noop.value["text"], noop_text)
 
     def test_layer_matches_existing_pure_semantics_across_edge_cases(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         cases = [
             "", "   ", "CIAO. MONDO", "ciao? sì! bene… ottimo",
             "UNO\nDUE", "UNO.\nDUE", "UNO.\n\nDUE",

@@ -13,7 +13,7 @@ class W98ResearchPanelProgramTests(unittest.TestCase):
     def test_command_catalog_is_complete_and_uses_bibliography_taxonomy(self):
         self.assertEqual(26,len(RESEARCH_COMMANDS)); self.assertEqual(26,len({x.command_id for x in RESEARCH_COMMANDS}))
         labels={x.label for x in RESEARCH_COMMANDS}; self.assertIn('Bibliography',labels); self.assertNotIn('References',labels)
-        shortcuts=(ROOT/'calamus/calamus_shortcuts.py').read_text(); self.assertIn('"Bibliography", "menu"',shortcuts); self.assertNotIn('"References", "menu"',shortcuts)
+        from calamus_shortcuts import SHORTCUTS; labels={(x.command, x.shortcut) for x in SHORTCUTS}; self.assertIn(('Bibliography','menu'), labels); self.assertNotIn(('References','menu'), labels)
     def test_coordinator_is_gtk_free_and_app_uses_one_context_gateway(self):
         coord=(ROOT/'calamus/calamus_research_coordination.py').read_text(); app=(ROOT/'bin/calamus').read_text()
         lifecycle=(ROOT/'calamus/calamus_application_lifecycle_app.py').read_text()

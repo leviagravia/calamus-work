@@ -1,6 +1,7 @@
 """Static wiring contracts for the W94 Tags Research client."""
 from pathlib import Path
 import unittest
+from tests.w104_command_test_support import guide_has
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -14,9 +15,8 @@ class W94TagsCommandWiringTests(unittest.TestCase):
 
     def test_research_menu_and_shortcut_catalog_have_one_tags_command(self):
         ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
-        shortcuts = (ROOT / "calamus/calamus_shortcuts.py").read_text(encoding="utf-8")
         self.assertEqual(ui.count('add_item(researchm, "Tags", app.show_tags)'), 1)
-        self.assertEqual(shortcuts.count('ShortcutSpec("Research", "Tags", "menu")'), 1)
+        self.assertTrue(guide_has("Research", "Tags", "menu"))
 
     def test_app_registers_persistent_tags_client_and_thin_show_method(self):
         app = (ROOT / "bin/calamus").read_text(encoding="utf-8")

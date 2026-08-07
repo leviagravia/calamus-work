@@ -1,5 +1,6 @@
 import ast
 import unittest
+from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 
@@ -121,14 +122,13 @@ class AuthoringBridgeCommandWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, combined)
 
     def test_shortcut_registry_and_user_guide_cover_visible_commands(self):
-        shortcuts = source(SHORTCUTS)
         guide = source(GUIDE)
         for command in (
             "Authoring Bridge",
             "Create Source Note from Selection",
             "Insert Link to Heading",
         ):
-            self.assertIn(command, shortcuts)
+            self.assertTrue(guide_has("Research", command, "menu"))
             self.assertIn(command, guide)
         self.assertIn("Refresh after document", guide)
         self.assertIn("one Undo unit", guide)

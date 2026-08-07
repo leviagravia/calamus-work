@@ -10,9 +10,8 @@ BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
 from calamus_writing import remove_extra_spaces
 
 
@@ -68,7 +67,7 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
         helper = methods["command_layer_remove_extra_spaces_text"]
         self.assertIn('"writing.remove-extra-spaces"', helper)
         self.assertIn(
-            'CommandContext(app=self, source="gui", data={"text": text})',
+            'CommandContext(source="gui", data={"text": text})',
             helper,
         )
         for forbidden in [
@@ -119,7 +118,7 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
         )
 
     def test_layer_dynamic_change_noop_and_semantics(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         dirty = "  alpha   beta\t\tgamma  \n  delta   epsilon  \n"
         changed = layer.dispatch(
             "writing.remove-extra-spaces",
@@ -140,7 +139,7 @@ class RemoveExtraSpacesLayerWiringTests(unittest.TestCase):
         self.assertEqual(noop.value["text"], noop_text)
 
     def test_layer_matches_existing_pure_semantics_across_edge_cases(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         cases = [
             "",
             "   ",

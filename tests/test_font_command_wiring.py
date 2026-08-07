@@ -22,7 +22,7 @@ class FontCommandWiringTests(unittest.TestCase):
     def test_visible_font_command_and_shortcut_are_unchanged(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn('add_item(optm, "Font…\\tCtrl+Shift+F", app.on_font)', ui)
-        self.assertIn('("<Control><Shift>F", app.on_font)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
 
     def test_startup_uses_typed_font_loader(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")

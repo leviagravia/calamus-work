@@ -10,9 +10,8 @@ BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
 from calamus_writing import reflow_paragraph
 
 
@@ -33,7 +32,7 @@ class ReflowParagraphLayerWiringTests(unittest.TestCase):
     def test_command_is_visible_in_revise_menu(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn('add_item(revisem, "Reflow Paragraph\\tCtrl+Alt+J", app.on_reflow_paragraph)', ui)
-        self.assertIn('("<Control><Alt>J", app.on_reflow_paragraph)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
 
     def test_dispatch_surface_adds_only_reflow_paragraph(self):
         source = BIN.read_text(encoding="utf-8")
@@ -61,7 +60,7 @@ class ReflowParagraphLayerWiringTests(unittest.TestCase):
         _source, methods = app_methods()
         helper = methods["command_layer_reflow_paragraph_text"]
         self.assertIn('"writing.reflow-paragraph"', helper)
-        self.assertIn('CommandContext(app=self, source="gui", data={"text": text, "width": width})', helper)
+        self.assertIn('CommandContext(source="gui", data={"text": text, "width": width})', helper)
         for forbidden in [
             ".delete(",
             ".insert(",
@@ -96,7 +95,7 @@ class ReflowParagraphLayerWiringTests(unittest.TestCase):
         )
 
     def test_layer_reflow_dynamic_width_and_noop(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         text = "alpha beta gamma delta epsilon"
         changed = layer.dispatch(
             "writing.reflow-paragraph",

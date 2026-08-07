@@ -1,6 +1,7 @@
 import ast
 from pathlib import Path
 import unittest
+from tests.w104_command_test_support import guide_has
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -87,9 +88,8 @@ class BibtexCommandWiringTests(unittest.TestCase):
             "calamus_bibtex_dialogs", "calamus_bibtex_runtime",
         ):
             self.assertIn(f'"{module}"', provenance)
-        shortcuts = self.source("calamus/calamus_shortcuts.py")
-        self.assertIn('ShortcutSpec("Research", "Import BibTeX/BibLaTeX", "menu")', shortcuts)
-        self.assertIn('ShortcutSpec("Research", "Export References as BibTeX/BibLaTeX", "menu")', shortcuts)
+        self.assertTrue(guide_has("Research", "Import BibTeX/BibLaTeX", "menu"))
+        self.assertTrue(guide_has("Research", "Export References as BibTeX/BibLaTeX", "menu"))
 
     def test_user_guide_contains_complete_import_and_export_examples(self):
         guide = self.source("share/doc/calamus/USER_GUIDE.md")

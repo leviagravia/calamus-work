@@ -10,10 +10,9 @@ UI = ROOT / "calamus" / "calamus_ui.py"
 HANDLERS = ROOT / "calamus" / "calamus_command_handlers.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
-from calamus_command_context import CommandContext
+from calamus_command_catalog import build_pure_command_layer
+from calamus_command_context import CommandContext, CommandInputError
 from calamus_command_handlers import handle_sort_lines
-from calamus_command_layer import CommandLayer
 from calamus_writing import sort_lines
 
 
@@ -37,8 +36,8 @@ class SortLinesDescendingLayerWiringTests(unittest.TestCase):
             'add_item(revisem, "Sort Alphabetically Z-A\\tCtrl+Alt+Down", app.on_sort_lines_descending)',
             ui,
         )
-        self.assertIn('("<Control><Alt>Down", app.on_sort_lines_descending)', ui)
-        self.assertEqual(ui.count("app.on_sort_lines_descending"), 2)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertEqual(ui.count("app.on_sort_lines_descending"), 1)
         self.assertNotIn(
             'lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=True), "Sort Z-A")',
             ui,
@@ -99,7 +98,7 @@ class SortLinesDescendingLayerWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, segment)
 
     def test_layer_descending_dynamic_change_and_noop(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         source = "Alfa\nbeta\nzeta\n"
         changed = layer.dispatch(
             "writing.sort-lines",
@@ -120,7 +119,7 @@ class SortLinesDescendingLayerWiringTests(unittest.TestCase):
         self.assertEqual(noop.value["text"], noop_text)
 
     def test_layer_descending_matches_existing_semantics_across_edge_cases(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         cases = [
             "",
             "single",
@@ -148,16 +147,16 @@ class SortLinesDescendingLayerWiringTests(unittest.TestCase):
         context = CommandContext(
             source="test", data={"text": "b\na", "reverse": "yes"}
         )
-        with self.assertRaisesRegex(TypeError, "reverse.*boolean"):
+        with self.assertRaisesRegex(CommandInputError, "reverse.*boolean"):
             handle_sort_lines(context)
 
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         result = layer.dispatch("writing.sort-lines", context)
         self.assertFalse(result.success)
-        self.assertEqual(result.message, "Command failed: writing.sort-lines")
+        self.assertEqual(result.message, "Command input rejected: writing.sort-lines")
 
     def test_ascending_default_remains_unchanged(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         text = "z\na\nb\n"
         implicit = layer.dispatch(
             "writing.sort-lines",

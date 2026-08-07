@@ -2,6 +2,7 @@ import ast
 import copy
 from pathlib import Path
 import unittest
+from tests.w104_command_test_support import guide_has
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,9 +39,8 @@ class QuitCommandWiringTests(unittest.TestCase):
     def test_visible_quit_command_and_shortcut_keep_named_entrypoint(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn(r'add_item(filem, "Quit\tCtrl+Q", app.on_quit)', ui)
-        self.assertIn('("<Control>Q", app.on_quit)', ui)
-        shortcuts = SHORTCUTS.read_text(encoding="utf-8")
-        self.assertIn('ShortcutSpec("File", "Quit", "Ctrl+Q")', shortcuts)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertTrue(guide_has("File", "Quit", "Ctrl+Q"))
 
     def test_window_signals_use_named_close_and_destroy_gateways(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")

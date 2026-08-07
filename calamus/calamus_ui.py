@@ -10,6 +10,9 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
+from calamus_application_commands import command_target_for_callback, invoke_check_command
+from calamus_command_catalog import shortcut_bindings as command_shortcut_bindings
+
 from calamus_writing import (
     clean_pdf_text,
     join_lines,
@@ -31,10 +34,44 @@ def top_menu(app, label: str) -> Gtk.Menu:
 
 
 def add_item(menu: Gtk.Menu, label: str, callback):
+    """Compatibility menu constructor routed through stable W104 command IDs."""
     item = Gtk.MenuItem(label=label)
-    item.connect("activate", callback)
+    owner = getattr(callback, "__self__", None)
+    if owner is not None and hasattr(owner, "invoke_command"):
+        target = command_target_for_callback(callback)
+        if target is None:
+            raise RuntimeError(f"Uncatalogued Calamus menu callback: {getattr(callback, '__name__', callback)!r}")
+        item.connect(
+            "activate",
+            lambda *_args, app=owner, command_id=target.command_id, data=target.data():
+                app.invoke_command(command_id, source="menu", data=data),
+        )
+    else:
+        item.connect("activate", callback)
     menu.append(item)
     return item
+
+
+def add_command_item(menu: Gtk.Menu, label: str, app, command_id: str, data=None):
+    item = Gtk.MenuItem(label=label)
+    payload = dict(data or {})
+    item.connect(
+        "activate",
+        lambda *_args, cid=command_id, values=payload: app.invoke_command(
+            cid, source="menu", data=values
+        ),
+    )
+    menu.append(item)
+    return item
+
+
+def connect_check_command(item, app, command_id: str) -> None:
+    item.connect(
+        "toggled",
+        lambda widget, cid=command_id: invoke_check_command(
+            app, cid, bool(widget.get_active()), source="menu"
+        ),
+    )
 
 
 def add_separator(menu: Gtk.Menu) -> None:
@@ -154,7 +191,7 @@ def build_menu(app) -> None:
     researchm = top_menu(app, "Research")
     app.research_item = Gtk.CheckMenuItem(label="Research Panel\tCtrl+Alt+C")
     app.research_item.set_active(False)
-    app.research_item.connect("toggled", app.on_research_item_toggled)
+    connect_check_command(app.research_item, app, "research.panel")
     researchm.append(app.research_item)
     add_separator(researchm)
     add_item(researchm, "Clip Collection", app.show_clip_collection)
@@ -203,11 +240,11 @@ def build_menu(app) -> None:
     navigatem = top_menu(app, "Navigate")
     app.navigator_item = Gtk.CheckMenuItem(label="Navigator Panel\tCtrl+Alt+N")
     app.navigator_item.set_active(False)
-    app.navigator_item.connect("toggled", app.on_navigator_item_toggled)
+    connect_check_command(app.navigator_item, app, "navigate.navigator-panel")
     navigatem.append(app.navigator_item)
     app.workspace_item = Gtk.CheckMenuItem(label="Writing Workspace")
     app.workspace_item.set_active(False)
-    app.workspace_item.connect("toggled", app.on_workspace_item_toggled)
+    connect_check_command(app.workspace_item, app, "navigate.workspace-panel")
     navigatem.append(app.workspace_item)
     add_item(navigatem, "Document Overview", app.on_document_overview)
     add_separator(navigatem)
@@ -225,7 +262,7 @@ def build_menu(app) -> None:
     writingm = top_menu(app, "Writing")
     app.typewriter_item = Gtk.CheckMenuItem(label="Typewriter Mode\tShift+F9")
     app.typewriter_item.set_active(False)
-    app.typewriter_item.connect("toggled", app.on_typewriter_item_toggled)
+    connect_check_command(app.typewriter_item, app, "writing.typewriter-mode")
     writingm.append(app.typewriter_item)
     add_separator(writingm)
     add_item(writingm, "Insert Date", app.on_insert_date)
@@ -257,33 +294,33 @@ def build_menu(app) -> None:
     optm = top_menu(app, "Options")
     app.word_wrap_item = Gtk.CheckMenuItem(label="Word Wrap\tAlt+Z")
     app.word_wrap_item.set_active(app.word_wrap)
-    app.word_wrap_item.connect("toggled", app.on_word_wrap)
+    connect_check_command(app.word_wrap_item, app, "options.word-wrap")
     optm.append(app.word_wrap_item)
     add_item(optm, "Font…\tCtrl+Shift+F", app.on_font)
     app.transparent_item = Gtk.CheckMenuItem(label="Transparent Mode\tCtrl+Shift+T")
     app.transparent_item.set_active(app.opacity_percent < 100)
-    app.transparent_item.connect("toggled", app.on_transparent_mode)
+    connect_check_command(app.transparent_item, app, "options.transparent-mode")
     optm.append(app.transparent_item)
     app.always_item = Gtk.CheckMenuItem(label="Always on Top\tCtrl+Shift+A")
     app.always_item.set_active(app.always_on_top)
-    app.always_item.connect("toggled", app.on_top)
+    connect_check_command(app.always_item, app, "options.always-on-top")
     optm.append(app.always_item)
     add_separator(optm)
     app.white_item = Gtk.CheckMenuItem(label="White Background")
     app.white_item.set_active(app.appearance_mode == "light")
-    app.white_item.connect("toggled", app.on_white_background)
+    connect_check_command(app.white_item, app, "options.appearance.light")
     optm.append(app.white_item)
     app.dark_item = Gtk.CheckMenuItem(label="Dark Mode")
     app.dark_item.set_active(app.appearance_mode == "dark")
-    app.dark_item.connect("toggled", app.on_dark_mode)
+    connect_check_command(app.dark_item, app, "options.appearance.dark")
     optm.append(app.dark_item)
     app.line_item = Gtk.CheckMenuItem(label="Line Numbers\tCtrl+Alt+L")
     app.line_item.set_active(app.line_numbers_enabled)
-    app.line_item.connect("toggled", app.on_line_numbers)
+    connect_check_command(app.line_item, app, "options.line-numbers")
     optm.append(app.line_item)
     add_separator(optm)
-    add_item(optm, "Font Bigger\tCtrl++", lambda *_: app.change_font(1))
-    add_item(optm, "Font Smaller\tCtrl+-", lambda *_: app.change_font(-1))
+    add_command_item(optm, "Font Bigger\tCtrl++", app, "options.font-size.adjust", {"delta": 1})
+    add_command_item(optm, "Font Smaller\tCtrl+-", app, "options.font-size.adjust", {"delta": -1})
     add_separator(optm)
     opacity_item = Gtk.MenuItem(label="Opacity")
     opacity_menu = Gtk.Menu()
@@ -292,7 +329,7 @@ def build_menu(app) -> None:
     add_item(opacity_menu, "Opacity Selection…", app.on_opacity_selection)
     add_separator(opacity_menu)
     for opacity in (100, 90, 88, 80, 70, 60, 50, 40, 30):
-        add_item(opacity_menu, f"{opacity}%", lambda _w, val=opacity: app.set_opacity_value(val))
+        add_command_item(opacity_menu, f"{opacity}%", app, "options.opacity.set", {"percent": opacity})
 
     toolsm = top_menu(app, "Tools")
     add_item(toolsm, "External Spellcheck\tF7", app.on_check)
@@ -309,77 +346,16 @@ def build_menu(app) -> None:
 
 
 def shortcut_bindings(app):
-    return (
-        ("<Control>Z", app.on_undo),
-        ("<Control>Y", app.on_redo),
-        ("<Control><Shift>Z", app.on_redo),
-        ("<Control>N", app.on_new),
-        ("<Control>O", app.on_open),
-        ("<Control>S", app.on_save),
-        ("<Control><Shift>S", app.on_save_as),
-        ("<Control>F", app.on_find_replace),
-        ("<Control>H", app.on_find_replace),
-        ("<Control><Shift>H", app.on_replace_all_dialog),
-        ("<Control>G", app.on_find_next),
-        ("<Control><Shift>G", app.on_find_previous),
-        ("<Control><Alt>N", app.toggle_navigator_panel),
-        ("<Control>L", app.on_go_to_line),
-        ("<Control><Shift>L", app.on_go_to_section),
-        ("<Control>Page_Down", app.on_next_heading),
-        ("<Control>Page_Up", app.on_previous_heading),
-        ("<Control><Alt>D", app.on_insert_datetime),
-        ("<Control>X", app.on_cut),
-        ("<Control>C", app.on_copy),
-        ("<Control>V", app.on_paste),
-        ("<Control>A", app.on_select_all),
-        ("<Control><Shift>V", app.on_paste_plain_text),
-        ("<Control>D", app.on_duplicate_line_or_selection),
-        ("<Alt>Up", lambda *_: app.on_move_line(-1)),
-        ("<Alt>Down", lambda *_: app.on_move_line(1)),
-        ("<Control>F2", app.toggle_bookmark),
-        ("F2", app.next_bookmark),
-        ("<Shift>F2", app.previous_bookmark),
-        ("<Control><Shift>P", app.on_print_preview),
-        ("<Control>P", app.on_print),
-        ("<Control>Q", app.on_quit),
-        ("<Control><Alt>U", app.on_uppercase),
-        ("<Control><Alt><Shift>U", app.on_lowercase),
-        ("<Control>plus", lambda *_: app.change_font(1)),
-        ("<Control>minus", lambda *_: app.change_font(-1)),
-        ("<Alt>Z", app.toggle_word_wrap),
-        ("<Control><Shift>F", app.on_font),
-        ("<Control><Shift>T", app.toggle_transparent_mode),
-        ("<Control><Shift>A", app.toggle_always_on_top),
-        ("<Control><Alt>L", app.toggle_line_numbers),
-        ("<Control><Alt>B", app.on_add_favourite),
-        ("<Control><Shift>D", app.on_edit_favourites),
-        ("<Control><Alt>R", app.on_reload_favourites),
-        ("<Control><Alt>F10", app.on_character_map),
-        ("<Control><Alt>C", app.toggle_research_panel),
-        ("<Control><Alt>K", app.on_insert_clip),
-        ("<Control><Alt>S", app.show_scratchpad),
-        ("<Control><Alt><Shift>S", app.on_capture_selection_in_scratchpad),
-        ("<Control><Alt>Q", app.on_quick_cite),
-        ("<Control><Alt><Shift>Q", app.on_open_citation_in_references),
-        ("F9", app.toggle_focus_mode),
-        ("<Shift>F9", app.toggle_typewriter_mode),
-        ("F11", app.toggle_distraction_free),
-        ("<Control><Alt>I", app.toggle_current_line_highlight),
-        *( (f"<Control><Alt>{i}", (lambda *_args, n=i: app.insert_clip_number(n))) for i in range(1, 10) ),
-        ("<Control><Alt>W", app.on_document_statistics),
-        ("<Control><Alt>V", app.on_paste_clean_pdf),
-        ("<Control><Alt><Shift>V", app.on_clean_selected_pdf),
-        ("<Control><Alt>J", app.on_reflow_paragraph),
-        ("<Control>J", app.on_join_lines),
-        ("<Control><Alt>Y", app.on_title_case),
-        ("<Control><Alt><Shift>Y", app.on_sentence_case),
-        ("<Control><Alt>Up", app.on_sort_lines_ascending),
-        ("<Control><Alt>Down", app.on_sort_lines_descending),
-        ("<Control><Alt>M", app.on_smart_typography),
-        ("F7", app.on_check),
-        ("<Control>slash", app.on_keyboard_shortcuts),
-        ("F1", app.on_about),
-    )
+    rows = []
+    for accelerator, command_id, data in command_shortcut_bindings():
+        payload = dict(data)
+        rows.append((
+            accelerator,
+            lambda *_args, cid=command_id, values=payload: app.invoke_command(
+                cid, source="shortcut", data=values
+            ),
+        ))
+    return tuple(rows)
 
 
 def shortcut_conflicts(bindings: tuple[tuple[str, object], ...]) -> dict[str, int]:

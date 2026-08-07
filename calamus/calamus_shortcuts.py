@@ -1,8 +1,9 @@
-"""Central Calamus command/shortcut registry."""
+"""Read-only shortcut-guide projection from the canonical W104 command catalog."""
 from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Iterable
+
+from calamus_command_catalog import shortcut_guide_entries
 
 
 @dataclass(frozen=True)
@@ -13,101 +14,9 @@ class ShortcutSpec:
     note: str = ""
 
 
-SHORTCUTS: tuple[ShortcutSpec, ...] = (
-    ShortcutSpec("File", "New", "Ctrl+N"),
-    ShortcutSpec("File", "New from Template", "menu"),
-    ShortcutSpec("File", "Open", "Ctrl+O"),
-    ShortcutSpec("File", "Select Writing Workspace Folder", "menu"),
-    ShortcutSpec("File", "Recent Workspaces", "menu"),
-    ShortcutSpec("File", "Close Writing Workspace", "menu"),
-    ShortcutSpec("File", "Refresh Writing Workspace", "menu"),
-    ShortcutSpec("File", "Reveal Writing Workspace in File Manager", "menu"),
-    ShortcutSpec("File", "Save", "Ctrl+S"),
-    ShortcutSpec("File", "Save As", "Ctrl+Shift+S"),
-    ShortcutSpec("File", "Print Preview", "Ctrl+Shift+P"),
-    ShortcutSpec("File", "Print", "Ctrl+P"),
-    ShortcutSpec("File", "Open file by drag-and-drop", "Drop .txt into window"),
-    ShortcutSpec("File", "Quit", "Ctrl+Q"),
-    ShortcutSpec("Edit", "Undo", "Ctrl+Z"),
-    ShortcutSpec("Edit", "Redo", "Ctrl+Y / Ctrl+Shift+Z"),
-    ShortcutSpec("Edit", "Cut", "Ctrl+X"),
-    ShortcutSpec("Edit", "Copy", "Ctrl+C"),
-    ShortcutSpec("Edit", "Paste", "Ctrl+V"),
-    ShortcutSpec("Edit", "Paste as Plain Text", "Ctrl+Shift+V"),
-    ShortcutSpec("Edit", "Select All", "Ctrl+A"),
-    ShortcutSpec("Edit", "Duplicate Line / Selection", "Ctrl+D"),
-    ShortcutSpec("Edit", "Find / Replace", "Ctrl+F"),
-    ShortcutSpec("Edit", "Replace", "Ctrl+H"),
-    ShortcutSpec("Edit", "Replace All", "Ctrl+Shift+H"),
-    ShortcutSpec("Edit", "Find Next", "Ctrl+G"),
-    ShortcutSpec("Edit", "Find Previous", "Ctrl+Shift+G"),
-    ShortcutSpec("Research", "Research Panel", "Ctrl+Alt+C"),
-    ShortcutSpec("Research", "Clip Collection", "menu"),
-    ShortcutSpec("Research", "Insert Clip", "Ctrl+Alt+K"),
-    ShortcutSpec("Research", "Scratchpad", "Ctrl+Alt+S"),
-    ShortcutSpec("Research", "Capture Selection in Scratchpad", "Ctrl+Alt+Shift+S"),
-    ShortcutSpec("Research", "New Scratchpad Entry for Current Section", "menu"),
-    ShortcutSpec("Research", "Show Scratchpad for Current Section", "menu"),
-    ShortcutSpec("Research", "Bibliography", "menu"),
-    ShortcutSpec("Research", "Tags", "menu"),
-    ShortcutSpec("Research", "Reference Sets", "menu"),
-    ShortcutSpec("Research", "Source Notes", "menu"),
-    ShortcutSpec("Research", "Authoring Bridge", "menu"),
-    ShortcutSpec("Research", "Create Source Note from Selection", "menu"),
-    ShortcutSpec("Research", "Insert Link to Heading", "menu"),
-    ShortcutSpec("Research", "Quick Cite", "Ctrl+Alt+Q"),
-    ShortcutSpec("Research", "Open Citation in Bibliography", "Ctrl+Alt+Shift+Q"),
-    ShortcutSpec("Research", "Tag Integrity", "menu"),
-    ShortcutSpec("Research", "Import BibTeX/BibLaTeX", "menu"),
-    ShortcutSpec("Research", "Export References as BibTeX/BibLaTeX", "menu"),
-    ShortcutSpec("Research", "Export Research Apparatus", "menu"),
-    ShortcutSpec("Research", "Export with Pandoc/citeproc", "menu"),
-    ShortcutSpec("Navigate", "Navigator Panel", "Ctrl+Alt+N"),
-    ShortcutSpec("Navigate", "Writing Workspace", "menu"),
-    ShortcutSpec("Navigate", "Go to Line", "Ctrl+L"),
-    ShortcutSpec("Navigate", "Go to Section", "Ctrl+Shift+L"),
-    ShortcutSpec("Navigate", "Next Heading", "Ctrl+PageDown"),
-    ShortcutSpec("Navigate", "Previous Heading", "Ctrl+PageUp"),
-    ShortcutSpec("Revise", "UPPERCASE selection", "Ctrl+Alt+U"),
-    ShortcutSpec("Revise", "Lowercase selection", "Ctrl+Alt+Shift+U"),
-    ShortcutSpec("Revise", "Title Case", "Ctrl+Alt+Y"),
-    ShortcutSpec("Revise", "Sentence case", "Ctrl+Alt+Shift+Y"),
-    ShortcutSpec("Writing", "Typewriter Mode", "Shift+F9"),
-    ShortcutSpec("Writing", "Insert Date", "menu"),
-    ShortcutSpec("Writing", "Insert Time", "menu"),
-    ShortcutSpec("Writing", "Insert Date and Time", "Ctrl+Alt+D"),
-    ShortcutSpec("Navigate", "Insert Bookmark Here", "Ctrl+F2"),
-    ShortcutSpec("Navigate", "Next Bookmark", "F2"),
-    ShortcutSpec("Navigate", "Previous Bookmark", "Shift+F2"),
-    ShortcutSpec("Navigate", "Manage Bookmarks", "menu"),
-    ShortcutSpec("Revise", "Paste Clean from PDF", "Ctrl+Alt+V"),
-    ShortcutSpec("Revise", "Clean Selected Text from PDF", "Ctrl+Alt+Shift+V"),
-    ShortcutSpec("Revise", "Smart Typography", "Ctrl+Alt+M"),
-    ShortcutSpec("Revise", "Reflow Paragraph", "Ctrl+Alt+J"),
-    ShortcutSpec("Revise", "Join Lines", "Ctrl+J"),
-    ShortcutSpec("Revise", "Sort A-Z", "Ctrl+Alt+Up", "May conflict with some desktop workspace shortcuts."),
-    ShortcutSpec("Revise", "Sort Z-A", "Ctrl+Alt+Down", "May conflict with some desktop workspace shortcuts."),
-    ShortcutSpec("Favourites", "Add to Favourites", "Ctrl+Alt+B"),
-    ShortcutSpec("Favourites", "Edit Favourites", "Ctrl+Shift+D"),
-    ShortcutSpec("Favourites", "Reload Favourites", "Ctrl+Alt+R"),
-    ShortcutSpec("View", "Focus Mode", "F9"),
-    ShortcutSpec("View", "Distraction-Free Mode", "F11"),
-    ShortcutSpec("View", "Highlight Current Line", "Ctrl+Alt+I"),
-    ShortcutSpec("Research", "Insert Clip numeric quick slots 1-9", "Ctrl+Alt+1..9"),
-    ShortcutSpec("View", "Clip panel adjusts editor wrapping", "automatic"),
-    ShortcutSpec("View", "Character Map", "Ctrl+Alt+F10"),
-    ShortcutSpec("Options", "Word Wrap", "Alt+Z"),
-    ShortcutSpec("Options", "Font", "Ctrl+Shift+F"),
-    ShortcutSpec("Options", "Transparent Mode", "Ctrl+Shift+T"),
-    ShortcutSpec("Options", "Always on Top", "Ctrl+Shift+A"),
-    ShortcutSpec("Options", "Line Numbers", "Ctrl+Alt+L"),
-    ShortcutSpec("Options", "Font Bigger", "Ctrl++"),
-    ShortcutSpec("Options", "Font Smaller", "Ctrl+-"),
-    ShortcutSpec("Tools", "External Spellcheck", "F7"),
-    ShortcutSpec("Tools", "Document Statistics", "Ctrl+Alt+W"),
-    ShortcutSpec("Help", "User Guide", "menu"),
-    ShortcutSpec("Help", "Keyboard Shortcuts", "Ctrl+/"),
-    ShortcutSpec("Help", "About", "F1"),
+SHORTCUTS: tuple[ShortcutSpec, ...] = tuple(
+    ShortcutSpec(entry.menu, entry.command, entry.access, entry.note)
+    for entry in shortcut_guide_entries()
 )
 
 
@@ -115,32 +24,32 @@ def shortcut_rows() -> list[tuple[str, str, str]]:
     return [(item.menu, item.command, item.shortcut) for item in SHORTCUTS]
 
 
-def display_to_accelerator(shortcut: str) -> str:
-    value = (shortcut or "").strip()
+def display_to_accelerator(value: str) -> str:
+    """Compatibility converter for audit tools; actual bindings come from catalog."""
+    value = (value or "").strip()
     if not value or value in {"menu", "automatic"} or value.startswith("Drop "):
         return value
-    replacements = (("Ctrl+", "<Control>"), ("Alt+", "<Alt>"), ("Shift+", "<Shift>"))
-    for old, new in replacements:
-        value = value.replace(old, new)
+    # Exact special forms first: the historical implementation applied these
+    # too late and drifted from the real Gtk accelerator spellings.
+    specials = {
+        "Ctrl++": "<Control>plus", "Ctrl+-": "<Control>minus", "Ctrl+/": "<Control>slash",
+        "Ctrl+PageDown": "<Control>Page_Down", "Ctrl+PageUp": "<Control>Page_Up",
+    }
+    if value in specials:
+        return specials[value]
+    value = value.replace("Ctrl+", "<Control>")
+    value = value.replace("Alt+", "<Alt>")
+    value = value.replace("Shift+", "<Shift>")
     value = value.replace("Quote", "quotedbl")
-    value = value.replace("Ctrl++", "<Control>plus")
-    value = value.replace("Ctrl+-", "<Control>minus")
-    value = value.replace("Ctrl+/", "<Control>slash")
     return value
-
-
-def normalize_shortcut(shortcut: str) -> str:
-    return (shortcut or "").replace("<Ctrl>", "<Control>").replace("Ctrl+", "<Control>").strip()
 
 
 def conflicts(shortcuts: Iterable[ShortcutSpec] = SHORTCUTS) -> dict[str, list[str]]:
     seen: dict[str, list[str]] = {}
-    for spec in shortcuts:
-        if spec.shortcut in {"menu", "automatic"} or spec.shortcut.startswith("Drop "):
+    for item in shortcuts:
+        if item.shortcut in {"menu", "automatic"} or item.shortcut.startswith("Drop ") or ".." in item.shortcut:
             continue
-        for raw in spec.shortcut.split(" / "):
-            key = raw.strip()
-            if not key or ".." in key:
-                continue
-            seen.setdefault(key, []).append(spec.command)
-    return {key: names for key, names in seen.items() if len(names) > 1}
+        for shortcut in item.shortcut.split(" / "):
+            key = display_to_accelerator(shortcut.strip())
+            seen.setdefault(key, []).append(item.command)
+    return {key: values for key, values in seen.items() if len(values) > 1}

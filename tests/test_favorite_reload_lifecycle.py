@@ -91,6 +91,12 @@ class _FakeApp:
         self.opened.append(path)
         return True
 
+    def invoke_command(self, command_id, *, source="gui", data=None):
+        if command_id != "file.favourite.open":
+            raise AssertionError(f"unexpected command {command_id}")
+        self.assert_source = source
+        return self.open_favourite_path(dict(data or {})["path"])
+
     def save_favourites(self, _items):
         raise AssertionError("Reload must not persist Favorites")
 

@@ -1,46 +1,30 @@
-"""Command context and result primitives for Calamus.
-
-This module is intentionally GTK-free.
-
-It is the first thin AirPad-like control-layer component.  It does not own
-file lifecycle, undo/redo, session state, or Gtk.TextBuffer synchronization.
-"""
-
+"""GTK-free command invocation and result primitives."""
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 
+class CommandInputError(ValueError):
+    """Expected invalid command payload/input; safe to report as a command failure."""
+
+
 @dataclass(frozen=True)
 class CommandContext:
-    """Execution context passed to command handlers.
-
-    The context is deliberately small.  At W7 it is only a safe carrier for
-    an optional application object plus immutable command metadata/data.
-    """
-
-    app: Any | None = None
+    """Immutable command invocation data.  It deliberately contains no App/widget."""
     source: str = "unknown"
     data: Mapping[str, Any] = field(default_factory=dict)
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Return a contextual value without exposing mutation semantics."""
-
         return self.data.get(key, default)
 
     def with_data(self, **updates: Any) -> "CommandContext":
-        """Return a new context with additional data."""
-
         merged = dict(self.data)
         merged.update(updates)
-        return CommandContext(app=self.app, source=self.source, data=merged)
+        return CommandContext(source=self.source, data=merged)
 
 
 @dataclass(frozen=True)
 class CommandResult:
-    """Structured result returned by layer-dispatched commands."""
-
     success: bool
     message: str = ""
     changed: bool = False

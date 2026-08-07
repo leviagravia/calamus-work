@@ -12,9 +12,8 @@ BIN_CALAMUS = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
 
 
 EXPECTED_DISPATCH_IDS = [
@@ -64,8 +63,8 @@ class LowercaseLayerWiringTests(unittest.TestCase):
             'add_item(revisem, "Lowercase (convert selected)\\tCtrl+Alt+Shift+U", app.on_lowercase)',
             ui,
         )
-        self.assertIn('("<Control><Alt><Shift>U", app.on_lowercase)', ui)
-        self.assertEqual(ui.count("app.on_lowercase"), 2)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertEqual(ui.count("app.on_lowercase"), 1)
         self.assertNotIn(
             'lambda *_: app.replace_selection(str.lower)',
             ui,
@@ -77,8 +76,8 @@ class LowercaseLayerWiringTests(unittest.TestCase):
             'add_item(revisem, "UPPERCASE (convert selected)\\tCtrl+Alt+U", app.on_uppercase)',
             ui,
         )
-        self.assertIn('("<Control><Alt>U", app.on_uppercase)', ui)
-        self.assertEqual(ui.count("app.on_uppercase"), 2)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertEqual(ui.count("app.on_uppercase"), 1)
 
     def test_dispatch_surface_is_unchanged_because_lowercase_id_already_existed(self):
         self.assertEqual(sorted(_dispatch_ids()), EXPECTED_DISPATCH_IDS)
@@ -88,7 +87,7 @@ class LowercaseLayerWiringTests(unittest.TestCase):
         method = _app_methods()["command_layer_lowercase_text"]
         self.assertIn('self.command_layer.dispatch(\n            "edit.lowercase"', method)
         self.assertIn(
-            'CommandContext(app=self, source="gui", data={"text": text})',
+            'CommandContext(source="gui", data={"text": text})',
             method,
         )
         for forbidden in [
@@ -195,7 +194,7 @@ class LowercaseLayerWiringTests(unittest.TestCase):
         self.assertIn("return self.execute_command(command_name, edit, select_range=select)", method)
 
     def test_layer_lowercase_dynamic_unicode_noop_and_change(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         cases = [
             ("ABC È GIÀ", "abc è già", True),
             ("abc è già", "abc è già", False),

@@ -1,10 +1,9 @@
 import unittest
 from datetime import datetime
 
-from calamus_command_catalog import build_low_risk_registry, low_risk_command_specs
-from calamus_command_context import CommandContext
+from calamus_command_catalog import build_pure_command_layer, low_risk_command_specs
+from calamus_command_context import CommandContext, CommandInputError
 from calamus_command_handlers import handle_insert_date_time, handle_sort_lines, handled_command_ids
-from calamus_command_layer import CommandLayer
 from calamus_writing import (
     clean_pdf_text,
     document_statistics,
@@ -38,7 +37,7 @@ EXPECTED_HANDLED_COMMAND_IDS = (
 
 class PureCommandHandlerTests(unittest.TestCase):
     def setUp(self):
-        self.layer = CommandLayer(build_low_risk_registry())
+        self.layer = build_pure_command_layer()
 
     def dispatch_text(self, command_id, text, **data):
         ctx = CommandContext(source="test", data={"text": text, **data})
@@ -58,13 +57,9 @@ class PureCommandHandlerTests(unittest.TestCase):
         specs = {spec.command_id: spec for spec in low_risk_command_specs()}
 
         for command_id in EXPECTED_HANDLED_COMMAND_IDS:
-            self.assertIsNotNone(specs[command_id].handler)
+            self.assertFalse(hasattr(specs[command_id], "handler"))
             self.assertIn("pure-handler", specs[command_id].flags)
-            self.assertNotIn("metadata-only", specs[command_id].flags)
-
-        self.assertIsNotNone(specs["writing.insert-date-time"].handler)
-        self.assertIn("pure-handler", specs["writing.insert-date-time"].flags)
-        self.assertNotIn("metadata-only", specs["writing.insert-date-time"].flags)
+        self.assertEqual(set(self.layer.binding_ids()), set(EXPECTED_HANDLED_COMMAND_IDS))
 
     def test_uppercase_lowercase_handlers(self):
         self.assert_text_handler("edit.uppercase", "Abc è", "ABC È")
@@ -96,12 +91,12 @@ class PureCommandHandlerTests(unittest.TestCase):
         context = CommandContext(
             source="test", data={"text": "b\na", "reverse": 1}
         )
-        with self.assertRaisesRegex(TypeError, "reverse.*boolean"):
+        with self.assertRaisesRegex(CommandInputError, "reverse.*boolean"):
             handle_sort_lines(context)
 
         result = self.layer.dispatch("writing.sort-lines", context)
         self.assertFalse(result.success)
-        self.assertEqual(result.message, "Command failed: writing.sort-lines")
+        self.assertEqual(result.message, "Command input rejected: writing.sort-lines")
 
     def test_reflow_handler_uses_width_from_context(self):
         text = "uno due tre quattro cinque sei sette otto"
@@ -140,7 +135,7 @@ class PureCommandHandlerTests(unittest.TestCase):
             "writing.insert-date-time", CommandContext(source="test")
         )
         self.assertFalse(missing.success)
-        with self.assertRaisesRegex(TypeError, "now.*datetime"):
+        with self.assertRaisesRegex(CommandInputError, "now.*datetime"):
             handle_insert_date_time(
                 CommandContext(source="test", data={"now": "2026-07-12"})
             )
@@ -159,7 +154,7 @@ class PureCommandHandlerTests(unittest.TestCase):
     def test_non_string_text_fails_as_structured_error(self):
         result = self.layer.dispatch("edit.uppercase", CommandContext(source="test", data={"text": 123}))
         self.assertFalse(result.success)
-        self.assertIn("Command failed", result.message)
+        self.assertIn("Command input rejected", result.message)
 
 
 if __name__ == "__main__":

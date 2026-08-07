@@ -1,0 +1,8 @@
+W104 ROADMAP RESOLUTION
+
+Current work item: W104 — Command and Action Architecture.
+Published baseline: ca1a9774085d81d087f7a257dbffbbaa858a3889.
+
+W104 may normalize command identity, metadata, binding, invocation and shortcut authority.
+W105 — Menu and UI-State Decoupling remains NOT STARTED and owns declarative menu/UI sensitivity/check-state work.
+W106+ ownership remains unchanged.

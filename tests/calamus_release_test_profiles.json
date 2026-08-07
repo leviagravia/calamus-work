@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W103 Editor Transaction Extraction Candidate R1",
-  "published_baseline": "c8ee3d5970a0cb1d05e4c4320a2117fe7e493368",
+  "lineage": "W104 Command and Action Architecture Candidate R1",
+  "published_baseline": "ca1a9774085d81d087f7a257dbffbbaa858a3889",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -229,14 +229,11 @@
         "tests.test_clip_w95_contract.ClipW95ContractTests.test_panel_does_not_restore_w94_width_regression",
         "tests.test_clip_w95_contract.ClipW95ContractTests.test_rejected_scope_is_absent",
         "tests.test_clip_w95_contract.ClipW95ContractTests.test_w95extra_identity_points_to_published_w95",
-        "tests.test_command_catalog.CommandCatalogTests.test_all_catalog_commands_have_pure_handlers",
-        "tests.test_command_catalog.CommandCatalogTests.test_all_registered_commands_are_low_risk",
-        "tests.test_command_catalog.CommandCatalogTests.test_catalog_can_build_registry_without_duplicates",
-        "tests.test_command_catalog.CommandCatalogTests.test_command_ids_are_stable_and_sorted_by_registry",
-        "tests.test_command_catalog.CommandCatalogTests.test_layer_dispatch_for_pure_command_is_operational_in_isolation",
-        "tests.test_command_catalog.CommandCatalogTests.test_layer_dispatch_for_time_command_is_deterministic",
-        "tests.test_command_catalog.CommandCatalogTests.test_low_risk_specs_are_declared",
-        "tests.test_command_catalog.CommandCatalogTests.test_no_shortcut_conflicts_in_catalog",
+        "tests.test_command_catalog.CommandCatalogTests.test_actual_default_shortcuts_have_no_conflicts",
+        "tests.test_command_catalog.CommandCatalogTests.test_full_catalog_is_single_unique_authority",
+        "tests.test_command_catalog.CommandCatalogTests.test_low_risk_ids_are_preserved_but_metadata_has_no_handler",
+        "tests.test_command_catalog.CommandCatalogTests.test_pure_handlers_are_explicit_bindings",
+        "tests.test_command_catalog.CommandCatalogTests.test_time_handler_still_deterministic",
         "tests.test_command_handlers.PureCommandHandlerTests.test_catalog_attaches_handlers_only_to_pure_commands",
         "tests.test_command_handlers.PureCommandHandlerTests.test_handled_command_ids_are_explicit_and_stable",
         "tests.test_command_handlers.PureCommandHandlerTests.test_insert_date_time_formats_explicit_moment",
@@ -250,17 +247,15 @@
         "tests.test_command_handlers.PureCommandHandlerTests.test_statistics_handler_is_read_only",
         "tests.test_command_handlers.PureCommandHandlerTests.test_uppercase_lowercase_handlers",
         "tests.test_command_handlers.PureCommandHandlerTests.test_writing_handlers_match_existing_pure_functions",
-        "tests.test_command_layer.CommandContextTests.test_context_is_small_and_copyable",
-        "tests.test_command_layer.CommandLayerTests.test_dispatch_handler_exception_is_structured_failure",
-        "tests.test_command_layer.CommandLayerTests.test_dispatch_handler_result",
-        "tests.test_command_layer.CommandLayerTests.test_dispatch_plain_handler_value_is_wrapped",
-        "tests.test_command_layer.CommandLayerTests.test_dispatch_unknown_command_fails_safely",
-        "tests.test_command_layer.CommandLayerTests.test_dispatch_unwired_command_is_noop",
-        "tests.test_command_layer.CommandRegistryTests.test_duplicate_ids_are_rejected",
-        "tests.test_command_layer.CommandRegistryTests.test_invalid_specs_are_rejected",
-        "tests.test_command_layer.CommandRegistryTests.test_register_lookup_and_sorted_listing",
-        "tests.test_command_layer.CommandRegistryTests.test_shortcut_conflict_detection",
-        "tests.test_command_layer.CommandResultTests.test_result_constructors",
+        "tests.test_command_layer.CommandContextTests.test_context_is_small_copyable_and_has_no_app",
+        "tests.test_command_layer.CommandLayerTests.test_duplicate_binding_is_rejected",
+        "tests.test_command_layer.CommandLayerTests.test_expected_input_error_is_structured_but_programmer_error_propagates",
+        "tests.test_command_layer.CommandLayerTests.test_explicit_binding_is_separate_from_metadata",
+        "tests.test_command_layer.CommandLayerTests.test_unknown_unbound_and_disabled_are_fail_closed",
+        "tests.test_command_layer.CommandRegistryTests.test_duplicate_and_invalid_specs_are_rejected",
+        "tests.test_command_layer.CommandRegistryTests.test_metadata_contains_no_handler_or_enabled_state",
+        "tests.test_command_layer.CommandRegistryTests.test_register_lookup_shortcuts_and_sorted_listing",
+        "tests.test_command_layer.CommandRegistryTests.test_shortcut_conflict_detection_reads_all_shortcuts",
         "tests.test_config.ConfigTests.test_clamp_int_bounds_and_default",
         "tests.test_config.ConfigTests.test_json_roundtrip_and_bad_json_default",
         "tests.test_config.ConfigTests.test_recent_files_are_absolute_unique_and_existing",
@@ -2361,7 +2356,7 @@
     },
     "w103-identity-smoke": {
       "kind": "unittest",
-      "release_gate": true,
+      "release_gate": false,
       "zero_skips": true,
       "capabilities": [
         "gtk-display"
@@ -2389,6 +2384,66 @@
       "unset_env": [],
       "test_ids": [
         "tests.test_w103_editor_transaction_app_desktop_e2e.W103EditorTransactionRealAppE2E.test_true_app_transaction_rollback_undo_redo_and_normal_close"
+      ]
+    },
+    "w104-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w104-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_application_bindings_are_explicit_and_almost_total",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_catalog_is_single_stable_identity_authority",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_command_core_is_gtk_free",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_context_has_no_whole_app_or_service_bag",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_identity_is_exact_w104",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_menu_and_check_callbacks_use_stable_command_identity",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_metadata_execution_and_availability_are_separate",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_only_classified_input_failures_are_absorbed",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_parameterized_dynamic_families_use_one_id_plus_payload",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_shortcuts_and_guide_are_catalog_projections",
+        "tests.test_w104_command_action_contract.W104CommandActionContractTests.test_w105_scope_is_not_implemented"
+      ]
+    },
+    "w104-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W104_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w104-identity-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w104_identity_app_desktop_e2e.W104IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w104-command-action-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W104_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w104-command-action-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w104_command_action_app_desktop_e2e.W104CommandActionRealAppE2E.test_true_app_stable_dispatch_parameterization_and_normal_close"
       ]
     }
   }

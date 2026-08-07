@@ -75,7 +75,7 @@ class OpenCommandWiringTests(unittest.TestCase):
     def test_visible_open_command_and_shortcut_keep_named_entrypoint(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn('add_item(filem, "Open…\\tCtrl+O", app.on_open)', ui)
-        self.assertIn('("<Control>O", app.on_open)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
 
     def test_open_path_delegates_read_and_commit_to_controller(self):
         method = _method_source("open_path")

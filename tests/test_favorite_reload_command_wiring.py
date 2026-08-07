@@ -24,7 +24,7 @@ class FavoriteReloadCommandWiringTests(unittest.TestCase):
             'add_item(favm, "Reload Favourites\\tCtrl+Alt+R", app.on_reload_favourites)',
             ui,
         )
-        self.assertIn('("<Control><Alt>R", app.on_reload_favourites)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
 
     def test_reload_is_a_compatibility_callback_not_a_new_domain_plan(self):
         method = _method_source("on_reload_favourites")

@@ -10,9 +10,8 @@ BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
 from calamus_writing import join_lines
 
 
@@ -53,8 +52,8 @@ class JoinLinesLayerWiringTests(unittest.TestCase):
             'add_item(revisem, "Join Lines\\tCtrl+J", app.on_join_lines)',
             ui,
         )
-        self.assertIn('("<Control>J", app.on_join_lines)', ui)
-        self.assertEqual(ui.count("app.on_join_lines"), 2)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertEqual(ui.count("app.on_join_lines"), 1)
         self.assertNotIn(
             'app.apply_text_transform(join_lines, "Join Lines")',
             ui,
@@ -70,7 +69,7 @@ class JoinLinesLayerWiringTests(unittest.TestCase):
         helper = methods["command_layer_join_lines_text"]
         self.assertIn('"writing.join-lines"', helper)
         self.assertIn(
-            'CommandContext(app=self, source="gui", data={"text": text})',
+            'CommandContext(source="gui", data={"text": text})',
             helper,
         )
         for forbidden in [
@@ -122,7 +121,7 @@ class JoinLinesLayerWiringTests(unittest.TestCase):
         )
 
     def test_layer_dynamic_change_noop_and_existing_semantics(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         dirty = "inter-\nrotto su due\nrighe\n\naltro paragrafo\n"
         changed = layer.dispatch(
             "writing.join-lines",
@@ -146,7 +145,7 @@ class JoinLinesLayerWiringTests(unittest.TestCase):
         self.assertEqual(noop.value["text"], noop_text)
 
     def test_layer_matches_existing_pure_semantics_across_edge_cases(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         cases = [
             "",
             "a",

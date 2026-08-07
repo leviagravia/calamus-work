@@ -34,14 +34,14 @@ class StatisticsLayerWiringTests(unittest.TestCase):
     def test_bin_calamus_imports_command_layer_for_statistics_wiring(self):
         source = _source()
         self.assertIn("from calamus_command_context import CommandContext", source)
-        self.assertIn("from calamus_command_layer import CommandLayer", source)
-        self.assertIn("from calamus_command_catalog import build_low_risk_registry", source)
-        self.assertIn("self.command_layer = CommandLayer(build_low_risk_registry())", source)
+        self.assertIn("from calamus_application_commands import build_application_command_layer", source)
+        self.assertIn("from calamus_command_catalog import build_pure_command_layer", source)
+        self.assertIn("self.command_layer = build_pure_command_layer()", source)
 
     def test_document_statistics_method_uses_layer_read_only(self):
         method = _app_method("on_document_statistics")
         self.assertRegex(method, r'self\.command_layer\.dispatch\(\s*"writing\.statistics"')
-        self.assertIn('CommandContext(app=self, source="gui"', method)
+        self.assertIn('CommandContext(source="gui"', method)
         forbidden = [
             ".delete(",
             ".insert(",

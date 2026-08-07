@@ -80,10 +80,7 @@ class _FakeApp:
 class FavoriteOpenCommandWiringTests(unittest.TestCase):
     def test_dynamic_favorite_entries_use_dedicated_entrypoint(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn(
-            'item.connect("activate", lambda _w, p=path: self.open_favourite_path(p))',
-            launcher,
-        )
+        self.assertIn('self.invoke_command("file.favourite.open", source="dynamic-menu", data={"path": p})', launcher)
         favorites_method = _method_source("populate_favourites_menu")
         self.assertNotIn("open_recent_path", favorites_method)
 

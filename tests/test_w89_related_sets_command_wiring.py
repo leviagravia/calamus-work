@@ -1,5 +1,6 @@
 from pathlib import Path
 import unittest
+from tests.w104_command_test_support import guide_has
 
 from calamus_help import load_user_guide, parse_user_guide_sections
 
@@ -11,7 +12,6 @@ class W89RelatedSetsCommandWiringTests(unittest.TestCase):
     def test_research_menu_and_app_register_reference_sets(self):
         app = (ROOT / "bin/calamus").read_text(encoding="utf-8")
         ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
-        shortcuts = (ROOT / "calamus/calamus_shortcuts.py").read_text(encoding="utf-8")
         for required in (
             "ReferenceSetRuntime",
             "self.reference_set_runtime",
@@ -21,7 +21,7 @@ class W89RelatedSetsCommandWiringTests(unittest.TestCase):
         ):
             self.assertIn(required, app)
         self.assertIn('add_item(researchm, "Reference Sets", app.show_reference_sets)', ui)
-        self.assertIn('ShortcutSpec("Research", "Reference Sets", "menu")', shortcuts)
+        self.assertTrue(guide_has("Research", "Reference Sets", "menu"))
 
     def test_references_client_exposes_symmetric_related_editor(self):
         panel = (ROOT / "calamus/calamus_reference_panel.py").read_text(encoding="utf-8")

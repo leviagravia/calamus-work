@@ -107,7 +107,9 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
 
     def test_all_root_commands_converge_on_one_operational_gateway(self):
         launcher=(ROOT/'bin/calamus').read_text(encoding='utf-8')
-        self.assertIn('self.activate_workspace_path,', launcher)
+        self.assertIn('"file.workspace.recent.open",', launcher)
+        self.assertIn('source="dynamic-menu",', launcher)
+        self.assertIn('data={"path": path},', launcher)
         self.assertIn('return self.activate_workspace_path(selected)', launcher)
         self.assertIn('def activate_workspace_path(self, path):', launcher)
         self.assertIn('self.workspace_panel_runtime.set_visible(True)', launcher)

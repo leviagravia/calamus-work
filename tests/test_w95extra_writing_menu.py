@@ -62,8 +62,9 @@ class W95ExtraWritingMenuTests(unittest.TestCase):
     def test_typewriter_is_checked_and_shortcut_is_unique(self):
         source = UI.read_text(encoding="utf-8")
         self.assertIn('app.typewriter_item = Gtk.CheckMenuItem(label="Typewriter Mode\\tShift+F9")', source)
-        self.assertIn('("<Shift>F9", app.toggle_typewriter_mode)', source)
-        self.assertEqual(source.count("<Shift>F9"), 1)
+        self.assertIn("command_shortcut_bindings()", source)
+        from tests.w104_command_test_support import actual_binding_has
+        self.assertTrue(actual_binding_has("writing.typewriter-mode", "<Shift>F9"))
         launcher = LAUNCHER.read_text(encoding="utf-8")
         lifecycle = (ROOT / "calamus/calamus_application_lifecycle_app.py").read_text(encoding="utf-8")
         self.assertIn("on_typewriter_item_toggled", launcher)
@@ -94,12 +95,12 @@ class W95ExtraWritingMenuTests(unittest.TestCase):
             self.assertIn(label, guide)
         self.assertIn("## Typewriter Mode", guide)
         version = VERSION.read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W103"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Editor Transaction Extraction"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"',
             version,
         )
-        self.assertIn("c8ee3d5970a0cb1d05e4c4320a2117fe7e493368", version)
+        self.assertIn("ca1a9774085d81d087f7a257dbffbbaa858a3889", version)
 
 
 if __name__ == "__main__":

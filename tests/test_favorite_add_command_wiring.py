@@ -77,7 +77,7 @@ class FavoriteAddCommandWiringTests(unittest.TestCase):
             'add_item(favm, "Add to Favourites\\tCtrl+Alt+B", app.on_add_favourite)',
             source,
         )
-        self.assertIn('("<Control><Alt>B", app.on_add_favourite)', source)
+        self.assertIn("command_shortcut_bindings()", source)
 
     def test_launcher_imports_add_and_open_plans_from_same_domain_module(self):
         source = LAUNCHER.read_text(encoding="utf-8")

@@ -10,9 +10,8 @@ BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
 from calamus_writing import smart_typography
 
 
@@ -33,7 +32,7 @@ class SmartTypographyLayerWiringTests(unittest.TestCase):
     def test_command_is_visible_in_revise_menu_and_not_lambda_wired(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn('add_item(revisem, "Smart Typography\\tCtrl+Alt+M", app.on_smart_typography)', ui)
-        self.assertIn('("<Control><Alt>M", app.on_smart_typography)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
         self.assertNotIn('app.apply_text_transform(smart_typography, "Smart Typography")', ui)
 
     def test_dispatch_surface_adds_only_smart_typography(self):
@@ -48,7 +47,7 @@ class SmartTypographyLayerWiringTests(unittest.TestCase):
         _source, methods = app_methods()
         helper = methods["command_layer_smart_typography_text"]
         self.assertIn('"writing.smart-typography"', helper)
-        self.assertIn('CommandContext(app=self, source="gui", data={"text": text})', helper)
+        self.assertIn('CommandContext(source="gui", data={"text": text})', helper)
         for forbidden in [
             ".delete(",
             ".insert(",
@@ -84,7 +83,7 @@ class SmartTypographyLayerWiringTests(unittest.TestCase):
         )
 
     def test_layer_smart_typography_dynamic_noop_and_change(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         changed = layer.dispatch(
             "writing.smart-typography",
             CommandContext(source="test", data={"text": '"ciao" -- ok...'}),

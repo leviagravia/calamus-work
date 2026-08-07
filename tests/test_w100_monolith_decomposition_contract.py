@@ -35,7 +35,7 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
         self.assertLess(self.app.end_lineno - self.app.lineno + 1, metrics["app_lines"])
         # W101-W103 may add bounded compatibility gateways while preserving
         # strict launcher/App line-count reduction from the W100 monolith.
-        self.assertEqual(len(self.methods), 276)
+        self.assertEqual(len(self.methods), 277)
         method_names = {node.name for node in self.methods}
         for name in (
             "document", "current_file", "modified", "loading",
@@ -45,7 +45,7 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
             "_project_history_restore",
         ):
             self.assertIn(name, method_names)
-        self.assertLessEqual(len(self.methods), metrics["app_method_count"] + 10)
+        self.assertLessEqual(len(self.methods), metrics["app_method_count"] + 11)
 
     def test_every_app_method_is_assigned_once(self):
         data = self.load("CALAMUS_W100_APP_METHOD_RESPONSIBILITY_INVENTORY.json")
@@ -80,7 +80,8 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
         self.assertEqual(len(records), 35)
         self.assertEqual(len(actual), 35)
         self.assertTrue(all(r["migration_work_item"] in {"W105", "W107"} for r in records))
-        # W101 is allowed exactly one new whole-App boundary: the root entry.
+        # W101 added the root entry. W104 adds four explicit application-bound
+        # command/UI adapters while command core itself remains App-free.
         current = []
         for path in sorted((ROOT / "calamus").glob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -90,7 +91,14 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
                 args = [a.arg for a in node.args.args + node.args.kwonlyargs]
                 if "app" in args:
                     current.append((path.name, node.name))
-        self.assertEqual(len(current), 36)
+        self.assertEqual(len(current), 40)
+        w104_entries = {item for item in current if item in {
+            ("calamus_application_commands.py", "invoke_check_command"),
+            ("calamus_application_commands.py", "build_application_command_layer"),
+            ("calamus_ui.py", "add_command_item"),
+            ("calamus_ui.py", "connect_check_command"),
+        }}
+        self.assertEqual(len(w104_entries), 4)
         self.assertEqual(
             [item for item in current if item[1] == "compose_core_application_components"],
             [("calamus_application_composition.py", "compose_core_application_components")],

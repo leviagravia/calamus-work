@@ -1,5 +1,6 @@
 import ast
 import unittest
+from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,10 +54,9 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
 
     def test_shortcut_now_targets_research_panel_without_duplication(self):
         ui = source(UI)
-        shortcuts = source(SHORTCUTS)
-        self.assertIn('("<Control><Alt>C", app.toggle_research_panel)', ui)
-        self.assertIn('ShortcutSpec("Research", "Research Panel", "Ctrl+Alt+C")', shortcuts)
-        self.assertNotIn('ShortcutSpec("View", "Clip Collection", "Ctrl+Alt+C")', shortcuts)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertTrue(guide_has("Research", "Research Panel", "Ctrl+Alt+C"))
+        self.assertFalse(guide_has("View", "Clip Collection", "Ctrl+Alt+C"))
 
     def test_app_composes_authorities_but_does_not_own_reference_crud(self):
         launcher = source(LAUNCHER)

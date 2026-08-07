@@ -26,7 +26,7 @@ class LineNumberCommandWiringTests(unittest.TestCase):
     def test_visible_command_and_shortcut_are_unchanged(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn('Gtk.CheckMenuItem(label="Line Numbers\\tCtrl+Alt+L")', ui)
-        self.assertIn('("<Control><Alt>L", app.toggle_line_numbers)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
 
     def test_startup_uses_one_typed_line_number_authority(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")

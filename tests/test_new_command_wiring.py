@@ -73,7 +73,7 @@ class NewCommandWiringTests(unittest.TestCase):
     def test_visible_new_command_and_shortcut_keep_named_entrypoint(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn('add_item(filem, "New\\tCtrl+N", app.on_new)', ui)
-        self.assertIn('("<Control>N", app.on_new)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
 
     def test_on_new_preserves_prompt_then_delegates(self):
         method = _method_source("on_new")

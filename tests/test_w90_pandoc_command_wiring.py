@@ -2,6 +2,7 @@
 from pathlib import Path
 import ast
 import unittest
+from tests.w104_command_test_support import guide_has
 
 from calamus_help import load_user_guide, parse_user_guide_sections
 
@@ -12,11 +13,10 @@ class W90PandocCommandWiringTests(unittest.TestCase):
     def test_exactly_one_research_command_is_wired(self):
         launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
         ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
-        shortcuts = (ROOT / "calamus/calamus_shortcuts.py").read_text(encoding="utf-8")
         label = "Export with Pandoc/citeproc…"
         self.assertEqual(ui.count(label), 1)
         self.assertIn(f'add_item(researchm, "{label}", app.on_export_with_pandoc)', ui)
-        self.assertIn('ShortcutSpec("Research", "Export with Pandoc/citeproc", "menu")', shortcuts)
+        self.assertTrue(guide_has("Research", "Export with Pandoc/citeproc", "menu"))
         for token in (
             "PandocExportController",
             "PandocExportRuntime",

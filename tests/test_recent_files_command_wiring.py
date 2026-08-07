@@ -78,7 +78,7 @@ class RecentFilesCommandWiringTests(unittest.TestCase):
         launcher = LAUNCHER.read_text(encoding="utf-8")
         ui = UI.read_text(encoding="utf-8")
         self.assertIn('app.recent_item = Gtk.MenuItem(label="Recent Files")', ui)
-        self.assertIn('item.connect("activate", lambda _w, p=path: self.open_recent_path(p))', launcher)
+        self.assertIn('self.invoke_command("file.recent.open", source="dynamic-menu", data={"path": p})', launcher)
 
     def test_launcher_imports_pure_recent_plan(self):
         source = LAUNCHER.read_text(encoding="utf-8")

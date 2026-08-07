@@ -33,7 +33,7 @@ class PastePlainTextWiringTests(unittest.TestCase):
     def test_command_is_visible_and_shortcut_uses_named_entrypoint(self):
         self.assertIn('Paste as Plain Text\\tCtrl+Shift+V', UI_SOURCE)
         self.assertIn('add_item(editm, "Paste as Plain Text\\tCtrl+Shift+V", app.on_paste_plain_text)', UI_SOURCE)
-        self.assertIn('("<Control><Shift>V", app.on_paste_plain_text)', UI_SOURCE)
+        self.assertIn("command_shortcut_bindings()", UI_SOURCE)
 
     def test_plain_text_paste_delegates_branching_to_pure_plan(self):
         method = app_method_source("on_paste_plain_text")

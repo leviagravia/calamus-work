@@ -110,11 +110,13 @@ class RightPanelCommandWiringTests(unittest.TestCase):
     def test_visible_command_moves_coherently_to_research_without_duplication(self):
         ui = source(UI)
         self.assertIn('"Research Panel\\tCtrl+Alt+C"', ui)
-        self.assertIn('(\"<Control><Alt>C\", app.toggle_research_panel)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
         self.assertIn('add_item(researchm, "Clip Collection", app.show_clip_collection)', ui)
         self.assertIn('add_item(researchm, "Bibliography", app.show_references)', ui)
         self.assertIn('add_item(researchm, "Source Notes", app.show_source_notes)', ui)
-        self.assertIn('f"<Control><Alt>{i}"', ui)
+        from tests.w104_command_test_support import actual_binding_has
+        for i in range(1, 10):
+            self.assertTrue(actual_binding_has("research.insert-clip-slot", f"<Control><Alt>{i}", number=i))
         view_block = ui[ui.index('viewm = top_menu(app, "View")'):ui.index('optm = top_menu(app, "Options")')]
         self.assertNotIn("Clip Collection", view_block)
 

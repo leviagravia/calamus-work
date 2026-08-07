@@ -17,10 +17,9 @@ HANDLERS = ROOT / "calamus" / "calamus_command_handlers.py"
 WRITING = ROOT / "calamus" / "calamus_writing.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry, low_risk_command_specs
-from calamus_command_context import CommandContext
+from calamus_command_catalog import build_pure_command_layer, low_risk_command_specs
+from calamus_command_context import CommandContext, CommandInputError
 from calamus_command_handlers import handle_insert_date_time
-from calamus_command_layer import CommandLayer
 from calamus_writing import current_date_string
 
 
@@ -63,8 +62,8 @@ class InsertDateTimeLayerWiringTests(unittest.TestCase):
             'add_item(writingm, "Insert Date and Time\\tCtrl+Alt+D", app.on_insert_datetime)',
             ui,
         )
-        self.assertIn('("<Control><Alt>D", app.on_insert_datetime)', ui)
-        self.assertEqual(ui.count("app.on_insert_datetime"), 2)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertEqual(ui.count("app.on_insert_datetime"), 1)
 
     def test_dispatch_surface_adds_only_insert_date_time(self):
         source = BIN.read_text(encoding="utf-8")
@@ -77,15 +76,15 @@ class InsertDateTimeLayerWiringTests(unittest.TestCase):
     def test_catalog_promotes_existing_identity_to_pure_handler(self):
         specs = {spec.command_id: spec for spec in low_risk_command_specs()}
         spec = specs["writing.insert-date-time"]
-        self.assertIsNotNone(spec.handler)
         self.assertIn("pure-handler", spec.flags)
-        self.assertIn("text-insertion", spec.flags)
-        self.assertNotIn("metadata-only", spec.flags)
+        self.assertNotIn("handler", {field for field in spec.__dataclass_fields__})
+        layer = build_pure_command_layer()
+        self.assertIn("writing.insert-date-time", layer.binding_ids())
         catalog = CATALOG.read_text(encoding="utf-8")
-        self.assertIn('handler=pure_handler_for("writing.insert-date-time")', catalog)
+        self.assertNotIn('handler=pure_handler_for("writing.insert-date-time")', catalog)
 
     def test_handler_formats_only_explicit_time(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         now = datetime(2026, 7, 12, 19, 5, 9)
         default = layer.dispatch(
             "writing.insert-date-time",
@@ -106,14 +105,14 @@ class InsertDateTimeLayerWiringTests(unittest.TestCase):
         self.assertEqual(custom.value, {"text": "12/07/2026 19:05:09"})
 
     def test_handler_rejects_implicit_or_invalid_time(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         missing = layer.dispatch(
             "writing.insert-date-time", CommandContext(source="test")
         )
         self.assertFalse(missing.success)
-        self.assertEqual(missing.message, "Command failed: writing.insert-date-time")
+        self.assertEqual(missing.message, "Command input rejected: writing.insert-date-time")
 
-        with self.assertRaisesRegex(TypeError, "now.*datetime"):
+        with self.assertRaisesRegex(CommandInputError, "now.*datetime"):
             handle_insert_date_time(
                 CommandContext(source="test", data={"now": "2026-07-12"})
             )

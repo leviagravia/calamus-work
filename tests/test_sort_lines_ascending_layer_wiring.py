@@ -10,9 +10,8 @@ BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
 from calamus_writing import sort_lines
 
 
@@ -53,8 +52,8 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
             'add_item(revisem, "Sort Alphabetically A-Z\\tCtrl+Alt+Up", app.on_sort_lines_ascending)',
             ui,
         )
-        self.assertIn('("<Control><Alt>Up", app.on_sort_lines_ascending)', ui)
-        self.assertEqual(ui.count("app.on_sort_lines_ascending"), 2)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertEqual(ui.count("app.on_sort_lines_ascending"), 1)
         self.assertNotIn(
             'lambda *_: app.apply_text_transform(lambda t: sort_lines(t, reverse=False), "Sort A-Z")',
             ui,
@@ -72,7 +71,7 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
         self.assertIn('def command_layer_sort_lines_text(self, text, reverse=False):', helper)
         self.assertIn('"writing.sort-lines"', helper)
         self.assertIn(
-            'CommandContext(app=self, source="gui", data={"text": text, "reverse": reverse})',
+            'CommandContext(source="gui", data={"text": text, "reverse": reverse})',
             helper,
         )
         for forbidden in [
@@ -125,7 +124,7 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
         )
 
     def test_layer_default_remains_ascending_and_noop_safe(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         source = "zeta\nAlfa\nbeta\n"
         changed = layer.dispatch(
             "writing.sort-lines",
@@ -146,7 +145,7 @@ class SortLinesAscendingLayerWiringTests(unittest.TestCase):
         self.assertEqual(noop.value["text"], noop_text)
 
     def test_layer_ascending_matches_existing_pure_semantics_across_edge_cases(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         cases = [
             "",
             "single",

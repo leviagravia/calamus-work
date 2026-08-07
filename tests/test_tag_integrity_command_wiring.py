@@ -1,5 +1,6 @@
 import ast
 import unittest
+from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +26,7 @@ class TagIntegrityCommandWiringTests(unittest.TestCase):
     def test_research_menu_exposes_one_menu_only_command(self):
         line = 'add_item(researchm, "Tag Integrity…", app.on_tag_integrity)'
         self.assertEqual(UI.count(line), 1)
-        self.assertIn('ShortcutSpec("Research", "Tag Integrity", "menu")', SHORTCUTS)
+        self.assertTrue(guide_has("Research", "Tag Integrity", "menu"))
         self.assertNotIn("Tag Integrity…\\t", UI)
 
     def test_app_gateway_is_thin_and_composes_existing_authorities(self):

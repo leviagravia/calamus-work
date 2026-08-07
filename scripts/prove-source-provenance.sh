@@ -32,6 +32,12 @@ else:
 modules = [
     "calamus_application_components",
     "calamus_application_composition",
+    "calamus_application_commands",
+    "calamus_command_registry",
+    "calamus_command_catalog",
+    "calamus_command_context",
+    "calamus_command_layer",
+    "calamus_command_handlers",
     "calamus_editor_composition",
     "calamus_editor_buffer_adapter",
     "calamus_editor_transaction",

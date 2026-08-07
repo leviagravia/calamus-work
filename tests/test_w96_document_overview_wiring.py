@@ -66,9 +66,9 @@ class W96DocumentOverviewWiringTests(unittest.TestCase):
 
     def test_w96_help_is_preserved_and_current_identity_is_w98(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W103"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Editor Transaction Extraction"', version)
-        self.assertIn('PUBLISHED_BASELINE = "c8ee3d5970a0cb1d05e4c4320a2117fe7e493368"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"', version)
+        self.assertIn('PUBLISHED_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"', version)
         guide = (ROOT / "share/doc/calamus/USER_GUIDE.md").read_text(encoding="utf-8")
         for token in (
             "## Document Overview",

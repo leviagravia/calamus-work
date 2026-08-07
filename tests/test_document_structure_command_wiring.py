@@ -1,6 +1,7 @@
 import ast
 from pathlib import Path
 import unittest
+from tests.w104_command_test_support import guide_has
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,12 +96,11 @@ class DocumentStructureCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Bookmark", revise_block)
 
     def test_shortcuts_use_canonical_navigate_identity(self):
-        source = SHORTCUTS.read_text(encoding="utf-8")
-        self.assertIn('ShortcutSpec("Navigate", "Go to Line", "Ctrl+L")', source)
-        self.assertIn('ShortcutSpec("Navigate", "Go to Section", "Ctrl+Shift+L")', source)
-        self.assertIn('ShortcutSpec("Navigate", "Next Heading", "Ctrl+PageDown")', source)
-        self.assertIn('ShortcutSpec("Navigate", "Previous Heading", "Ctrl+PageUp")', source)
-        self.assertNotIn('ShortcutSpec("Edit", "Go to Line", "Ctrl+L")', source)
+        self.assertTrue(guide_has("Navigate", "Go to Line", "Ctrl+L"))
+        self.assertTrue(guide_has("Navigate", "Go to Section", "Ctrl+Shift+L"))
+        self.assertTrue(guide_has("Navigate", "Next Heading", "Ctrl+PageDown"))
+        self.assertTrue(guide_has("Navigate", "Previous Heading", "Ctrl+PageUp"))
+        self.assertFalse(guide_has("Edit", "Go to Line", "Ctrl+L"))
 
     def test_w71_reuses_w70_structure_without_structural_editing(self):
         source = LAUNCHER.read_text(encoding="utf-8") + UI.read_text(encoding="utf-8")

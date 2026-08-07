@@ -10,9 +10,8 @@ BIN = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
 from calamus_writing import clean_pdf_text
 
 
@@ -33,7 +32,7 @@ class CleanSelectedPdfLayerWiringTests(unittest.TestCase):
     def test_command_is_visible_in_revise_menu_and_not_lambda_wired(self):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn('add_item(revisem, "Clean Selected Text from PDF\\tCtrl+Alt+Shift+V", app.on_clean_selected_pdf)', ui)
-        self.assertIn('("<Control><Alt><Shift>V", app.on_clean_selected_pdf)', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
         self.assertNotIn('app.apply_text_transform(clean_pdf_text, "Clean PDF Text")', ui)
 
     def test_dispatch_surface_adds_only_clean_pdf(self):
@@ -62,7 +61,7 @@ class CleanSelectedPdfLayerWiringTests(unittest.TestCase):
         _source, methods = app_methods()
         helper = methods["command_layer_clean_pdf_text"]
         self.assertIn('"writing.clean-pdf"', helper)
-        self.assertIn('CommandContext(app=self, source="gui", data={"text": text})', helper)
+        self.assertIn('CommandContext(source="gui", data={"text": text})', helper)
         for forbidden in [
             ".delete(",
             ".insert(",
@@ -101,7 +100,7 @@ class CleanSelectedPdfLayerWiringTests(unittest.TestCase):
         )
 
     def test_layer_clean_pdf_dynamic_noop_and_change(self):
-        layer = CommandLayer(build_low_risk_registry())
+        layer = build_pure_command_layer()
         dirty = "inter-\nrupted text\nkeeps line"
         changed = layer.dispatch(
             "writing.clean-pdf",

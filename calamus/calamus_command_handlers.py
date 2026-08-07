@@ -14,7 +14,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from calamus_command_context import CommandContext, CommandResult
+from calamus_command_context import CommandContext, CommandInputError, CommandResult
 from calamus_writing import (
     clean_pdf_text,
     current_date_string,
@@ -38,7 +38,7 @@ def _context_text(context: CommandContext) -> str:
     if text is None:
         return ""
     if not isinstance(text, str):
-        raise TypeError("CommandContext data['text'] must be a string")
+        raise CommandInputError("CommandContext data['text'] must be a string")
     return text
 
 
@@ -67,9 +67,9 @@ def handle_insert_date_time(context: CommandContext) -> CommandResult:
     now = context.get("now")
     fmt = context.get("format", "%Y-%m-%d %H:%M")
     if not isinstance(now, datetime):
-        raise TypeError("CommandContext data['now'] must be a datetime")
+        raise CommandInputError("CommandContext data['now'] must be a datetime")
     if not isinstance(fmt, str):
-        raise TypeError("CommandContext data['format'] must be a string")
+        raise CommandInputError("CommandContext data['format'] must be a string")
     insertion = current_date_string(fmt=fmt, now=now)
     return CommandResult.ok(
         changed=bool(insertion),
@@ -81,7 +81,7 @@ def handle_sort_lines(context: CommandContext) -> CommandResult:
     original = _context_text(context)
     reverse = context.get("reverse", False)
     if not isinstance(reverse, bool):
-        raise TypeError("CommandContext data['reverse'] must be a boolean")
+        raise CommandInputError("CommandContext data['reverse'] must be a boolean")
     transformed = sort_lines(original, reverse=reverse)
     return _text_result(original, transformed)
 
@@ -118,7 +118,7 @@ def handle_reflow_paragraph(context: CommandContext) -> CommandResult:
     original = _context_text(context)
     width = context.get("width", 72)
     if not isinstance(width, int):
-        raise TypeError("CommandContext data['width'] must be an integer")
+        raise CommandInputError("CommandContext data['width'] must be an integer")
     transformed = reflow_paragraph(original, width=width)
     return _text_result(original, transformed)
 

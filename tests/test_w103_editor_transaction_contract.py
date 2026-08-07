@@ -11,13 +11,11 @@ BASELINE = "c8ee3d5970a0cb1d05e4c4320a2117fe7e493368"
 class W103EditorTransactionContractTests(unittest.TestCase):
     def test_identity_is_exact(self):
         source = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        for token in (
-            'DEVELOPMENT_BUILD_LABEL = "Development build"',
-            'DEVELOPMENT_WORK_ITEM = "W103"',
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Editor Transaction Extraction"',
-            f'PUBLISHED_BASELINE = "{BASELINE}"',
-        ):
-            self.assertIn(token, source)
+        contract = (ROOT / "docs/canonical/CALAMUS_W103_EDITOR_TRANSACTION_CONTRACT.md").read_text(encoding="utf-8")
+        self.assertIn(BASELINE, contract)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', source)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"', source)
+        self.assertIn('PUBLISHED_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"', source)
 
     def test_transaction_controller_is_gtk_free(self):
         source = (ROOT / "calamus/calamus_editor_transaction.py").read_text(encoding="utf-8")

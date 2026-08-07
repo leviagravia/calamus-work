@@ -1,6 +1,7 @@
 import ast
 from pathlib import Path
 import unittest
+from tests.w104_command_test_support import guide_has
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "bin/calamus").read_text(encoding="utf-8")
@@ -13,7 +14,7 @@ class UserGuideCommandWiringTests(unittest.TestCase):
     def test_help_menu_exposes_one_user_guide_command(self):
         line = 'add_item(helpm, "User Guide…", app.on_user_guide)'
         self.assertEqual(UI.count(line), 1)
-        self.assertIn('ShortcutSpec("Help", "User Guide", "menu")', SHORTCUTS)
+        self.assertTrue(guide_has("Help", "User Guide", "menu"))
 
     def test_app_gateway_only_loads_and_shows_guide(self):
         tree = ast.parse(APP)

@@ -75,8 +75,8 @@ from calamus_dialogs import (
 )
 from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts, add_item as ui_add_item, add_separator as ui_add_separator, top_menu as ui_top_menu
 from calamus_command_context import CommandContext
-from calamus_command_layer import CommandLayer
-from calamus_command_catalog import build_low_risk_registry
+from calamus_command_catalog import build_pure_command_layer
+from calamus_application_commands import build_application_command_layer
 from calamus_application_composition import compose_core_application_components
 from calamus_editor_transaction import EditorChangeKind
 
@@ -200,7 +200,8 @@ class App(Gtk.Window):
         super().__init__(title=APP_TITLE)
         self.state = StateManager(CONFIG_DIR)
         self.settings = self.load_settings()
-        self.command_layer = CommandLayer(build_low_risk_registry())
+        self.command_layer = build_pure_command_layer()
+        self.command_actions = build_application_command_layer(self)
         self.application_lifecycle = ApplicationLifecycleCoordinator()
 
         width = clamp_int(self.settings.get("width"), DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
@@ -455,9 +456,10 @@ class App(Gtk.Window):
                 parsed = GLib.filename_from_uri(uri)
                 path = parsed[0] if parsed else None
                 if path and os.path.isfile(path):
-                    if self.may_continue():
-                        self.open_path(path)
-                        opened = True
+                    result = self.invoke_command(
+                        "file.open-drop", source="drop", data={"path": path}
+                    )
+                    opened = bool(result.success and result.value)
                     break
         except Exception as e:
             self.error(str(e))
@@ -497,6 +499,13 @@ class App(Gtk.Window):
         if saved:
             self.settings = data
         return saved
+
+    def invoke_command(self, command_id, *, source="gui", data=None):
+        """Invoke one stable W104 user command through explicit application bindings."""
+        return self.command_actions.dispatch(
+            command_id,
+            CommandContext(source=source, data=dict(data or {})),
+        )
 
     def build_menu(self):
         ui_build_menu(self)
@@ -652,7 +661,7 @@ class App(Gtk.Window):
         for i, val in enumerate(vals):
             b = Gtk.Button(label=f"{val}%")
             b.set_size_request(58, 28)
-            b.connect("clicked", lambda _w, v=val: (self.set_opacity_value(v), d.response(Gtk.ResponseType.CANCEL)))
+            b.connect("clicked", lambda _w, v=val: (self.invoke_command("options.opacity.set", source="dialog", data={"percent": v}), d.response(Gtk.ResponseType.CANCEL)))
             grid.attach(b, i % 3, i // 3, 1, 1)
         box.pack_start(grid, False, False, 0)
         d.show_all(); d.run(); d.destroy()
@@ -1029,7 +1038,7 @@ class App(Gtk.Window):
         # Compute uppercase text through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "edit.uppercase",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(source="gui", data={"text": text}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1044,7 +1053,7 @@ class App(Gtk.Window):
         # Compute lowercase text through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "edit.lowercase",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(source="gui", data={"text": text}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1060,7 +1069,7 @@ class App(Gtk.Window):
         # Compute Smart Typography through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.smart-typography",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(source="gui", data={"text": text}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1076,7 +1085,7 @@ class App(Gtk.Window):
         # Compute Reflow Paragraph through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.reflow-paragraph",
-            CommandContext(app=self, source="gui", data={"text": text, "width": width}),
+            CommandContext(source="gui", data={"text": text, "width": width}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1092,7 +1101,7 @@ class App(Gtk.Window):
         # Compute Clean PDF Text through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.clean-pdf",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(source="gui", data={"text": text}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1108,7 +1117,7 @@ class App(Gtk.Window):
         # Compute Remove Extra Spaces through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.remove-extra-spaces",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(source="gui", data={"text": text}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1124,7 +1133,7 @@ class App(Gtk.Window):
         # Compute Join Lines through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.join-lines",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(source="gui", data={"text": text}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1140,7 +1149,7 @@ class App(Gtk.Window):
         # Compute Remove Trailing Spaces through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.remove-trailing-spaces",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(source="gui", data={"text": text}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1156,7 +1165,7 @@ class App(Gtk.Window):
         # Compute Title Case through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.title-case",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(source="gui", data={"text": text}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1172,7 +1181,7 @@ class App(Gtk.Window):
         # Compute line sorting through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.sort-lines",
-            CommandContext(app=self, source="gui", data={"text": text, "reverse": reverse}),
+            CommandContext(source="gui", data={"text": text, "reverse": reverse}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1188,7 +1197,7 @@ class App(Gtk.Window):
         # Compute Sentence Case through CommandLayer without mutating Gtk.TextBuffer.
         result = self.command_layer.dispatch(
             "writing.sentence-case",
-            CommandContext(app=self, source="gui", data={"text": text}),
+            CommandContext(source="gui", data={"text": text}),
         )
         if result.success and isinstance(result.value, dict):
             transformed = result.value.get("text", text)
@@ -1484,7 +1493,7 @@ class App(Gtk.Window):
         text_before_statistics = self.buffer_text()
         result = self.command_layer.dispatch(
             "writing.statistics",
-            CommandContext(app=self, source="gui", data={"text": text_before_statistics}),
+            CommandContext(source="gui", data={"text": text_before_statistics}),
         )
         if result.success and isinstance(result.value, dict) and "statistics" in result.value:
             stats = result.value["statistics"]
@@ -1513,7 +1522,7 @@ class App(Gtk.Window):
         else:
             for name, path in templates:
                 item = Gtk.MenuItem(label=name)
-                item.connect("activate", lambda _w, p=path: self.on_new_from_template(p))
+                item.connect("activate", lambda _w, p=path: self.invoke_command("file.template.open", source="dynamic-menu", data={"path": p}))
                 self.template_menu.append(item)
         self.template_menu.show_all()
 
@@ -1697,7 +1706,7 @@ class App(Gtk.Window):
             dialog.destroy()
 
     def command_layer_insert_date_time_text(self, now, fmt="%Y-%m-%d %H:%M"):
-        result = self.command_layer.dispatch("writing.insert-date-time", CommandContext(app=self, source="gui", data={"now": now, "format": fmt}))
+        result = self.command_layer.dispatch("writing.insert-date-time", CommandContext(source="gui", data={"now": now, "format": fmt}))
         insertion = result.value.get("text", "") if result.success and isinstance(result.value, dict) else ""
         return (insertion, bool(insertion)) if isinstance(insertion, str) else ("", False)
 
@@ -1739,7 +1748,7 @@ class App(Gtk.Window):
                 label = os.path.basename(path) or path
                 item = Gtk.MenuItem(label=label)
                 item.set_tooltip_text(path)
-                item.connect("activate", lambda _w, p=path: self.open_favourite_path(p))
+                item.connect("activate", lambda _w, p=path: self.invoke_command("file.favourite.open", source="dynamic-menu", data={"path": p}))
                 self.favourites_menu.append(item)
                 dynamic_items.append(item)
 
@@ -1873,7 +1882,7 @@ class App(Gtk.Window):
                 label = os.path.basename(path) or path
                 item = Gtk.MenuItem(label=label)
                 item.set_tooltip_text(path)
-                item.connect("activate", lambda _w, p=path: self.open_recent_path(p))
+                item.connect("activate", lambda _w, p=path: self.invoke_command("file.recent.open", source="dynamic-menu", data={"path": p}))
                 self.recent_menu.append(item)
             self.sep(self.recent_menu)
             self.item(self.recent_menu, "Clear Recent Files", self.on_clear_recent)
@@ -2606,7 +2615,11 @@ class App(Gtk.Window):
         return workspace_populate_recent_menu(
             self.recent_workspaces_menu,
             self.state.load_recent_workspaces(),
-            self.activate_workspace_path,
+            lambda path: self.invoke_command(
+                "file.workspace.recent.open",
+                source="dynamic-menu",
+                data={"path": path},
+            ),
         )
 
     def show_workspace_panel(self, *_):

@@ -1,5 +1,6 @@
 import ast
 import unittest
+from tests.w104_command_test_support import guide_has
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,9 +65,8 @@ class ScratchpadCommandWiringTests(unittest.TestCase):
     def test_document_mutation_and_clipboard_use_app_gateways(self):
         gateway = source(ROOT / "calamus/calamus_scratchpad_gateway.py")
         self.assertIn('app.execute_command("Insert Scratchpad Body"', gateway)
-        shortcuts = source(ROOT / "calamus/calamus_shortcuts.py")
-        self.assertIn('ShortcutSpec("Research", "Scratchpad", "Ctrl+Alt+S")', shortcuts)
-        self.assertIn('ShortcutSpec("Research", "Capture Selection in Scratchpad", "Ctrl+Alt+Shift+S")', shortcuts)
+        self.assertTrue(guide_has("Research", "Scratchpad", "Ctrl+Alt+S"))
+        self.assertTrue(guide_has("Research", "Capture Selection in Scratchpad", "Ctrl+Alt+Shift+S"))
         self.assertIn("app.text.grab_focus()", gateway)
         self.assertIn("clipboard.set_text", gateway)
         self.assertNotIn("open(", gateway)

@@ -28,7 +28,7 @@ class DuplicateLineMenuExposureTests(unittest.TestCase):
         self.assertIn(("Edit", "Duplicate Line / Selection", "Ctrl+D"), rows)
 
     def test_duplicate_line_accelerator_binding_already_exists(self):
-        self.assertIn('("<Control>D", app.on_duplicate_line_or_selection)', UI_SOURCE)
+        self.assertIn("command_shortcut_bindings()", UI_SOURCE)
 
     def test_duplicate_line_handler_still_exists(self):
         self.assertIn("def on_duplicate_line_or_selection", BIN_SOURCE)

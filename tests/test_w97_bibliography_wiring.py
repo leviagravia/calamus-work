@@ -63,9 +63,9 @@ class W97BibliographyWiringTests(unittest.TestCase):
 
     def test_w97_core_is_preserved_under_current_w98_identity(self):
         version = self.source("calamus/calamus_version.py")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W103"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Editor Transaction Extraction"', version)
-        self.assertIn('PUBLISHED_BASELINE = "c8ee3d5970a0cb1d05e4c4320a2117fe7e493368"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W104"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Command and Action Architecture"', version)
+        self.assertIn('PUBLISHED_BASELINE = "ca1a9774085d81d087f7a257dbffbbaa858a3889"', version)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import ast
 from pathlib import Path
 import unittest
+from tests.w104_command_test_support import guide_has
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,10 +22,9 @@ def _method_source(name: str) -> str:
 class TextWrapCommandWiringTests(unittest.TestCase):
     def test_visible_command_and_shortcut_remain_single_named_entrypoint(self):
         ui = UI.read_text(encoding="utf-8")
-        self.assertIn('app.word_wrap_item.connect("toggled", app.on_word_wrap)', ui)
-        self.assertIn('("<Alt>Z", app.toggle_word_wrap)', ui)
-        shortcuts = SHORTCUTS.read_text(encoding="utf-8")
-        self.assertIn('ShortcutSpec("Options", "Word Wrap", "Alt+Z")', shortcuts)
+        self.assertIn('connect_check_command(app.word_wrap_item, app, "options.word-wrap")', ui)
+        self.assertIn("command_shortcut_bindings()", ui)
+        self.assertTrue(guide_has("Options", "Word Wrap", "Alt+Z"))
 
     def test_startup_uses_typed_loader_not_python_truthiness(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")

@@ -48,7 +48,7 @@ class OpacityCommandWiringTests(unittest.TestCase):
         ui = UI.read_text(encoding="utf-8")
         self.assertIn('Gtk.CheckMenuItem(label="Transparent Mode\\tCtrl+Shift+T")', ui)
         self.assertIn("app.opacity_percent < 100", ui)
-        self.assertIn("app.set_opacity_value(val)", ui)
+        self.assertIn('add_command_item(opacity_menu, f"{opacity}%", app, "options.opacity.set", {"percent": opacity})', ui)
         setter = _method_source("set_opacity_value")
         self.assertIn("execute_opacity_preference_request", setter)
         self.assertNotIn("save_settings", setter)
