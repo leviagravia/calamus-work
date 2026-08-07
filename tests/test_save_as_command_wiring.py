@@ -35,9 +35,14 @@ def _compiled_method(name):
     return scope[name]
 
 
+class _ApplicationState:
+    def __init__(self, events): self.events = events
+    def record_last_file(self, path): self.events.append(("application-state", path)); return True
+
+
 class _App:
     def __init__(self, fail=False):
-        self.events=[]; self.buffer="Body"
+        self.events=[]; self.application_state=_ApplicationState(self.events); self.buffer="Body"
         session=DocumentSession(Document("Body", "/tmp/original.txt", True))
         def write(path,text):
             self.events.append(("write",path,text))
@@ -59,7 +64,7 @@ class _App:
     def document(self): return self.document_session.document
     def add_recent_file(self,path): self.events.append(("recent",path))
     def update_title(self): self.events.append(("title",))
-    def save_settings(self): self.events.append(("settings",)); return True
+    def save_settings(self): self.events.append(("application-state",)); return True
     def error(self,msg): self.events.append(("error",msg))
 
 
@@ -90,7 +95,7 @@ class SaveAsCommandWiringTests(unittest.TestCase):
         self.assertTrue(execute(app,plan))
         self.assertEqual(app.current_file,"/tmp/new.txt")
         self.assertFalse(app.modified)
-        self.assertEqual([e[0] for e in app.events],["write","recent","title","settings"])
+        self.assertEqual([e[0] for e in app.events],["write","recent","title","application-state"])
 
     def test_save_as_cancel_is_mutation_free(self):
         self.assertIn("if plan is None:", _method_source("save_as"))

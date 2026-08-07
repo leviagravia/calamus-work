@@ -99,8 +99,15 @@ class W101CoreCompositionRealAppE2E(unittest.TestCase):
                 window.show_all()
                 pump()
                 try:
-                    self.assertEqual(Path(window.state.config_dir).resolve(), paths.calamus_config_dir)
-                    self.assertEqual(Path(window.state.settings_file).resolve(), paths.calamus_config_dir / "settings.json")
+                    self.assertEqual(Path(window.config_dir).resolve(), paths.calamus_config_dir)
+                    self.assertEqual(
+                        Path(window.persistence.config_dir).resolve(),
+                        paths.calamus_config_dir,
+                    )
+                    self.assertEqual(
+                        Path(window.persistence.repository.settings_file).resolve(),
+                        paths.calamus_config_dir / "settings.json",
+                    )
 
                     components = window._components
                     self.assertTrue(components.composition_complete)

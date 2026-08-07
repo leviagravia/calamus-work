@@ -71,8 +71,13 @@ class _App:
         self.events.append("may-continue")
         return self.continuation
 
-    def save_settings(self):
-        self.events.append("save-settings")
+    def record_window_geometry(self):
+        self.events.append("record-geometry")
+        return True
+
+    def record_last_file(self):
+        self.events.append("record-last-file")
+        return True
 
     def error(self, message):
         self.errors.append(message)
@@ -102,7 +107,7 @@ class QuitLifecycleTests(unittest.TestCase):
         app = _App(continuation=True)
         self.assertTrue(self.request_close(app))
         self.assertEqual(
-            app.events, ["may-continue", "pre-destroy", "save-settings", "destroy"]
+            app.events, ["may-continue", "pre-destroy", "record-geometry", "record-last-file", "destroy"]
         )
         self.assertTrue(app._application_close_in_progress)
 
@@ -117,7 +122,7 @@ class QuitLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "destroy failed"):
             self.request_close(app)
         self.assertEqual(
-            app.events, ["may-continue", "pre-destroy", "save-settings", "destroy"]
+            app.events, ["may-continue", "pre-destroy", "record-geometry", "record-last-file", "destroy"]
         )
         self.assertFalse(app._application_close_in_progress)
 

@@ -32,7 +32,7 @@ from calamus_command_registry import (  # noqa: E402
     CommandSpec,
 )
 
-BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"
+BASELINE = "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b"
 EXPECTED_LOW_RISK = {
     "edit.lowercase", "edit.uppercase", "writing.clean-pdf",
     "writing.insert-date-time", "writing.join-lines", "writing.reflow-paragraph",
@@ -51,8 +51,8 @@ class W104CommandActionContractTests(unittest.TestCase):
     def test_w104_is_preserved_under_current_w105_identity(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         self.assertIn('DEVELOPMENT_BUILD_LABEL = "Development build"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W106"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Preferences and Application State Extraction"', version)
         self.assertIn(f'PUBLISHED_BASELINE = "{BASELINE}"', version)
 
     def test_catalog_is_single_stable_identity_authority(self):

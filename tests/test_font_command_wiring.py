@@ -27,10 +27,10 @@ class FontCommandWiringTests(unittest.TestCase):
 
     def test_startup_uses_typed_font_loader(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn("font_preference = load_font_preference(self.settings)", launcher)
-        self.assertIn("self.font_size = font_preference.size", launcher)
-        self.assertIn("self.font_family = font_preference.family", launcher)
-        self.assertNotIn('self.settings.get("font_family", "Monospace")', launcher)
+        self.assertIn("self.persistence = build_preferences_application_state_components(CONFIG_DIR)", launcher)
+        self.assertIn("return self.preference_snapshot.font_size", launcher)
+        self.assertIn("return self.preference_snapshot.font_family", launcher)
+        self.assertNotIn("self.settings", launcher)
 
     def test_apply_font_is_thin_and_css_left_launcher(self):
         method = _method_source("apply_font")
@@ -64,14 +64,12 @@ class FontCommandWiringTests(unittest.TestCase):
     def test_font_callback_is_persist_then_apply_gateway(self):
         method = _method_source("on_font")
         self.assertIn("prepare_font_preference_plan", method)
-        self.assertIn('"font_family": plan.requested.family', method)
-        self.assertIn('"font_size": plan.requested.size', method)
-        self.assertIn("self.font_family = plan.requested.family", method)
-        self.assertIn("self.font_size = plan.requested.size", method)
-        self.assertIn("self.apply_font()", method)
-        self.assertIn("return True", method)
-        self.assertLess(method.index("self.save_settings"), method.index("self.font_family ="))
-        self.assertLess(method.index("self.font_size ="), method.index("self.apply_font"))
+        self.assertIn("font_family=plan.requested.family", method)
+        self.assertIn("font_size=plan.requested.size", method)
+        self.assertIn("self.update_preferences(", method)
+        self.assertNotIn("self.save_settings", method)
+        self.assertNotIn("self.font_family =", method)
+        self.assertNotIn("self.font_size =", method)
 
     def test_font_callback_has_no_document_or_undo_mutation(self):
         method = _method_source("on_font")

@@ -32,18 +32,18 @@ def _function_source(path: Path, name: str) -> str:
 class OpacityCommandWiringTests(unittest.TestCase):
     def test_startup_has_one_typed_opacity_authority(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn("opacity_preference = load_opacity_preference(self.settings)", launcher)
-        self.assertIn("self.opacity_percent = opacity_preference.percent", launcher)
+        self.assertIn("self.persistence = build_preferences_application_state_components(CONFIG_DIR)", launcher)
+        self.assertIn("return self.preference_snapshot.opacity_percent", launcher)
         self.assertIn("self._opacity_widget_api = Gtk.Widget", launcher)
-        self.assertNotIn('clamp_int(self.settings.get("opacity")', launcher)
+        self.assertNotIn("self.settings", launcher)
         self.assertNotIn("self.set_opacity(", launcher)
         self.assertNotIn("self.get_opacity(", launcher)
 
     def test_settings_write_canonical_state_not_runtime_widget(self):
-        method = _method_source("save_settings")
-        self.assertIn("opacity_settings_overrides(self.opacity_percent)", method)
-        self.assertNotIn("get_opacity", method)
-        self.assertNotIn("transparent_item.get_active", method)
+        preferences = (ROOT / "calamus" / "calamus_preferences.py").read_text(encoding="utf-8")
+        self.assertIn("opacity_settings_overrides(self.opacity_percent)", preferences)
+        self.assertNotIn("get_opacity", preferences)
+        self.assertNotIn("transparent_item.get_active", preferences)
 
     def test_visible_command_and_fixed_values_share_gateway(self):
         ui = legacy_menu_projection()
@@ -51,14 +51,14 @@ class OpacityCommandWiringTests(unittest.TestCase):
         self.assertIn("app.opacity_percent < 100", ui)
         self.assertIn('add_command_item(opacity_menu, f"{opacity}%", app, "options.opacity.set", {"percent": opacity})', ui)
         setter = _method_source("set_opacity_value")
-        self.assertIn("execute_opacity_preference_request", setter)
+        self.assertIn("self.update_preferences(opacity_percent=requested)", setter)
         self.assertNotIn("save_settings", setter)
         self.assertNotIn("self.set_opacity(", setter)
 
     def test_transparent_callback_is_thin_and_document_independent(self):
         callback = _method_source("on_transparent_mode")
         self.assertNotIn("_syncing_opacity_item", callback)
-        self.assertIn("execute_transparent_mode_request", callback)
+        self.assertIn("self.update_preferences(opacity_percent=requested)", callback)
         for forbidden in (
             "document",
             "current_file",

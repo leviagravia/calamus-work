@@ -1,0 +1,9 @@
+W106 ROADMAP RESOLUTION
+
+Current work item: W106 — Preferences and Application State Extraction.
+Published baseline: aa73cc830b2c2120e26fd7ffb5d21b56c95e709b.
+
+W106 owns typed user preferences, durable application/launch state, the single settings.json persistence authority, and narrow persistent recent/favourite/recent-workspace stores.
+W105 UiStateSnapshot remains runtime-only and distinct.
+W107 — Subsystem Host-Port Migration is NOT STARTED and remains next only after W106 is CLOSED/CERTIFIED/PUBLISHED.
+W108+ ownership remains unchanged.

@@ -106,13 +106,13 @@ class NavigatorCompositionInput:
 @dataclass(frozen=True)
 class WorkspaceCompositionInput:
     left_panel_host: Any
-    state: Any
+    recent_workspaces: Any
     text_view: Any
     workspace_root: str | None
     workspace_visible: bool
     may_continue: Callable[[], bool]
     open_document: Callable[[str], bool]
-    save_settings: Callable[..., bool]
+    record_workspace_root: Callable[[str | None], bool]
     report_error: Callable[[str], None]
     on_root_changed: Callable[[str | None], None]
     on_recent_changed: Callable[[], None]

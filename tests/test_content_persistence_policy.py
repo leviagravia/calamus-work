@@ -5,6 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CLIPS = ROOT / "calamus" / "calamus_clips.py"
 STATE = ROOT / "calamus" / "calamus_state.py"
+SETTINGS_REPOSITORY = ROOT / "calamus" / "calamus_settings_repository.py"
+COLLECTIONS = ROOT / "calamus" / "calamus_persistent_collections.py"
 REFERENCES = ROOT / "calamus" / "calamus_reference_store.py"
 SOURCE_NOTES = ROOT / "calamus" / "calamus_source_note_store.py"
 MANAGED_SIDECARS = ROOT / "calamus" / "calamus_managed_sidecars.py"
@@ -31,12 +33,12 @@ class ContentPersistencePolicyTests(unittest.TestCase):
         self.assertNotIn("json.dump", clips)
 
     def test_json_remains_allowed_for_technical_application_state(self):
-        state = source(STATE)
+        combined = "\n".join((source(STATE), source(SETTINGS_REPOSITORY), source(COLLECTIONS)))
         for filename in ("settings.json", "recent.json", "favourites.json"):
-            self.assertIn(filename, state)
-        self.assertIn("save_json_file", state)
-        self.assertIn("JSON remains valid for technical application state", state)
-        self.assertIn("canonical UTF-8 Markdown store", state)
+            self.assertIn(filename, combined)
+        self.assertIn("save_json_file", combined)
+        self.assertIn("W106 narrow persistence owners", source(STATE))
+        self.assertIn("Clip Collection has its own Markdown store", source(STATE))
 
 
     def test_references_are_global_utf8_markdown_not_json(self):

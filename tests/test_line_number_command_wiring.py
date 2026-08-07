@@ -31,20 +31,20 @@ class LineNumberCommandWiringTests(unittest.TestCase):
 
     def test_startup_uses_one_typed_line_number_authority(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn("line_number_preference = load_line_number_preference(self.settings)", launcher)
-        self.assertIn("self.line_numbers_enabled = line_number_preference.enabled", launcher)
-        self.assertNotIn('bool(self.settings.get("line_numbers"', launcher)
+        self.assertIn("self.persistence = build_preferences_application_state_components(CONFIG_DIR)", launcher)
+        self.assertIn("return self.preference_snapshot.line_numbers", launcher)
+        self.assertNotIn("self.settings", launcher)
         self.assertNotIn("self.show_line_numbers", launcher)
 
     def test_settings_write_canonical_state_not_menu_state(self):
-        method = _method_source("save_settings")
-        self.assertIn("line_number_settings_overrides(self.line_numbers_enabled)", method)
-        self.assertNotIn("line_item.get_active", method)
+        preferences = (ROOT / "calamus" / "calamus_preferences.py").read_text(encoding="utf-8")
+        self.assertIn("line_number_settings_overrides(self.line_numbers)", preferences)
+        self.assertNotIn("line_item.get_active", preferences)
 
     def test_callback_is_thin_guarded_and_document_independent(self):
         method = _method_source("on_line_numbers")
         self.assertNotIn("_syncing_line_number_item", method)
-        self.assertIn("execute_line_number_preference_request", method)
+        self.assertIn("self.update_preferences(line_numbers=bool(item.get_active()))", method)
         self.assertLessEqual(len(method.splitlines()), 4)
         for forbidden in (
             "document",

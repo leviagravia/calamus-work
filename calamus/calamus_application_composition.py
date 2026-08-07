@@ -1,6 +1,8 @@
 """Stateless W101 orchestration for the non-Research application graph."""
 from __future__ import annotations
 
+import os
+
 from calamus_application_components import (
     ClipCollectionCompositionInput,
     CoreApplicationComponents,
@@ -45,7 +47,7 @@ def compose_core_application_components(
 ) -> CoreApplicationComponents:
     document_session = build_document_session_components(
         DocumentSessionCompositionInput(
-            initial_file_path=app.settings.get("last_file") or None,
+            initial_file_path=app.persisted_application_state.last_file,
             read_buffer_text=app._read_buffer_text_raw,
             replace_buffer_text=app._replace_buffer_text_raw,
             reset_undo_history=app.reset_undo_history,
@@ -92,13 +94,13 @@ def compose_core_application_components(
     )
     workspace_input = WorkspaceCompositionInput(
         left_panel_host=navigator.left_panel_host,
-        state=app.state,
+        recent_workspaces=app.recent_workspace_store,
         text_view=app.text,
-        workspace_root=app.workspace_root,
-        workspace_visible=app.workspace_visible,
+        workspace_root=(app.persisted_application_state.workspace_root if app.persisted_application_state.workspace_root and os.path.isdir(app.persisted_application_state.workspace_root) else None),
+        workspace_visible=app.persisted_application_state.workspace_visible,
         may_continue=app.may_continue,
         open_document=app.open_path,
-        save_settings=app.save_settings,
+        record_workspace_root=app.application_state.record_workspace_root,
         report_error=app.error,
         on_root_changed=app.on_workspace_root_changed,
         on_recent_changed=app.populate_recent_workspaces_menu,
@@ -127,7 +129,7 @@ def compose_core_application_components(
     clips = build_clip_collection_components(
         ClipCollectionCompositionInput(
             dialog_parent=app,
-            config_dir=app.state.config_dir,
+            config_dir=app.config_dir,
             text_view=app.text,
             execute_command=app.execute_command,
             get_cursor_offset=app.get_cursor_offset,

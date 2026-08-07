@@ -68,9 +68,9 @@ class W96DocumentOverviewWiringTests(unittest.TestCase):
 
     def test_w96_help_is_preserved_and_current_identity_is_w98(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"', version)
-        self.assertIn('PUBLISHED_BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W106"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Preferences and Application State Extraction"', version)
+        self.assertIn('PUBLISHED_BASELINE = "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b"', version)
         guide = (ROOT / "share/doc/calamus/USER_GUIDE.md").read_text(encoding="utf-8")
         for token in (
             "## Document Overview",

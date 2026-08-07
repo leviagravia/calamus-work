@@ -1,37 +1,24 @@
-"""Persistent application state for Calamus.
+"""Compatibility facade over the W106 narrow persistence owners.
 
-This module centralizes settings, recent files, favourites, clips, and
-template paths. JSON remains valid for technical application state. User-owned
-Clip Collection content is delegated to its canonical UTF-8 Markdown store;
-legacy JSON is migration input only.
+The running application no longer receives this object as a persistence
+service.  Historical tests/callers may still use ``StateManager`` while it
+forwards settings and path collections to the W106 repositories.  Clip and
+template compatibility remain explicitly non-authoritative and are kept only
+until their already-owning subsystems finish the later host-port migration.
 """
 from __future__ import annotations
 
 import os
 from typing import Any
 
-from calamus_config import (
-    CONFIG_DIR,
-    SETTINGS_FILE,
-    RECENT_FILE,
-    FAVOURITES_FILE,
-    clamp_int,
-    load_json_file,
-    save_json_file,
-    load_settings,
-    save_settings,
-    load_recent_files,
-    save_recent_files,
-    add_recent_file,
-    load_favourite_store,
-    load_favourites,
-    save_favourites,
-)
 from calamus_clips import load_clips, save_clips
+from calamus_config import CONFIG_DIR
+from calamus_persistent_collections import FavouriteStore, RecentFileStore, RecentWorkspaceStore
+from calamus_settings_repository import SettingsCodec, SettingsRepository
 
 
 class StateManager:
-    """Small compatibility layer for all persistent Calamus state."""
+    """Deprecated compatibility facade; not an application composition authority."""
 
     def __init__(self, config_dir: str = CONFIG_DIR):
         self.config_dir = config_dir
@@ -39,82 +26,54 @@ class StateManager:
         self.recent_file = os.path.join(config_dir, "recent.json")
         self.favourites_file = os.path.join(config_dir, "favourites.json")
         self.recent_workspaces_file = os.path.join(config_dir, "recent-workspaces.json")
+        self._settings = SettingsRepository(config_dir)
+        self._recent = RecentFileStore(config_dir)
+        self._favourites = FavouriteStore(config_dir)
+        self._recent_workspaces = RecentWorkspaceStore(config_dir)
 
     def ensure_dir(self) -> None:
         os.makedirs(self.config_dir, exist_ok=True)
 
     def load_settings(self) -> dict[str, Any]:
-        if self.config_dir == CONFIG_DIR:
-            return load_settings()
-        data = load_json_file(self.settings_file, {})
-        return data if isinstance(data, dict) else {}
+        return SettingsCodec.encode(self._settings.reload())
 
     def save_settings(self, data: dict[str, Any]) -> bool:
         if not isinstance(data, dict):
             return False
-        if self.config_dir == CONFIG_DIR:
-            return save_settings(data)
-        return save_json_file(self.settings_file, data)
+        return self._settings.replace(SettingsCodec.decode(data))
 
     def load_recent_file_store(self, limit: int = 10) -> list[str]:
-        """Load canonical recent paths without dropping temporarily missing entries."""
-        if self.config_dir == CONFIG_DIR:
-            return _dedupe_paths(load_json_file(RECENT_FILE, []))[:limit]
-        return _dedupe_paths(load_json_file(self.recent_file, []))[:limit]
+        return self._recent.canonical()[:limit]
 
     def load_recent_files(self, limit: int = 10) -> list[str]:
-        if self.config_dir == CONFIG_DIR:
-            return load_recent_files(limit)
-        return _clean_existing_paths(self.load_recent_file_store(limit), limit)
+        return self._recent.visible()[:limit]
 
     def save_recent_files(self, items: list[str], limit: int = 10) -> bool:
-        if self.config_dir == CONFIG_DIR:
-            return save_recent_files(items, limit)
-        return save_json_file(self.recent_file, _dedupe_paths(items)[:limit])
+        return RecentFileStore(self.config_dir, limit).save(items)
 
     def add_recent_file(self, path: str, limit: int = 10) -> list[str]:
-        if self.config_dir == CONFIG_DIR:
-            return add_recent_file(path, limit)
-        if not path:
-            return self.load_recent_files(limit)
-        path = os.path.abspath(path)
-        items = [x for x in self.load_recent_files(limit) if x != path]
-        items.insert(0, path)
-        self.save_recent_files(items, limit)
-        return items[:limit]
+        # W106 integrity rule: build from canonical, never the filtered menu list.
+        return RecentFileStore(self.config_dir, limit).add(path)
 
     def load_favourite_store(self, limit: int = 50) -> list[str]:
-        """Load canonical Favorite paths, including temporarily unavailable ones."""
-        if self.config_dir == CONFIG_DIR:
-            return load_favourite_store(limit)
-        return _dedupe_paths(load_json_file(self.favourites_file, []))[:limit]
+        return self._favourites.canonical()[:limit]
 
     def load_favourites(self, limit: int = 50) -> list[str]:
-        if self.config_dir == CONFIG_DIR:
-            return load_favourites(limit)
-        return _clean_existing_paths(self.load_favourite_store(limit), limit)
+        return self._favourites.visible()[:limit]
 
     def save_favourites(self, items: list[str], limit: int = 50) -> bool:
-        if self.config_dir == CONFIG_DIR:
-            return save_favourites(items, limit)
-        return save_json_file(self.favourites_file, _dedupe_paths(items)[:limit])
-
+        return FavouriteStore(self.config_dir, limit).save(items)
 
     def load_recent_workspaces(self, limit: int = 10) -> list[str]:
-        return _clean_existing_directories(load_json_file(self.recent_workspaces_file, []), limit)
+        return RecentWorkspaceStore(self.config_dir, limit).visible()
 
     def save_recent_workspaces(self, items: list[str], limit: int = 10) -> bool:
-        return save_json_file(self.recent_workspaces_file, _dedupe_paths(items)[:limit])
+        return RecentWorkspaceStore(self.config_dir, limit).save(items)
 
     def add_recent_workspace(self, path: str, limit: int = 10) -> list[str]:
-        if not isinstance(path, str) or not path:
-            return self.load_recent_workspaces(limit)
-        absolute = os.path.abspath(path)
-        items = [item for item in self.load_recent_workspaces(limit) if item != absolute]
-        items.insert(0, absolute)
-        self.save_recent_workspaces(items, limit)
-        return items[:limit]
+        return RecentWorkspaceStore(self.config_dir, limit).add(path)
 
+    # Explicit compatibility only: Clip Collection has its own Markdown store.
     def load_clips(self, limit: int = 200) -> list[dict[str, Any]]:
         return load_clips(self.config_dir, limit)
 
@@ -126,35 +85,3 @@ class StateManager:
         path = os.path.join(self.config_dir, "templates")
         os.makedirs(path, exist_ok=True)
         return path
-
-
-def _dedupe_paths(items: Any) -> list[str]:
-    clean: list[str] = []
-    for item in items if isinstance(items, list) else []:
-        if isinstance(item, str) and item and item not in clean:
-            clean.append(item)
-    return clean
-
-
-def _clean_existing_paths(items: Any, limit: int) -> list[str]:
-    clean: list[str] = []
-    for item in items if isinstance(items, list) else []:
-        if isinstance(item, str):
-            path = os.path.abspath(item)
-            if os.path.exists(path) and path not in clean:
-                clean.append(path)
-        if len(clean) >= limit:
-            break
-    return clean
-
-
-def _clean_existing_directories(items: Any, limit: int) -> list[str]:
-    clean: list[str] = []
-    for item in items if isinstance(items, list) else []:
-        if isinstance(item, str):
-            path = os.path.abspath(item)
-            if os.path.isdir(path) and path not in clean:
-                clean.append(path)
-        if len(clean) >= limit:
-            break
-    return clean

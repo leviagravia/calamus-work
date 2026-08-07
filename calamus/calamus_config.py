@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from typing import Any
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "calamus")
@@ -45,20 +46,45 @@ def load_json_file(path: str, default: Any) -> Any:
 
 
 def save_json_file(path: str, data: Any) -> bool:
-    tmp = path + ".tmp"
+    """Durably replace one small technical-state JSON file.
+
+    W106 uses a unique same-directory temporary file so concurrent/aborted
+    writers cannot share the historical ``.tmp`` name.  The file is flushed
+    and fsynced before ``os.replace``; parent-directory fsync is best effort
+    because not every supported filesystem exposes it.
+    """
+    directory = os.path.dirname(path) or "."
+    tmp = None
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.makedirs(directory, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(prefix=f".{os.path.basename(path)}.", suffix=".tmp", dir=directory)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, path)
+        tmp = None
+        try:
+            dir_fd = os.open(directory, os.O_RDONLY)
+        except OSError:
+            dir_fd = None
+        if dir_fd is not None:
+            try:
+                os.fsync(dir_fd)
+            except OSError:
+                pass
+            finally:
+                os.close(dir_fd)
         return True
     except OSError:
-        try:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
-        except OSError:
-            pass
         return False
+    finally:
+        if tmp is not None:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
 
 def _clean_existing_paths(items: Any, limit: int) -> list[str]:
@@ -82,8 +108,20 @@ def save_settings(data: dict[str, Any]) -> bool:
     return save_json_file(SETTINGS_FILE, data)
 
 
+def load_recent_file_store(limit: int = 10) -> list[str]:
+    clean: list[str] = []
+    for item in load_json_file(RECENT_FILE, []):
+        if isinstance(item, str) and item:
+            path = os.path.abspath(item)
+            if path not in clean:
+                clean.append(path)
+        if len(clean) >= limit:
+            break
+    return clean
+
+
 def load_recent_files(limit: int = 10) -> list[str]:
-    return _clean_existing_paths(load_json_file(RECENT_FILE, []), limit)
+    return _clean_existing_paths(load_recent_file_store(limit), limit)
 
 
 def save_recent_files(items: list[str], limit: int = 10) -> bool:
@@ -98,7 +136,7 @@ def add_recent_file(path: str, limit: int = 10) -> list[str]:
     if not path:
         return load_recent_files(limit)
     path = os.path.abspath(path)
-    items = [x for x in load_recent_files(limit) if x != path]
+    items = [x for x in load_recent_file_store(limit) if x != path]
     items.insert(0, path)
     save_recent_files(items, limit)
     return items[:limit]

@@ -36,12 +36,15 @@ class _App:
         self.persist = persist
         self.events = []
         self.errors = []
-    def save_settings(self, overrides=None):
-        self.events.append(("save-settings", dict(overrides or {})))
-        return self.persist
-    def queue_wrap_reflow(self): self.events.append(("queue-wrap-reflow", self.word_wrap))
+    def update_preferences(self, **changes):
+        self.events.append(("update-preferences", dict(changes)))
+        if not self.persist:
+            self.events.append(("refresh-ui-state", self.word_wrap))
+            self.errors.append("could not persist preferences")
+            return False
+        self.word_wrap = changes.get("word_wrap", self.word_wrap)
+        return True
     def refresh_ui_state(self): self.events.append(("refresh-ui-state", self.word_wrap))
-    def update_title(self): self.events.append(("update-title", self.word_wrap))
     def error(self, message): self.errors.append(message)
 
 
@@ -56,12 +59,7 @@ class TextWrapLifecycleTests(unittest.TestCase):
         app = _App(enabled=False, persist=True)
         self.assertTrue(self.set_wrap(app, True))
         self.assertTrue(app.word_wrap)
-        self.assertEqual(app.events, [
-            ("save-settings", {"word_wrap": True}),
-            ("queue-wrap-reflow", True),
-            ("refresh-ui-state", True),
-            ("update-title", True),
-        ])
+        self.assertEqual(app.events, [("update-preferences", {"word_wrap": True})])
         self.assertEqual(app.errors, [])
 
     def test_persistence_failure_keeps_logical_state_and_reprojects(self):
@@ -69,10 +67,10 @@ class TextWrapLifecycleTests(unittest.TestCase):
         self.assertFalse(self.set_wrap(app, True))
         self.assertFalse(app.word_wrap)
         self.assertEqual(app.events, [
-            ("save-settings", {"word_wrap": True}),
+            ("update-preferences", {"word_wrap": True}),
             ("refresh-ui-state", False),
         ])
-        self.assertEqual(app.errors, ["Could not save the Word Wrap preference."])
+        self.assertEqual(app.errors, ["could not persist preferences"])
 
     def test_noop_only_reprojects(self):
         app = _App(enabled=True, persist=True)

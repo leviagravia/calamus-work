@@ -193,8 +193,9 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('def plan_workspace_rename_identity(', identity)
         self.assertIn('self.document_session.rebind_path(identity.current_file_after)', launcher)
         self.assertIn('getattr(self, "research_document_context_changed", lambda: None)()', launcher)
-        self.assertIn('self.state.save_recent_files', launcher)
-        self.assertIn('self.state.save_favourites', launcher)
+        self.assertIn('self.recent_file_store.save', launcher)
+        self.assertIn('self.favourite_store.save', launcher)
+        self.assertIn('self.application_state.record_last_file', launcher)
 
 
     def test_duplicate_uses_pure_plan_gio_copy_and_reconciliation_without_identity_transfer(self):

@@ -94,11 +94,12 @@ class FavoriteEditCommandWiringTests(unittest.TestCase):
 
     def test_state_exposes_canonical_store_separate_from_available_view(self):
         state_source = STATE.read_text(encoding="utf-8")
-        config_source = CONFIG.read_text(encoding="utf-8")
-        self.assertIn("def load_favourite_store", state_source)
-        self.assertIn("def load_favourite_store", config_source)
-        self.assertIn("return _clean_existing_paths(self.load_favourite_store(limit), limit)", state_source)
-        self.assertIn("return _clean_existing_paths(load_favourite_store(limit), limit)", config_source)
+        collections = (ROOT / "calamus" / "calamus_persistent_collections.py").read_text(encoding="utf-8")
+        self.assertIn("class FavouriteStore", collections)
+        self.assertIn("def canonical", collections)
+        self.assertIn("def visible", collections)
+        self.assertIn("self._favourites.canonical()", state_source)
+        self.assertIn("self._favourites.visible()", state_source)
 
     def test_dialog_shape_is_preserved_but_uses_canonical_store(self):
         method = _method_source("on_edit_favourites")

@@ -89,14 +89,14 @@ class RuntimeIdentityWorkingCopyTests(unittest.TestCase):
 
     def test_development_identity_constants_are_exact(self):
         self.assertEqual(DEVELOPMENT_BUILD_LABEL, "Development build")
-        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W105")
+        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W106")
         self.assertEqual(
             DEVELOPMENT_WORK_ITEM_DESCRIPTION,
-            "Menu and UI-State Decoupling",
+            "Preferences and Application State Extraction",
         )
         self.assertEqual(
             PUBLISHED_BASELINE,
-            "92aa832c6b72cb7a81a5a44c656890ec602d9d41",
+            "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b",
         )
 
     def test_historical_package_version_is_preserved_but_not_runtime_label(self):

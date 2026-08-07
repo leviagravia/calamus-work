@@ -37,9 +37,15 @@ def _compiled_method(name, namespace=None):
     return scope[name]
 
 
+class _ApplicationState:
+    def __init__(self, events): self.events = events
+    def record_last_file(self, path): self.events.append(("application-state", path)); return True
+
+
 class _App:
     def __init__(self, fail=False):
         self.events = []
+        self.application_state = _ApplicationState(self.events)
         self.buffer = "old buffer"
         session = DocumentSession(Document("old document", "/tmp/original.txt", True))
         def replace(text):
@@ -114,7 +120,7 @@ class NewCommandWiringTests(unittest.TestCase):
         self.assertIsNone(app.current_file)
         self.assertEqual(app.document.text, "")
         self.assertFalse(app.modified)
-        self.assertEqual(app.events, [("buffer", ""), ("reset-undo",), ("title",)])
+        self.assertEqual(app.events, [("buffer", ""), ("reset-undo",), ("application-state", None), ("title",)])
 
 
 if __name__ == "__main__":

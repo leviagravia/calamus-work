@@ -72,7 +72,8 @@ class W101IsolationContractTests(unittest.TestCase):
             "paths = runtime_paths(home)",
             "write_settings(paths.calamus_config_dir, workspace, document)",
             'with patch.dict(os.environ, runtime_environment(paths), clear=False):',
-            "self.assertEqual(Path(window.state.config_dir).resolve(), paths.calamus_config_dir)",
+            "self.assertEqual(Path(window.config_dir).resolve(), paths.calamus_config_dir)",
+            "Path(window.persistence.repository.settings_file).resolve(),",
             "self.assertEqual(real_config_before, snapshot_tree(real_config_dir))",
         ):
             self.assertIn(token, source)

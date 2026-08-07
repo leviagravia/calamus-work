@@ -41,10 +41,10 @@ class AppearanceCommandWiringTests(unittest.TestCase):
 
     def test_startup_has_one_typed_appearance_authority(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn("appearance_preference = load_appearance_preference(self.settings)", launcher)
-        self.assertIn("self.appearance_mode = appearance_preference.mode", launcher)
-        self.assertNotIn('self.white_background = bool(self.settings.get', launcher)
-        self.assertNotIn('self.dark_mode = bool(self.settings.get', launcher)
+        self.assertIn("self.persistence = build_preferences_application_state_components(CONFIG_DIR)", launcher)
+        self.assertIn("return self.preference_snapshot.appearance_mode", launcher)
+        self.assertNotIn("self.settings", launcher)
+        self.assertNotIn("self.appearance_mode =", launcher)
         self.assertNotIn("self.theme_name", launcher)
 
     def test_dead_legacy_theme_selector_left_the_launcher(self):
@@ -55,10 +55,10 @@ class AppearanceCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Solarized Dark", launcher)
 
     def test_settings_write_canonical_state_not_menu_state(self):
-        method = _method_source("save_settings")
-        self.assertIn("appearance_settings_overrides(self.appearance_mode)", method)
-        self.assertNotIn("white_item.get_active", method)
-        self.assertNotIn("dark_item.get_active", method)
+        preferences = (ROOT / "calamus" / "calamus_preferences.py").read_text(encoding="utf-8")
+        self.assertIn("appearance_settings_overrides(self.appearance_mode)", preferences)
+        self.assertNotIn("white_item.get_active", preferences)
+        self.assertNotIn("dark_item.get_active", preferences)
 
     def test_request_gateway_left_the_launcher_and_persists_before_render(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
@@ -74,7 +74,7 @@ class AppearanceCommandWiringTests(unittest.TestCase):
     def test_callbacks_are_thin_and_do_not_touch_document_or_undo(self):
         combined = _method_source("on_white_background") + _method_source("on_dark_mode")
         self.assertIn("APPEARANCE_SYSTEM", combined)
-        self.assertIn("execute_appearance_preference_request", combined)
+        self.assertIn("self.update_preferences(appearance_mode=requested)", combined)
         for forbidden in (
             "document",
             "current_file",

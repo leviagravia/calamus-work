@@ -17,15 +17,15 @@ from calamus_application_components import (  # noqa: E402
 )
 from calamus_menu_model import CHECK_COMMAND_IDS, DYNAMIC_SLOT_IDS  # noqa: E402
 
-BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"
+BASELINE = "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b"
 
 
 class W105MenuUiStateContractTests(unittest.TestCase):
     def test_identity_is_exact_w105(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         self.assertIn('DEVELOPMENT_BUILD_LABEL = "Development build"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W105"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W106"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Preferences and Application State Extraction"', version)
         self.assertIn(f'PUBLISHED_BASELINE = "{BASELINE}"', version)
 
     def test_w105_core_modules_are_gtk_free(self):
@@ -163,10 +163,10 @@ class W105MenuUiStateContractTests(unittest.TestCase):
                 "calamus/calamus_ui_state_composition.py",
             )
         )
-        for forbidden in (
-            "PreferencesRepository", "ApplicationStateRepository", "SubsystemHostPort",
-            "WorkspaceHostPort", "ResearchHostPort",
-        ):
+        # W106 persistence is now implemented, but W105 remains a distinct runtime domain.
+        self.assertTrue((ROOT / "calamus/calamus_settings_repository.py").is_file())
+        self.assertTrue((ROOT / "calamus/calamus_preferences.py").is_file())
+        for forbidden in ("SubsystemHostPort", "WorkspaceHostPort", "ResearchHostPort"):
             self.assertNotIn(forbidden, combined)
 
     def test_contract_freezes_exact_check_ids(self):

@@ -14,10 +14,7 @@ gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo
 
 sys.path.insert(0, os.environ.get("CALAMUS_LIB_DIR", "/usr/lib/calamus"))
-from calamus_config import (
-    CONFIG_DIR, clamp_int, load_json_file, save_json_file,
-)
-from calamus_state import StateManager
+from calamus_config import CONFIG_DIR
 from calamus_document import LARGE_FILE_BYTES, is_large_text_file, read_text_file, write_text_file
 from calamus_file_lifecycle import NewPlan, prepare_new_plan, prepare_open_plan, prepare_save_as_plan, prepare_save_plan
 from calamus_recent_files import prepare_open_recent_plan
@@ -83,6 +80,8 @@ from calamus_command_context import CommandContext
 from calamus_command_catalog import build_pure_command_layer
 from calamus_application_commands import build_application_command_layer
 from calamus_application_composition import compose_core_application_components
+from calamus_preferences_composition import build_preferences_application_state_components
+from calamus_preferences_controller import PreferenceProjectionError
 from calamus_editor_transaction import EditorChangeKind
 
 APP_TITLE = "Calamus Copy"
@@ -144,41 +143,25 @@ from calamus_scratchpad_gateway import (
     copy_body as scratchpad_copy_body, sync_document as scratchpad_sync_document,
 )
 from calamus_navigation import line_to_buffer_index
-from calamus_view_preferences import load_text_wrap_preference, prepare_text_wrap_plan
+from calamus_view_preferences import prepare_text_wrap_plan
 from calamus_typography import (
     DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE,
-    load_font_preference, prepare_font_preference_plan,
+    prepare_font_preference_plan,
 )
 from calamus_appearance_preferences import (
     APPEARANCE_DARK,
     APPEARANCE_LIGHT,
     APPEARANCE_SYSTEM,
-    appearance_settings_overrides,
-    load_appearance_preference,
 )
-from calamus_appearance_gateway import execute_appearance_preference_request
 from calamus_opacity import (
     MAX_OPACITY_PERCENT,
-    load_opacity_preference,
-    opacity_settings_overrides,
 )
 from calamus_opacity_view import apply_widget_opacity
-from calamus_opacity_gateway import (
-    execute_opacity_preference_request,
-    execute_transparent_mode_request,
-)
 from calamus_appearance import (
     build_application_css,
     install_application_css,
 )
-from calamus_line_numbers import (
-    line_number_settings_overrides,
-    load_line_number_preference,
-)
-from calamus_line_numbers_gateway import (
-    execute_line_number_preference_request,
-    refresh_line_number_gutter,
-)
+from calamus_line_numbers_gateway import refresh_line_number_gutter
 DEFAULT_FONT = DEFAULT_FONT_SIZE
 MIN_FONT = MIN_FONT_SIZE
 MAX_FONT = MAX_FONT_SIZE
@@ -204,8 +187,12 @@ def _research_document_context_changed(app):
 class App(Gtk.Window):
     def __init__(self):
         super().__init__(title=APP_TITLE)
-        self.state = StateManager(CONFIG_DIR)
-        self.settings = self.load_settings()
+        self.persistence = build_preferences_application_state_components(CONFIG_DIR)
+        self.preferences = self.persistence.preferences
+        self.application_state = self.persistence.application_state
+        self.recent_file_store = self.persistence.recent_files
+        self.favourite_store = self.persistence.favourites
+        self.recent_workspace_store = self.persistence.recent_workspaces
         self.command_layer = build_pure_command_layer()
         self.command_actions = build_application_command_layer(self)
         self.ui_state_components = build_ui_state_components(
@@ -214,38 +201,23 @@ class App(Gtk.Window):
         self.ui_state_controller = self.ui_state_components.controller
         self.application_lifecycle = ApplicationLifecycleCoordinator()
 
-        width = clamp_int(self.settings.get("width"), DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
-        height = clamp_int(self.settings.get("height"), DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT)
-        font_preference = load_font_preference(self.settings)
-        self.font_size = font_preference.size
-        self.font_family = font_preference.family
-        self.word_wrap = load_text_wrap_preference(self.settings)
-        self.always_on_top = bool(self.settings.get("always_on_top", False))
-        self.spell_lang = self.settings.get("spell_lang", "it") if isinstance(self.settings.get("spell_lang", "it"), str) else "it"
+        persisted_state = self.application_state.current
+        width = persisted_state.width
+        height = persisted_state.height
         # Inline spell-check is deliberately disabled in 1.3.0.
         # F7 now runs an external, interactive Hunspell check.
         self.inline_spell_enabled = False
-        appearance_preference = load_appearance_preference(self.settings)
-        self.appearance_mode = appearance_preference.mode
-        opacity_preference = load_opacity_preference(self.settings)
-        self.opacity_percent = opacity_preference.percent
         self._opacity_widget_api = Gtk.Widget
-        configured_workspace = self.settings.get("workspace_root")
-        self.workspace_root = configured_workspace if isinstance(configured_workspace, str) and os.path.isdir(configured_workspace) else None
-        self.workspace_visible = bool(self.settings.get("workspace_visible", False))
 
         self.spell_source = None
         self.word_count_source = None
         self._wrap_reflow_source = None
         self.print_pages = []
-        line_number_preference = load_line_number_preference(self.settings)
-        self.line_numbers_enabled = line_number_preference.enabled
         self.focus_mode = False
         self.typewriter_mode = False
         self.current_line_highlight = False
         self.distraction_free = False
         self.bookmarks = []
-        self.trim_trailing_on_save = bool(self.settings.get("trim_trailing_on_save", False))
 
         self.set_default_size(width, height)
         # Mature GTK editors use a default size plus WM geometry hints; they do
@@ -473,39 +445,99 @@ class App(Gtk.Window):
         Gtk.drag_finish(context, opened, False, time)
         return True
 
-    def load_settings(self):
-        return self.state.load_settings()
+    @property
+    def config_dir(self):
+        return self.persistence.config_dir
 
-    def save_settings(self, overrides=None):
-        self.state.ensure_dir()
+    @property
+    def preference_snapshot(self):
+        return self.preferences.current
+
+    @property
+    def persisted_application_state(self):
+        return self.application_state.current
+
+    @property
+    def font_family(self):
+        return self.preference_snapshot.font_family
+
+    @property
+    def font_size(self):
+        return self.preference_snapshot.font_size
+
+    @property
+    def word_wrap(self):
+        return self.preference_snapshot.word_wrap
+
+    @property
+    def always_on_top(self):
+        return self.preference_snapshot.always_on_top
+
+    @property
+    def spell_lang(self):
+        return self.preference_snapshot.spell_lang
+
+    @property
+    def appearance_mode(self):
+        return self.preference_snapshot.appearance_mode
+
+    @property
+    def opacity_percent(self):
+        return self.preference_snapshot.opacity_percent
+
+    @property
+    def line_numbers_enabled(self):
+        return self.preference_snapshot.line_numbers
+
+    @property
+    def trim_trailing_on_save(self):
+        return self.preference_snapshot.trim_trailing_on_save
+
+    @property
+    def workspace_root(self):
+        runtime = getattr(self, "workspace_application_runtime", None)
+        if runtime is not None:
+            return runtime.root
+        return self.persisted_application_state.workspace_root
+
+    @property
+    def workspace_visible(self):
+        runtime = getattr(self, "workspace_panel_runtime", None)
+        if runtime is not None:
+            return bool(runtime.is_visible)
+        return self.persisted_application_state.workspace_visible
+
+    def _project_preferences_snapshot(self, _snapshot):
+        self.set_keep_above(self.always_on_top)
+        self.apply_opacity_percent(self.opacity_percent)
+        self.apply_font()
+        self.queue_wrap_reflow()
+        if hasattr(self, "line_gutter"):
+            self.update_line_numbers(force=True)
+        self.refresh_ui_state()
+        self.update_title()
+
+    def update_preferences(self, **changes):
+        try:
+            result = self.preferences.update(
+                project=self._project_preferences_snapshot,
+                **changes,
+            )
+        except (OSError, PreferenceProjectionError, TypeError, ValueError) as exc:
+            self.refresh_ui_state()
+            self.error(str(exc))
+            return False
+        if not result.changed:
+            self.refresh_ui_state()
+            return False
+        return True
+
+    def record_window_geometry(self):
         width, height = self.get_size()
-        width = clamp_int(width, DEFAULT_WINDOW_WIDTH, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH)
-        height = clamp_int(height, DEFAULT_WINDOW_HEIGHT, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT)
-        data = {
-            "width": width,
-            "height": height,
-            **opacity_settings_overrides(self.opacity_percent),
-            "font_size": self.font_size,
-            "font_family": self.font_family,
-            "word_wrap": bool(self.word_wrap),
-            "last_file": self.current_file,
-            "workspace_root": getattr(self, "workspace_root", None),
-            "workspace_visible": bool(getattr(self, "workspace_visible", False)),
-            "spell_lang": self.spell_lang,
-            "inline_spell": False,
-            "always_on_top": bool(self.always_on_top),
-            **appearance_settings_overrides(self.appearance_mode),
-            **line_number_settings_overrides(self.line_numbers_enabled),
-            "trim_trailing_on_save": bool(self.trim_trailing_on_save),
-        }
-        if overrides is not None:
-            if not isinstance(overrides, dict):
-                raise TypeError("settings overrides must be a dict")
-            data.update(overrides)
-        saved = self.state.save_settings(data)
-        if saved:
-            self.settings = data
-        return saved
+        return self.application_state.record_window_geometry(width, height)
+
+    def record_last_file(self):
+        return self.application_state.record_last_file(self.current_file)
 
     def invoke_command(self, command_id, *, source="gui", data=None):
         """Invoke one stable W104 user command through explicit application bindings."""
@@ -723,8 +755,7 @@ class App(Gtk.Window):
         if d.run() == Gtk.ResponseType.OK:
             for lang, rb in buttons:
                 if rb.get_active():
-                    self.spell_lang = lang
-                    self.save_settings(); self.update_title()
+                    self.update_preferences(spell_lang=lang)
                     break
         d.destroy()
 
@@ -753,7 +784,7 @@ class App(Gtk.Window):
             operating_system=platform.platform(),
             desktop=os.environ.get("XDG_CURRENT_DESKTOP", "unknown"),
             session=os.environ.get("XDG_SESSION_TYPE", "unknown"),
-            config_path=str(self.state.config_dir),
+            config_path=str(self.config_dir),
             hunspell_dictionaries=dictionaries,
         )
 
@@ -841,7 +872,10 @@ class App(Gtk.Window):
                 f"{failure.owner}: {failure.detail}"
             )
             return False
-        self.save_settings()
+        if not self.record_window_geometry():
+            log_nonfatal("application-state geometry persistence failed", OSError("settings write failed"))
+        if not self.record_last_file():
+            log_nonfatal("application-state last-file persistence failed", OSError("settings write failed"))
         self._application_close_in_progress = True
         try:
             self.destroy()
@@ -879,6 +913,7 @@ class App(Gtk.Window):
     def execute_new_plan(self, plan):
         # The controller commits identity only after Gtk accepts the text.
         self.document_session_controller.execute_new(plan)
+        self.application_state.record_last_file(self.current_file)
         getattr(self, "research_document_context_changed", lambda: None)()
         getattr(self, "refresh_document_overview_if_open", lambda: False)()
         if hasattr(self, "workspace_panel_view") and self.current_file:
@@ -913,7 +948,7 @@ class App(Gtk.Window):
         if hasattr(self, "workspace_panel_view") and self.current_file:
             self.workspace_panel_view.select_path(self.current_file)
         self.update_title()
-        self.save_settings()
+        self.application_state.record_last_file(self.current_file)
         if plan.large_file and not silent:
             self.info("Large file mode", f"This file is larger than {LARGE_FILE_BYTES // 1_000_000} MB. Undo history is limited to keep Calamus responsive.")
         return True
@@ -946,7 +981,7 @@ class App(Gtk.Window):
                     ResearchInvalidationReason.DOCUMENT_CONTENT
                 )
             self.update_title()
-            self.save_settings()
+            self.application_state.record_last_file(self.current_file)
             getattr(self, "refresh_document_overview_if_open", lambda: False)()
             return True
         except (OSError, ValueError) as e:
@@ -982,32 +1017,30 @@ class App(Gtk.Window):
         return self.history_runtime.sync_current_view_state()
 
     def on_top(self, item):
-        requested = bool(item.get_active())
-        self.always_on_top = requested
-        self.set_keep_above(requested)
-        self.update_title()
-        saved = self.save_settings()
-        self.refresh_ui_state()
-        return saved
+        return self.update_preferences(always_on_top=bool(item.get_active()))
 
     def on_white_background(self, item):
         requested = APPEARANCE_LIGHT if item.get_active() else APPEARANCE_SYSTEM
-        return execute_appearance_preference_request(self, requested)
+        return self.update_preferences(appearance_mode=requested)
 
     def on_dark_mode(self, item):
         requested = APPEARANCE_DARK if item.get_active() else APPEARANCE_SYSTEM
-        return execute_appearance_preference_request(self, requested)
+        return self.update_preferences(appearance_mode=requested)
 
     def on_line_numbers(self, item):
-        return execute_line_number_preference_request(self, bool(item.get_active()))
+        return self.update_preferences(line_numbers=bool(item.get_active()))
 
     def set_opacity_value(self, v):
-        return execute_opacity_preference_request(self, v)
+        try:
+            requested = int(v)
+        except (TypeError, ValueError):
+            self.error("Opacity percent must be an integer.")
+            return False
+        return self.update_preferences(opacity_percent=requested)
 
     def change_font(self, delta):
-        self.font_size = max(MIN_FONT, min(MAX_FONT, self.font_size + delta))
-        self.apply_font()
-        self.save_settings()
+        requested = max(MIN_FONT, min(MAX_FONT, self.font_size + int(delta)))
+        return self.update_preferences(font_size=requested)
 
     def replace_selection(self, transform, command_name="Replace Selection"):
         b = self.text.get_buffer()
@@ -1503,8 +1536,7 @@ class App(Gtk.Window):
         self.execute_command("Move Line", edit, select_range=(new_cursor, new_cursor))
 
     def on_trim_trailing_on_save(self, item):
-        self.trim_trailing_on_save = item.get_active()
-        self.save_settings()
+        return self.update_preferences(trim_trailing_on_save=bool(item.get_active()))
 
     def on_document_statistics(self, *_):
         text_before_statistics = self.buffer_text()
@@ -1527,7 +1559,7 @@ class App(Gtk.Window):
         self.large_info("Document Statistics", msg)
 
     def populate_template_menu(self):
-        templates = tuple(list_templates(self.state.config_dir))
+        templates = tuple(list_templates(self.config_dir))
         adapter = getattr(self, "menu_ui_adapter", None)
         if adapter is not None:
             adapter.render_dynamic("templates", template_rows(templates))
@@ -1560,7 +1592,7 @@ class App(Gtk.Window):
     def on_save_as_template(self, *_):
         """Copy the active buffer into the template store without saving the document."""
         try:
-            templates_dir = ensure_templates_dir(self.state.config_dir)
+            templates_dir = ensure_templates_dir(self.config_dir)
             selected_path = choose_save_template(
                 self,
                 templates_dir,
@@ -1569,7 +1601,7 @@ class App(Gtk.Window):
             if selected_path is None:
                 return False
             plan = prepare_save_template_plan(
-                self.state.config_dir,
+                self.config_dir,
                 selected_path,
                 self.buffer_text(),
             )
@@ -1587,7 +1619,7 @@ class App(Gtk.Window):
     def on_manage_templates(self, *_):
         """Open the bounded rename/delete manager for canonical templates."""
         try:
-            entries = list_managed_templates(self.state.config_dir)
+            entries = list_managed_templates(self.config_dir)
         except (OSError, TypeError, ValueError) as e:
             self.error(str(e))
             return False
@@ -1602,7 +1634,7 @@ class App(Gtk.Window):
         """Rename one user template, then refresh the derived template menu."""
         try:
             plan = prepare_rename_template_plan(
-                self.state.config_dir,
+                self.config_dir,
                 source_path,
                 new_name,
             )
@@ -1615,12 +1647,12 @@ class App(Gtk.Window):
 
         self.populate_template_menu()
         self.info(f"Template renamed: {plan.target_name}")
-        return list_managed_templates(self.state.config_dir)
+        return list_managed_templates(self.config_dir)
 
     def delete_managed_template(self, target_path):
         """Delete one user template, then refresh the derived template menu."""
         try:
-            plan = prepare_delete_template_plan(self.state.config_dir, target_path)
+            plan = prepare_delete_template_plan(self.config_dir, target_path)
             delete_template_file(plan)
         except (OSError, TypeError, ValueError) as e:
             self.error(str(e))
@@ -1628,7 +1660,7 @@ class App(Gtk.Window):
 
         self.populate_template_menu()
         self.info(f"Template deleted: {plan.target_name}")
-        return list_managed_templates(self.state.config_dir)
+        return list_managed_templates(self.config_dir)
 
     def set_word_wrap(self, requested_enabled):
         try:
@@ -1640,15 +1672,7 @@ class App(Gtk.Window):
         if not plan.changed:
             self.refresh_ui_state()
             return False
-        if not self.save_settings({"word_wrap": plan.enabled}):
-            self.refresh_ui_state()
-            self.error("Could not save the Word Wrap preference.")
-            return False
-        self.word_wrap = plan.enabled
-        self.queue_wrap_reflow()
-        self.refresh_ui_state()
-        self.update_title()
-        return True
+        return self.update_preferences(word_wrap=plan.enabled)
 
     def on_word_wrap(self, item):
         return self.set_word_wrap(bool(item.get_active()))
@@ -1657,12 +1681,14 @@ class App(Gtk.Window):
         return self.set_word_wrap(not self.word_wrap)
 
     def on_transparent_mode(self, item):
-        return execute_transparent_mode_request(self, bool(item.get_active()))
+        enabled = bool(item.get_active())
+        requested = self.opacity_percent if enabled and self.opacity_percent < MAX_OPACITY_PERCENT else (88 if enabled else MAX_OPACITY_PERCENT)
+        return self.update_preferences(opacity_percent=requested)
 
     def toggle_transparent_mode(self, *_):
-        return execute_transparent_mode_request(
-            self, not (self.opacity_percent < MAX_OPACITY_PERCENT)
-        )
+        enabled = not (self.opacity_percent < MAX_OPACITY_PERCENT)
+        requested = 88 if enabled else MAX_OPACITY_PERCENT
+        return self.update_preferences(opacity_percent=requested)
 
     def toggle_always_on_top(self, *_):
         class _RequestedActive:
@@ -1673,9 +1699,7 @@ class App(Gtk.Window):
         return self.on_top(_RequestedActive(not self.always_on_top))
 
     def toggle_line_numbers(self, *_):
-        return execute_line_number_preference_request(
-            self, not self.line_numbers_enabled
-        )
+        return self.update_preferences(line_numbers=not self.line_numbers_enabled)
 
     def on_font(self, *_):
         dialog = Gtk.FontChooserDialog(title="Font", transient_for=self)
@@ -1702,16 +1726,10 @@ class App(Gtk.Window):
                 return False
             if not plan.changed:
                 return False
-            if not self.save_settings({
-                "font_family": plan.requested.family,
-                "font_size": plan.requested.size,
-            }):
-                self.error("Could not save the Font preference.")
-                return False
-            self.font_family = plan.requested.family
-            self.font_size = plan.requested.size
-            self.apply_font()
-            return True
+            return self.update_preferences(
+                font_family=plan.requested.family,
+                font_size=plan.requested.size,
+            )
         finally:
             dialog.destroy()
 
@@ -1729,13 +1747,13 @@ class App(Gtk.Window):
         self.on_find_replace()
 
     def load_favourite_store(self):
-        return self.state.load_favourite_store(limit=50)
+        return self.favourite_store.canonical()
 
     def load_favourites(self):
-        return self.state.load_favourites(limit=50)
+        return self.favourite_store.visible()
 
     def save_favourites(self, items):
-        return self.state.save_favourites(items, limit=50)
+        return self.favourite_store.save(items)
 
     def populate_favourites_menu(self):
         items = tuple(self.load_favourites())
@@ -1843,15 +1861,15 @@ class App(Gtk.Window):
         return refresh_line_number_gutter(self, force=force)
 
     def load_recent_files(self):
-        return self.state.load_recent_files(limit=10)
+        return self.recent_file_store.visible()
 
     def save_recent_files(self, items):
-        return self.state.save_recent_files(items, limit=10)
+        return self.recent_file_store.save(items)
 
     def add_recent_file(self, path):
         if not path:
             return
-        self.state.add_recent_file(path, limit=10)
+        self.recent_file_store.add(path)
         self.populate_recent_menu()
 
     def populate_recent_menu(self):
@@ -2586,7 +2604,7 @@ class App(Gtk.Window):
         self.large_info("Bookmarks", "\n".join(lines))
 
     def populate_recent_workspaces_menu(self):
-        paths = tuple(self.state.load_recent_workspaces())
+        paths = tuple(self.recent_workspace_store.visible())
         adapter = getattr(self, "menu_ui_adapter", None)
         if adapter is not None:
             adapter.render_dynamic("recent-workspaces", recent_workspace_rows(paths))
@@ -2672,8 +2690,8 @@ class App(Gtk.Window):
 
     def capture_workspace_path_references(self):
         return WorkspacePathReferenceSnapshot(
-            recent_files=tuple(self.state.load_recent_file_store(limit=10)),
-            favourites=tuple(self.state.load_favourite_store(limit=50)),
+            recent_files=tuple(self.recent_file_store.canonical()),
+            favourites=tuple(self.favourite_store.canonical()),
         )
 
     def reconcile_workspace_rename(self, rename_plan, references):
@@ -2686,10 +2704,10 @@ class App(Gtk.Window):
             getattr(self, "research_document_context_changed", lambda: None)()
             self.update_title()
             getattr(self, "refresh_document_overview_if_open", lambda: False)()
-        recent_saved = self.state.save_recent_files(list(identity.recent_files_after), limit=10)
-        favourites_saved = self.state.save_favourites(list(identity.favourites_after), limit=50)
-        settings_saved = self.save_settings()
-        return bool(recent_saved and favourites_saved and settings_saved)
+        recent_saved = self.recent_file_store.save(list(identity.recent_files_after))
+        favourites_saved = self.favourite_store.save(list(identity.favourites_after))
+        state_saved = self.application_state.record_last_file(self.current_file)
+        return bool(recent_saved and favourites_saved and state_saved)
 
     def reconcile_workspace_trash(self, trash_plan, references):
         identity = plan_workspace_trash_identity(
@@ -2702,14 +2720,10 @@ class App(Gtk.Window):
             getattr(self, "research_document_context_changed", lambda: None)()
             self.update_title()
             getattr(self, "refresh_document_overview_if_open", lambda: False)()
-        recent_saved = self.state.save_recent_files(
-            list(identity.recent_files_after), limit=10
-        )
-        favourites_saved = self.state.save_favourites(
-            list(identity.favourites_after), limit=50
-        )
-        settings_saved = self.save_settings()
-        return bool(recent_saved and favourites_saved and settings_saved)
+        recent_saved = self.recent_file_store.save(list(identity.recent_files_after))
+        favourites_saved = self.favourite_store.save(list(identity.favourites_after))
+        state_saved = self.application_state.record_last_file(self.current_file)
+        return bool(recent_saved and favourites_saved and state_saved)
 
     def on_select_workspace_folder(self, *_):
         selected = choose_workspace_folder(self, getattr(self, "workspace_root", None))
@@ -2744,15 +2758,11 @@ class App(Gtk.Window):
     def toggle_workspace_panel(self, *_):
         return self.workspace_panel_runtime.toggle()
 
-    def on_workspace_root_changed(self, root):
-        self.workspace_root = root
+    def on_workspace_root_changed(self, _root):
         self.refresh_ui_state()
 
     def on_workspace_visibility_changed(self, visible):
-        target = bool(visible)
-        if getattr(self, "workspace_visible", False) != target:
-            self.workspace_visible = target
-            self.save_settings({"workspace_visible": target})
+        self.application_state.record_workspace_visible(bool(visible))
         self.refresh_ui_state()
 
     def on_navigator_item_toggled(self, item):
@@ -2922,9 +2932,8 @@ class App(Gtk.Window):
 
     def on_lang(self, item, lang):
         if item.get_active():
-            self.spell_lang = lang
-            self.save_settings()
-            self.update_title()
+            return self.update_preferences(spell_lang=lang)
+        return False
 
     def clear_spell_tags(self):
         b = self.text.get_buffer()

@@ -117,7 +117,7 @@ class SaveTemplateCommandWiringTests(unittest.TestCase):
             config_dir = '/config'
 
         class App:
-            state = State()
+            config_dir = "/config"
             current_file = '/docs/note.txt'
             def buffer_text(self):
                 events.append(('buffer',))
@@ -159,7 +159,7 @@ class SaveTemplateCommandWiringTests(unittest.TestCase):
             config_dir = '/config'
 
         class App:
-            state = State()
+            config_dir = "/config"
             current_file = '/docs/note.txt'
             def buffer_text(self): return 'Body'
             def error(self, message): events.append(('error', message))
@@ -194,7 +194,7 @@ class SaveTemplateCommandWiringTests(unittest.TestCase):
             modified = True
 
         class App:
-            state = State()
+            config_dir = "/config"
             document = Document()
             current_file = '/docs/original.txt'
             modified = True

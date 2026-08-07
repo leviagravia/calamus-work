@@ -29,9 +29,9 @@ class TextWrapCommandWiringTests(unittest.TestCase):
 
     def test_startup_uses_typed_loader_not_python_truthiness(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn("from calamus_view_preferences import", launcher)
-        self.assertIn("self.word_wrap = load_text_wrap_preference(self.settings)", launcher)
-        self.assertNotIn('self.word_wrap = bool(self.settings.get("word_wrap", True))', launcher)
+        self.assertIn("self.persistence = build_preferences_application_state_components(CONFIG_DIR)", launcher)
+        self.assertIn("return self.preference_snapshot.word_wrap", launcher)
+        self.assertNotIn("self.settings", launcher)
 
     def test_callback_is_a_persist_then_apply_gateway(self):
         callback = _method_source("on_word_wrap")
@@ -41,15 +41,10 @@ class TextWrapCommandWiringTests(unittest.TestCase):
 
         method = _method_source("set_word_wrap")
         self.assertIn("prepare_text_wrap_plan", method)
-        self.assertIn('self.save_settings({"word_wrap": plan.enabled})', method)
+        self.assertIn("return self.update_preferences(word_wrap=plan.enabled)", method)
         self.assertNotIn("item.set_active", method)
-        self.assertIn("self.word_wrap = plan.enabled", method)
-        self.assertIn("self.queue_wrap_reflow()", method)
-        self.assertIn("self.refresh_ui_state()", method)
-        self.assertIn("self.update_title()", method)
-        self.assertIn("return True", method)
-        self.assertLess(method.index("self.save_settings"), method.index("self.word_wrap = plan.enabled"))
-        self.assertLess(method.index("self.word_wrap = plan.enabled"), method.index("self.queue_wrap_reflow"))
+        self.assertNotIn("self.save_settings", method)
+        self.assertNotIn("self.word_wrap =", method)
 
     def test_callback_has_no_document_or_undo_mutation(self):
         method = _method_source("on_word_wrap")
@@ -68,12 +63,13 @@ class TextWrapCommandWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, method)
 
     def test_save_settings_now_reports_persistence_and_updates_snapshot_on_success(self):
-        method = _method_source("save_settings")
-        self.assertIn("saved = self.state.save_settings(data)", method)
-        self.assertIn("if saved:", method)
-        self.assertIn("self.settings = data", method)
-        self.assertIn("return saved", method)
-        self.assertIn("data.update(overrides)", method)
+        launcher = LAUNCHER.read_text(encoding="utf-8")
+        repository = (ROOT / "calamus" / "calamus_settings_repository.py").read_text(encoding="utf-8")
+        self.assertNotIn("def save_settings", launcher)
+        self.assertNotIn("self.settings", launcher)
+        self.assertIn("class SettingsRepository", repository)
+        self.assertIn("def update_preferences", repository)
+        self.assertIn("def update_application_state", repository)
 
     def test_runtime_adapter_uses_viewport_allocation_not_never_policy(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
@@ -83,7 +79,7 @@ class TextWrapCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Gtk.PolicyType.NEVER", apply_method)
         self.assertIn("Gtk.PolicyType.AUTOMATIC", editor)
         self.assertIn("scroller.get_hadjustment()", editor)
-        self.assertIn("self.queue_wrap_reflow()", _method_source("set_word_wrap"))
+        self.assertIn("self.queue_wrap_reflow()", _method_source("_project_preferences_snapshot"))
         self.assertIn("self._wrap_reflow_source = GLib.idle_add(apply_deferred)", _method_source("queue_wrap_reflow"))
         self.assertIn("GLib.source_remove(source)", _method_source("queue_wrap_reflow"))
 

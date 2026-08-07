@@ -37,9 +37,15 @@ def _compiled_method(name):
     return scope[name]
 
 
+class _ApplicationState:
+    def __init__(self, events): self.events = events
+    def record_last_file(self, path): self.events.append(("application-state", path)); return True
+
+
 class _App:
     def __init__(self, fail=False):
         self.events = []
+        self.application_state = _ApplicationState(self.events)
         self.buffer = "old buffer"
         session = DocumentSession(Document("old document", "/tmp/original.txt", True))
         def replace(text):
@@ -68,7 +74,7 @@ class _App:
     def document(self): return self.document_session.document
     def add_recent_file(self, path): self.events.append(("recent", path))
     def update_title(self): self.events.append(("title",))
-    def save_settings(self): self.events.append(("settings",)); return True
+    def save_settings(self): self.events.append(("application-state",)); return True
     def info(self, *args): self.events.append(("info",)+args)
 
 
@@ -110,7 +116,7 @@ class OpenCommandWiringTests(unittest.TestCase):
         self.assertEqual(app.current_file, "/tmp/new.txt")
         self.assertEqual(app.document.text, "loaded")
         self.assertFalse(app.modified)
-        self.assertEqual([e[0] for e in app.events], ["buffer", "reset-undo", "recent", "title", "settings"])
+        self.assertEqual([e[0] for e in app.events], ["buffer", "reset-undo", "recent", "title", "application-state"])
 
     def test_open_path_reads_before_post_open_effects(self):
         open_path = _compiled_method("open_path")

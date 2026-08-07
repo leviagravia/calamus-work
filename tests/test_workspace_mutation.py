@@ -147,7 +147,7 @@ class View:
 
 
 class State:
-    def add_recent_workspace(self, _path):
+    def add(self, _path):
         pass
 
 
@@ -176,7 +176,7 @@ class WorkspaceMutationRuntimeTests(unittest.TestCase):
             open_document=lambda _path: True,
             open_external=lambda _path: True,
             reveal_external=lambda _path: True,
-            save_settings=lambda _data: True,
+            record_workspace_root=lambda _root: True,
             report_error=self.errors.append,
             on_root_changed=lambda _root: None,
             on_recent_changed=lambda: None,

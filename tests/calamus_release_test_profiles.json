@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W105 Menu and UI-State Decoupling Candidate R1",
-  "published_baseline": "92aa832c6b72cb7a81a5a44c656890ec602d9d41",
+  "lineage": "W106 Preferences and Application State Extraction Candidate R1",
+  "published_baseline": "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -1209,6 +1209,19 @@
         "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_identity_is_exact",
         "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_transaction_controller_is_gtk_free",
         "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_w104_scope_is_not_implemented",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_application_state_update_preserves_preferences_exactly",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_codec_separates_preferences_from_application_state",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_preference_update_preserves_application_state_exactly",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_projection_failure_rolls_back_file_and_snapshot",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_recent_add_preserves_temporarily_missing_canonical_path",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_repository_does_not_advance_snapshot_on_write_failure",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_settings_encode_retains_legacy_appearance_keys",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_strict_persisted_booleans_do_not_truthify_strings",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_app_has_no_raw_settings_or_generic_save_settings_authority",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_core_composition_does_not_pass_raw_state_manager_or_settings_dict",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_state_manager_is_explicit_compatibility_only",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_w105_ui_state_remains_distinct",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_w106_core_modules_are_gtk_free",
         "tests.test_w89_reference_migration_real_files.W89ReferenceMigrationRealFileTests.test_real_files_document_gateway_failure_rolls_back_all_persistent_files",
         "tests.test_w89_reference_migration_real_files.W89ReferenceMigrationRealFileTests.test_real_files_rename_updates_four_authorities_and_integrity_is_clean",
         "tests.test_w89_reference_migration_real_files.W89ReferenceMigrationRealFileTests.test_real_files_stale_reference_set_blocks_every_write",
@@ -2509,6 +2522,68 @@
       "unset_env": [],
       "test_ids": [
         "tests.test_w105_menu_ui_state_app_desktop_e2e.W105MenuUiStateRealAppE2E.test_true_app_single_snapshot_projection_dynamic_rows_and_normal_close"
+      ]
+    },
+    "w106-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w106-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_application_state_update_preserves_preferences_exactly",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_codec_separates_preferences_from_application_state",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_preference_update_preserves_application_state_exactly",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_projection_failure_rolls_back_file_and_snapshot",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_recent_add_preserves_temporarily_missing_canonical_path",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_repository_does_not_advance_snapshot_on_write_failure",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_settings_encode_retains_legacy_appearance_keys",
+        "tests.test_w106_preferences_application_state.W106PreferencesApplicationStateTests.test_strict_persisted_booleans_do_not_truthify_strings",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_app_has_no_raw_settings_or_generic_save_settings_authority",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_core_composition_does_not_pass_raw_state_manager_or_settings_dict",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_state_manager_is_explicit_compatibility_only",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_w105_ui_state_remains_distinct",
+        "tests.test_w106_preferences_application_state_contract.W106PreferencesApplicationStateContractTests.test_w106_core_modules_are_gtk_free"
+      ]
+    },
+    "w106-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W106_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w106-identity-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w106_identity_app_desktop_e2e.W106IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w106-preferences-state-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W106_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w106-preferences-state-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w106_preferences_application_state_app_desktop_e2e.W106PreferencesApplicationStateRealAppE2E.test_true_app_typed_persistence_domain_separation_restart_and_normal_close"
       ]
     }
   }

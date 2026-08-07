@@ -85,7 +85,7 @@ class ManageTemplatesWiringTests(unittest.TestCase):
 
     def test_entrypoint_loads_entries_and_delegates_to_dialog_callbacks(self):
         method = _method_source("on_manage_templates")
-        self.assertIn("list_managed_templates(self.state.config_dir)", method)
+        self.assertIn("list_managed_templates(self.config_dir)", method)
         self.assertIn("run_manage_templates_dialog(", method)
         self.assertIn("self.rename_managed_template", method)
         self.assertIn("self.delete_managed_template", method)
@@ -107,7 +107,7 @@ class ManageTemplatesWiringTests(unittest.TestCase):
             config_dir = "/tmp/config"
 
         class App:
-            state = State()
+            config_dir = "/tmp/config"
 
             def error(self, message):
                 events.append(("error", message))
@@ -133,7 +133,7 @@ class ManageTemplatesWiringTests(unittest.TestCase):
             config_dir = "/tmp/config"
 
         class App:
-            state = State()
+            config_dir = "/tmp/config"
 
             def populate_template_menu(self):
                 events.append("refresh")
@@ -176,7 +176,7 @@ class ManageTemplatesWiringTests(unittest.TestCase):
                 config_dir = "/tmp/config"
 
             class App:
-                state = State()
+                config_dir = "/tmp/config"
 
                 def populate_template_menu(self):
                     events.append("refresh")
@@ -209,7 +209,7 @@ class ManageTemplatesWiringTests(unittest.TestCase):
             config_dir = "/tmp/config"
 
         class App:
-            state = State()
+            config_dir = "/tmp/config"
 
             def populate_template_menu(self):
                 events.append("refresh")
@@ -248,7 +248,7 @@ class ManageTemplatesWiringTests(unittest.TestCase):
             config_dir = "/tmp/config"
 
         class App:
-            state = State()
+            config_dir = "/tmp/config"
 
             def populate_template_menu(self):
                 events.append("refresh")

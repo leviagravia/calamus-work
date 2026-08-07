@@ -13,29 +13,29 @@ class WorkspaceApplicationRuntime:
         self,
         controller: WorkspaceController,
         view: Any,
-        state: Any,
+        recent_workspaces: Any,
         *,
         may_continue: Callable[[], bool],
         open_document: Callable[[str], bool],
         open_external: Callable[[str], bool],
         reveal_external: Callable[[str], bool],
-        save_settings: Callable[[dict], bool],
+        record_workspace_root: Callable[[str | None], bool],
         report_error: Callable[[str], None],
         on_root_changed: Callable[[str | None], None],
         on_recent_changed: Callable[[], None],
     ) -> None:
         for callback in (may_continue, open_document, open_external, reveal_external,
-                         save_settings, report_error, on_root_changed, on_recent_changed):
+                         record_workspace_root, report_error, on_root_changed, on_recent_changed):
             if not callable(callback):
                 raise TypeError("workspace application callbacks must be callable")
         self._controller = controller
         self._view = view
-        self._state = state
+        self._recent_workspaces = recent_workspaces
         self._may_continue = may_continue
         self._open_document = open_document
         self._open_external = open_external
         self._reveal_external = reveal_external
-        self._save_settings = save_settings
+        self._record_workspace_root = record_workspace_root
         self._report_error = report_error
         self._on_root_changed = on_root_changed
         self._on_recent_changed = on_recent_changed
@@ -59,17 +59,17 @@ class WorkspaceApplicationRuntime:
         self._view.render(snapshot)
         self._on_root_changed(snapshot.root)
         if persist:
-            self._state.add_recent_workspace(snapshot.root)
+            self._recent_workspaces.add(snapshot.root)
             self._on_recent_changed()
-            if not self._save_settings({"workspace_root": snapshot.root}):
-                self._report_error("The folder opened, but the Writing Workspace setting could not be saved.")
+            if not self._record_workspace_root(snapshot.root):
+                self._report_error("The folder opened, but the Writing Workspace state could not be saved.")
         return True
 
     def close_root(self) -> bool:
         self._controller.clear()
         self._view.render(None)
         self._on_root_changed(None)
-        return self._save_settings({"workspace_root": None})
+        return self._record_workspace_root(None)
 
     def refresh(self) -> bool:
         try:

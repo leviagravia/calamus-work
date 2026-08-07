@@ -103,11 +103,15 @@ class W105MenuUiStateRealAppE2E(unittest.TestCase):
                     for command_id in WORKSPACE_ROOT_SENSITIVE_COMMAND_IDS:
                         self.assertTrue(window.command_actions.availability.is_enabled(command_id))
                         self.assertTrue(only_widget(window, command_id).get_sensitive())
-                    window.on_workspace_root_changed(None); pump()
+                    # Exercise the real W106 workspace owner instead of mutating the
+                    # retired W105 App.workspace_root mirror through its notification callback.
+                    self.assertTrue(window.workspace_application_runtime.close_root()); pump()
+                    self.assertIsNone(window.workspace_root)
                     for command_id in WORKSPACE_ROOT_SENSITIVE_COMMAND_IDS:
                         self.assertFalse(window.command_actions.availability.is_enabled(command_id))
                         self.assertFalse(only_widget(window, command_id).get_sensitive())
-                    window.on_workspace_root_changed(str(workspace)); pump()
+                    self.assertTrue(window.workspace_application_runtime.open_root(str(workspace))); pump()
+                    self.assertEqual(window.workspace_root, str(workspace.resolve()))
                     for command_id in WORKSPACE_ROOT_SENSITIVE_COMMAND_IDS:
                         self.assertTrue(window.command_actions.availability.is_enabled(command_id))
                         self.assertTrue(only_widget(window, command_id).get_sensitive())

@@ -89,12 +89,14 @@ class _App:
         self.events = []
         self.errors = []
 
-    def save_settings(self, overrides=None):
-        self.events.append(("save-settings", dict(overrides or {})))
-        return self.persist
-
-    def apply_font(self):
-        self.events.append(("apply-font", self.font_family, self.font_size))
+    def update_preferences(self, **changes):
+        self.events.append(("update-preferences", dict(changes)))
+        if not self.persist:
+            self.errors.append("could not persist preferences")
+            return False
+        self.font_family = changes.get("font_family", self.font_family)
+        self.font_size = changes.get("font_size", self.font_size)
+        return True
 
     def error(self, message):
         self.errors.append(message)
@@ -121,10 +123,7 @@ class FontLifecycleTests(unittest.TestCase):
         self.assertEqual(app.font_size, 18)
         self.assertEqual(
             app.events,
-            [
-                ("save-settings", {"font_family": "Serif", "font_size": 18}),
-                ("apply-font", "Serif", 18),
-            ],
+            [("update-preferences", {"font_family": "Serif", "font_size": 18})],
         )
         self.assertEqual(app.errors, [])
         self.assertEqual(_Dialog.instances[0].initial_font, "Monospace 12")
@@ -142,8 +141,8 @@ class FontLifecycleTests(unittest.TestCase):
         app = _App(persist=False)
         self.assertFalse(self.callback(app))
         self.assertEqual((app.font_family, app.font_size), ("Monospace", 12))
-        self.assertEqual(app.events, [("save-settings", {"font_family": "Serif", "font_size": 18})])
-        self.assertEqual(app.errors, ["Could not save the Font preference."])
+        self.assertEqual(app.events, [("update-preferences", {"font_family": "Serif", "font_size": 18})])
+        self.assertEqual(app.errors, ["could not persist preferences"])
 
     def test_noop_selection_does_not_persist_or_apply(self):
         _Dialog.selected_font = "Monospace 12"

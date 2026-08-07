@@ -7,7 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 W101_BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
 W102_BASELINE = "17b409a05f356477173b2bdd348a67a4cf01f43c"
-W104_BASELINE = "92aa832c6b72cb7a81a5a44c656890ec602d9d41"
+W105_BASELINE = "aa73cc830b2c2120e26fd7ffb5d21b56c95e709b"
 
 
 class W101IdentityGateContractTests(unittest.TestCase):
@@ -15,16 +15,16 @@ class W101IdentityGateContractTests(unittest.TestCase):
         current = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         for token in (
             'DEVELOPMENT_BUILD_LABEL = "Development build"',
-            'DEVELOPMENT_WORK_ITEM = "W105"',
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Menu and UI-State Decoupling"',
-            f'PUBLISHED_BASELINE = "{W104_BASELINE}"',
+            'DEVELOPMENT_WORK_ITEM = "W106"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Preferences and Application State Extraction"',
+            f'PUBLISHED_BASELINE = "{W105_BASELINE}"',
         ):
             self.assertIn(token, current)
 
     def test_release_manifest_owns_current_profiles_and_historical_identity_is_not_release(self):
         data = json.loads((ROOT / "tests/calamus_release_test_profiles.json").read_text(encoding="utf-8"))
-        self.assertEqual(data["published_baseline"], W104_BASELINE)
-        self.assertEqual(data["lineage"], "W105 Menu and UI-State Decoupling Candidate R1")
+        self.assertEqual(data["published_baseline"], W105_BASELINE)
+        self.assertEqual(data["lineage"], "W106 Preferences and Application State Extraction Candidate R1")
         for profile in ("w105-headless-focused", "w105-identity-smoke", "w105-menu-ui-state-smoke"):
             self.assertIn(profile, data["profiles"])
             self.assertTrue(data["profiles"][profile]["release_gate"])
@@ -89,7 +89,7 @@ class W101IdentityGateContractTests(unittest.TestCase):
         self.assertIn('"CALAMUS_W101_"', text)
         self.assertIn('"CALAMUS_W104_"', text)
         self.assertIn('"CALAMUS_W105_"', text)
-        self.assertIn(W104_BASELINE, text)
+        self.assertIn(W105_BASELINE, text)
 
         provenance = (ROOT / "scripts/prove-source-provenance.sh").read_text(encoding="utf-8")
         contract_position = provenance.index('gi.require_version(namespace, version)')
