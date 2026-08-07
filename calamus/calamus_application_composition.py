@@ -6,6 +6,7 @@ from calamus_application_components import (
     CoreApplicationComponents,
     DocumentSessionCompositionInput,
     EditorCompositionInput,
+    EditorTransactionCompositionInput,
     NavigatorCompositionInput,
     RightPanelHostInput,
     WorkspaceCompositionInput,
@@ -17,6 +18,7 @@ from calamus_clip_composition import (
 )
 from calamus_document_session_composition import build_document_session_components
 from calamus_editor_composition import build_editor_infrastructure
+from calamus_editor_transaction_composition import build_editor_transaction_components
 from calamus_navigator_composition import build_navigator_components
 from calamus_workspace_composition import (
     bind_workspace_startup,
@@ -27,6 +29,7 @@ from calamus_workspace_composition import (
 CORE_BUILD_ORDER = (
     "document-session",
     "editor-infrastructure",
+    "editor-transaction",
     "navigator-and-left-panel-host",
     "workspace",
     "right-panel-host",
@@ -69,6 +72,14 @@ def compose_core_application_components(
             on_text_scroll=app.on_text_scroll,
             on_text_focus_out=app.on_text_focus_out,
             apply_wrap_policy=app.apply_wrap_policy,
+        )
+    )
+    editor_transaction = build_editor_transaction_components(
+        EditorTransactionCompositionInput(
+            text_view=app.text,
+            document_session=document_session.session,
+            document_session_controller=document_session.controller,
+            history_runtime=editor.history_runtime,
         )
     )
     navigator = build_navigator_components(
@@ -136,6 +147,8 @@ def compose_core_application_components(
     app.history = editor.history
     app.viewport_runtime = editor.viewport_runtime
     app.history_runtime = editor.history_runtime
+    app.editor_transaction = editor_transaction.controller
+    app.editor_buffer_adapter = editor_transaction.buffer_adapter
     app.typewriter_runtime = editor.typewriter_runtime
     app.search_controller = editor.search_controller
     app.tag = editor.misspelling_tag
@@ -172,6 +185,7 @@ def compose_core_application_components(
     return CoreApplicationComponents(
         document_session=document_session,
         editor=editor,
+        editor_transaction=editor_transaction,
         navigator=navigator,
         workspace=workspace,
         right_panel_host=right_panel_host,

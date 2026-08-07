@@ -99,12 +99,11 @@ class LineNumberCommandWiringTests(unittest.TestCase):
 
     def test_bulk_buffer_replacement_refreshes_gutter_outside_loading_guard(self):
         method = _method_source("on_changed")
-        self.assertIn("self.update_line_numbers()", method)
-        self.assertIn("if self.document_session_controller.observe_buffer_change():", method)
-        self.assertLess(
-            method.index("self.update_line_numbers()"),
-            method.index("if self.document_session_controller.observe_buffer_change():"),
-        )
+        invalidation = _method_source("_invalidate_editor_views")
+        self.assertIn("self.editor_transaction.observe_buffer_change()", method)
+        self.assertIn("if change_kind is EditorChangeKind.REPLACEMENT:", method)
+        self.assertIn("self._invalidate_editor_views()", method)
+        self.assertIn("self.update_line_numbers()", invalidation)
 
     def test_mapped_startup_forces_realized_gutter_refresh(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")

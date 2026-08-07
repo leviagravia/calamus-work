@@ -18,6 +18,7 @@ RUN = os.environ.get("CALAMUS_W101_RUN_REAL_GTK") == "1"
 EXPECTED_ORDER = (
     "document-session",
     "editor-infrastructure",
+    "editor-transaction",
     "navigator-and-left-panel-host",
     "workspace",
     "right-panel-host",
@@ -30,6 +31,8 @@ ALIASES = {
     "history": "editor.history",
     "viewport_runtime": "editor.viewport_runtime",
     "history_runtime": "editor.history_runtime",
+    "editor_transaction": "editor_transaction.controller",
+    "editor_buffer_adapter": "editor_transaction.buffer_adapter",
     "typewriter_runtime": "editor.typewriter_runtime",
     "search_controller": "editor.search_controller",
     "tag": "editor.misspelling_tag",

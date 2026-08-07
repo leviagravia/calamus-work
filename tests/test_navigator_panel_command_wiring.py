@@ -98,11 +98,13 @@ class NavigatorPanelCommandWiringTests(unittest.TestCase):
 
     def test_buffer_and_cursor_hooks_remain_thin(self):
         changed = function_source(LAUNCHER, "on_changed")
+        invalidation = function_source(LAUNCHER, "_invalidate_editor_views")
         cursor = function_source(LAUNCHER, "on_cursor_position_notify")
-        self.assertIn("self.navigation_controller.invalidate()", changed)
-        self.assertIn("self.navigator_panel_view.invalidate()", changed)
+        self.assertIn("self._invalidate_editor_views()", changed)
+        self.assertIn("self.navigation_controller.invalidate()", invalidation)
+        self.assertIn("self.navigator_panel_view.invalidate()", invalidation)
         self.assertIn("self.navigator_panel_view.schedule_cursor_sync()", cursor)
-        self.assertNotIn("build_document_structure", changed + cursor)
+        self.assertNotIn("build_document_structure", changed + invalidation + cursor)
 
     def test_w71_is_navigation_only(self):
         command_surface = LAUNCHER.read_text(encoding="utf-8") + UI.read_text(encoding="utf-8")

@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W102 Document Session Extraction Candidate R1",
-  "published_baseline": "17b409a05f356477173b2bdd348a67a4cf01f43c",
+  "lineage": "W103 Editor Transaction Extraction Candidate R1",
+  "published_baseline": "c8ee3d5970a0cb1d05e4c4320a2117fe7e493368",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -1202,6 +1202,20 @@
         "tests.test_uppercase_layer_wiring.UppercaseLayerWiringTests.test_uppercase_noop_guard_precedes_plan_and_mutation",
         "tests.test_uppercase_layer_wiring.UppercaseLayerWiringTests.test_visible_entrypoint_uses_selection_boundary_and_command_name",
         "tests.test_uppercase_layer_wiring.UppercaseLayerWiringTests.test_visible_menu_and_shortcut_use_one_explicit_entrypoint",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_history_checkpoint_restores_model_and_pending_state",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_native_change_is_observed_but_replacement_and_programmatic_changes_are_not",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_nested_programmatic_transaction_fails_closed_and_outer_rolls_back",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_noop_command_creates_no_undo_and_no_dirty_transition",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_one_programmatic_command_is_one_undo_unit_and_syncs_session",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_partial_failure_rolls_back_buffer_history_and_session_exactly",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_selection_after_is_part_of_committed_history_state",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_app_gateways_delegate_to_transaction_authority",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_app_has_read_only_restoring_projection_and_no_assignment",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_core_composition_builds_typed_transaction_boundary",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_editor_mutations_cannot_bypass_transaction_boundary",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_identity_is_exact",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_transaction_controller_is_gtk_free",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_w104_scope_is_not_implemented",
         "tests.test_w89_reference_migration_real_files.W89ReferenceMigrationRealFileTests.test_real_files_document_gateway_failure_rolls_back_all_persistent_files",
         "tests.test_w89_reference_migration_real_files.W89ReferenceMigrationRealFileTests.test_real_files_rename_updates_four_authorities_and_integrity_is_clean",
         "tests.test_w89_reference_migration_real_files.W89ReferenceMigrationRealFileTests.test_real_files_stale_reference_set_blocks_every_write",
@@ -2284,7 +2298,7 @@
     },
     "w102-identity-smoke": {
       "kind": "unittest",
-      "release_gate": true,
+      "release_gate": false,
       "zero_skips": true,
       "capabilities": [
         "gtk-display"
@@ -2312,6 +2326,69 @@
       "unset_env": [],
       "test_ids": [
         "tests.test_w102_document_session_app_desktop_e2e.W102DocumentSessionRealAppE2E.test_true_app_session_transitions_and_normal_close"
+      ]
+    },
+    "w103-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w103-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_history_checkpoint_restores_model_and_pending_state",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_native_change_is_observed_but_replacement_and_programmatic_changes_are_not",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_nested_programmatic_transaction_fails_closed_and_outer_rolls_back",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_noop_command_creates_no_undo_and_no_dirty_transition",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_one_programmatic_command_is_one_undo_unit_and_syncs_session",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_partial_failure_rolls_back_buffer_history_and_session_exactly",
+        "tests.test_w103_editor_transaction.EditorTransactionTests.test_selection_after_is_part_of_committed_history_state",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_app_gateways_delegate_to_transaction_authority",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_app_has_read_only_restoring_projection_and_no_assignment",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_core_composition_builds_typed_transaction_boundary",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_editor_mutations_cannot_bypass_transaction_boundary",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_identity_is_exact",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_transaction_controller_is_gtk_free",
+        "tests.test_w103_editor_transaction_contract.W103EditorTransactionContractTests.test_w104_scope_is_not_implemented"
+      ]
+    },
+    "w103-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W103_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w103-identity-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w103_identity_app_desktop_e2e.W103IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w103-editor-transaction-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "set_env": {
+        "CALAMUS_W103_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w103-editor-transaction-smoke"
+      },
+      "unset_env": [],
+      "test_ids": [
+        "tests.test_w103_editor_transaction_app_desktop_e2e.W103EditorTransactionRealAppE2E.test_true_app_transaction_rollback_undo_redo_and_normal_close"
       ]
     }
   }

@@ -78,6 +78,14 @@ class EditorCompositionInput:
 
 
 @dataclass(frozen=True)
+class EditorTransactionCompositionInput:
+    text_view: Any
+    document_session: Any
+    document_session_controller: Any
+    history_runtime: Any
+
+
+@dataclass(frozen=True)
 class NavigatorCompositionInput:
     text_view: Any
     workspace_paned: Any
@@ -157,6 +165,12 @@ class EditorInfrastructureComponents:
 
 
 @dataclass(frozen=True)
+class EditorTransactionComponents:
+    controller: Any
+    buffer_adapter: Any
+
+
+@dataclass(frozen=True)
 class NavigatorComponents:
     navigation_controller: Any
     left_panel_host: Any
@@ -188,6 +202,7 @@ class ClipCollectionComponents:
 class CoreApplicationComponents:
     document_session: DocumentSessionComponents
     editor: EditorInfrastructureComponents
+    editor_transaction: EditorTransactionComponents
     navigator: NavigatorComponents
     workspace: WorkspaceComponents
     right_panel_host: Any

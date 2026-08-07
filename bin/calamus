@@ -53,7 +53,6 @@ from calamus_workspace_external import open_external_path, reveal_in_file_manage
 import calamus_typewriter_app as typewriter_app
 import calamus_writing_app as writing_app
 from calamus_history import HistoryState
-from calamus_history_runtime import restore_buffer_state
 from calamus_external import open_character_map as external_open_character_map
 from calamus_writing import (
     sort_lines, clean_pdf_text, remove_extra_spaces,
@@ -79,6 +78,7 @@ from calamus_command_context import CommandContext
 from calamus_command_layer import CommandLayer
 from calamus_command_catalog import build_low_risk_registry
 from calamus_application_composition import compose_core_application_components
+from calamus_editor_transaction import EditorChangeKind
 
 APP_TITLE = "Calamus Copy"
 APP_ICON = "calamus"
@@ -228,7 +228,6 @@ class App(Gtk.Window):
         self.spell_source = None
         self.word_count_source = None
         self._wrap_reflow_source = None
-        self.restoring_undo = False
         self.print_pages = []
         line_number_preference = load_line_number_preference(self.settings)
         self.line_numbers_enabled = line_number_preference.enabled
@@ -341,6 +340,11 @@ class App(Gtk.Window):
     def loading(self):
         return self.document_session.loading
 
+    @property
+    def restoring_undo(self):
+        transaction = getattr(self, "editor_transaction", None)
+        return bool(transaction and transaction.restoring)
+
     def _read_buffer_text_raw(self):
         b = self.text.get_buffer()
         s, e = b.get_bounds()
@@ -414,14 +418,14 @@ class App(Gtk.Window):
 
     def on_buffer_begin_user_action(self, *_):
         enabled = not self.loading and not self.restoring_undo
-        self.history_runtime.begin_user_action(enabled)
-        if enabled:
+        accepted = self.editor_transaction.begin_user_action(enabled)
+        if accepted:
             self.typewriter_runtime.on_begin_user_action()
 
     def on_buffer_end_user_action(self, *_):
         enabled = not self.loading and not self.restoring_undo
-        self.history_runtime.end_user_action(enabled)
-        if enabled:
+        accepted = self.editor_transaction.end_user_action(enabled)
+        if accepted:
             self.typewriter_runtime.on_end_user_action()
 
     def queue_insert_scroll(self, margin=0.02, *, center_if_outside=False):
@@ -518,47 +522,80 @@ class App(Gtk.Window):
         )
 
     def reset_undo_history(self):
-        self.history_runtime.reset()
+        transaction = getattr(self, "editor_transaction", None)
+        if transaction is not None:
+            transaction.reset()
+        else:
+            self.history_runtime.reset()
         typewriter_runtime = getattr(self, "typewriter_runtime", None)
         if typewriter_runtime is not None:
             typewriter_runtime.on_document_replaced()
 
     def schedule_undo_snapshot(self):
-        self.history_runtime.observe_changed(not self.loading and not self.restoring_undo)
+        self.editor_transaction.schedule_native_snapshot(
+            not self.loading and not self.restoring_undo
+        )
 
     def commit_undo_snapshot(self):
-        self.history_runtime.flush()
+        self.editor_transaction.flush()
         return False
 
     def commit_pending_undo(self):
-        self.history_runtime.flush()
+        self.editor_transaction.flush()
 
-    def finalize_command_edit(self, select_range=None, command_name="Edit"):
-        if select_range:
-            self.select_range(*select_range)
-        self.history_runtime.finalize_command()
-        self.document_session.mark_modified(self.buffer_text())
-        self.last_command = command_name
+    def _invalidate_editor_views(self):
+        if hasattr(self, "document_overview_runtime"):
+            self.document_overview_runtime.mark_stale()
+        if hasattr(self, "navigation_controller"):
+            self.navigation_controller.invalidate()
+        if hasattr(self, "navigator_panel_view"):
+            self.navigator_panel_view.invalidate()
+        self.update_line_numbers()
+
+    def _project_committed_editor_change(self, *, command_name=None):
+        self._invalidate_editor_views()
+        if command_name is not None:
+            self.last_command = command_name
+        self.schedule_status_update()
+        self.schedule_search_highlight()
+        self.update_current_line_highlight()
+        if self.typewriter_runtime.enabled:
+            self.typewriter_runtime.on_edit()
+        else:
+            self.viewport_runtime.queue_visible_to_insert(0.02)
+        self.publish_research_invalidation(
+            ResearchInvalidationReason.DOCUMENT_CONTENT
+        )
+        self.update_title()
+
+    def _project_history_restore(self):
+        if self.typewriter_runtime.enabled:
+            self.typewriter_runtime.on_history()
+        else:
+            self.viewport_runtime.queue_visible_to_insert(
+                0.15, center_if_outside=True
+            )
         self.schedule_status_update()
         self.schedule_search_highlight()
         self.update_line_numbers()
         self.update_title()
 
+    def finalize_command_edit(self, select_range=None, command_name="Edit"):
+        result = self.editor_transaction.finalize_prepared_command(
+            command_name, select_range=select_range
+        )
+        if result.changed:
+            self._project_committed_editor_change(command_name=command_name)
+        return result.changed
+
     def execute_command(self, command_name, edit_func, select_range=None):
-        """Run one grouped edit and persist exact before/after caret state."""
-        self.history_runtime.prepare_command()
-        before = self.buffer_text()
-        b = self.text.get_buffer()
-        b.begin_user_action()
-        try:
-            edit_func(b)
-        finally:
-            b.end_user_action()
-        if self.buffer_text() != before:
-            self.finalize_command_edit(select_range=select_range, command_name=command_name)
-            return True
-        self.history_runtime.flush()
-        return False
+        """Run one atomic logical edit through the W103 transaction authority."""
+        result = self.editor_transaction.execute_command(
+            command_name, edit_func, select_range=select_range
+        )
+        if result.changed:
+            self._project_committed_editor_change(command_name=command_name)
+        return result.changed
 
     def perform_buffer_edit(self, edit_func, select_range=None, command_name="Edit"):
         return self.execute_command(command_name, edit_func, select_range=select_range)
@@ -566,65 +603,40 @@ class App(Gtk.Window):
     def set_text_from_history(self, state):
         if not isinstance(state, HistoryState):
             raise TypeError("Undo/Redo restoration requires HistoryState")
-        self.restoring_undo = True
-        try:
-            with self.document_session.replacement():
-                restore_buffer_state(self.text, state)
-        finally:
-            self.restoring_undo = False
-        if self.typewriter_runtime.enabled:
-            self.typewriter_runtime.on_history()
-        else:
-            self.viewport_runtime.queue_visible_to_insert(
-                0.15, center_if_outside=True
-            )
-        self.document_session.mark_modified(state.text)
-        self.schedule_status_update()
-        self.schedule_search_highlight()
-        self.update_line_numbers()
-        self.update_title()
+        result = self.editor_transaction.restore_history_state(
+            state, label="History Restore"
+        )
+        self._project_history_restore()
+        return result.changed
 
     def on_undo(self, *_):
         """UI callback: apply Undo when available; success is effect-based."""
-        state = self.history_runtime.undo_target()
-        if state is None:
+        result = self.editor_transaction.undo()
+        if result is None:
             if self.history.disabled_reason:
                 self.status.set_text(self.history.disabled_reason)
             return
-        self.set_text_from_history(state)
+        self._project_history_restore()
 
     def on_redo(self, *_):
         """UI callback: apply Redo when available; success is effect-based."""
-        state = self.history_runtime.redo_target()
-        if state is None:
+        result = self.editor_transaction.redo()
+        if result is None:
             if self.history.disabled_reason:
                 self.status.set_text(self.history.disabled_reason)
             return
-        self.set_text_from_history(state)
+        self._project_history_restore()
 
     def on_changed(self, *_):
-        if hasattr(self, "document_overview_runtime"):
-            self.document_overview_runtime.mark_stale()
-        if hasattr(self, "navigation_controller"):
-            self.navigation_controller.invalidate()
-        if hasattr(self, "navigator_panel_view"):
-            self.navigator_panel_view.invalidate()
-        # Gutter content is a view of the GtkTextBuffer and must refresh for
-        # both user edits and guarded bulk replacements such as Open/New.
-        self.update_line_numbers()
-        if self.document_session_controller.observe_buffer_change():
-            self.schedule_undo_snapshot()
-            self.schedule_status_update()
-            self.schedule_search_highlight()
-            self.update_current_line_highlight()
-            if self.typewriter_runtime.enabled:
-                self.typewriter_runtime.on_edit()
-            else:
-                self.viewport_runtime.queue_visible_to_insert(0.02)
-            self.publish_research_invalidation(
-                ResearchInvalidationReason.DOCUMENT_CONTENT
-            )
-            self.update_title()
+        change_kind = self.editor_transaction.observe_buffer_change()
+        if change_kind is EditorChangeKind.PROGRAMMATIC:
+            return
+        if change_kind is EditorChangeKind.REPLACEMENT:
+            # Open/New/Undo replacement still invalidates structure and gutter,
+            # but must not create history or dirty-state transitions.
+            self._invalidate_editor_views()
+            return
+        self._project_committed_editor_change()
 
     def on_opacity_selection(self, *_):
         d = Gtk.Dialog(title="Opacity", transient_for=self, modal=True)
@@ -1342,13 +1354,13 @@ class App(Gtk.Window):
         return Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 
     def on_cut(self, *_):
-        self.text.get_buffer().cut_clipboard(self._clipboard(), True)
+        self.editor_transaction.cut_clipboard(self._clipboard(), True)
 
     def on_copy(self, *_):
         self.text.get_buffer().copy_clipboard(self._clipboard())
 
     def on_paste(self, *_):
-        self.text.get_buffer().paste_clipboard(self._clipboard(), None, True)
+        self.editor_transaction.paste_clipboard(self._clipboard(), True)
 
     def on_select_all(self, *_):
         buf = self.text.get_buffer()

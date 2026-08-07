@@ -6,11 +6,22 @@ Mode cannot race independent vertical-adjustment writers.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from calamus_history import HistoryState, TextHistory
 from calamus_viewport import compute_vertical_reveal as _compute_vertical_reveal
 from calamus_viewport_runtime import EditorViewportRuntime
+
+
+
+@dataclass(frozen=True)
+class SnapshotHistoryCheckpoint:
+    undo_stack: tuple[HistoryState, ...]
+    redo_stack: tuple[HistoryState, ...]
+    disabled_reason: str | None
+    before_state: HistoryState | None
+    after_state: HistoryState | None
 
 
 def compute_vertical_reveal(
@@ -160,10 +171,31 @@ class SnapshotHistoryRuntime:
             return False
         return self.history.commit(after)
 
-    def prepare_command(self) -> None:
+    def checkpoint(self) -> SnapshotHistoryCheckpoint:
+        return SnapshotHistoryCheckpoint(
+            undo_stack=tuple(self.history.undo_stack),
+            redo_stack=tuple(self.history.redo_stack),
+            disabled_reason=self.history.disabled_reason,
+            before_state=self.before_state,
+            after_state=self.after_state,
+        )
+
+    def restore_checkpoint(self, checkpoint: SnapshotHistoryCheckpoint) -> None:
+        if not isinstance(checkpoint, SnapshotHistoryCheckpoint):
+            raise TypeError("checkpoint must be SnapshotHistoryCheckpoint")
+        self.cancel_snapshot()
+        self.history.undo_stack = list(checkpoint.undo_stack)
+        self.history.redo_stack = list(checkpoint.redo_stack)
+        self.history.disabled_reason = checkpoint.disabled_reason
+        self.before_state = checkpoint.before_state
+        self.after_state = checkpoint.after_state
+
+    def prepare_command(self) -> SnapshotHistoryCheckpoint:
         self.flush()
         self.history.replace_current_view_state(self.capture())
+        checkpoint = self.checkpoint()
         self.before_state = self.capture()
+        return checkpoint
 
     def finalize_command(self) -> bool:
         self.after_state = self.capture()

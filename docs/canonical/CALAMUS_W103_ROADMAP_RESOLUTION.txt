@@ -1,0 +1,13 @@
+W103 ROADMAP IDENTITY RESOLUTION
+
+Current canonical sequence:
+- W103 Editor Transaction Extraction
+- W104 Command and Action Architecture
+- W105 Menu and UI-State Decoupling
+- W106 Preferences and Application State Extraction
+- W107 Subsystem Host-Port Migration
+- W108 Focused Product Release
+
+Historical roadmaps assigning other labels to W103 are superseded. They remain
+historical evidence and are not silently rewritten as if they had always been
+current.

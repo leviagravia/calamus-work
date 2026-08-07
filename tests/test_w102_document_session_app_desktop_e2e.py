@@ -19,6 +19,7 @@ RUN = os.environ.get("CALAMUS_W102_RUN_REAL_GTK") == "1"
 EXPECTED_ORDER = (
     "document-session",
     "editor-infrastructure",
+    "editor-transaction",
     "navigator-and-left-panel-host",
     "workspace",
     "right-panel-host",

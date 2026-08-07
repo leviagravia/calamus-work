@@ -10,14 +10,12 @@ BASELINE = "17b409a05f356477173b2bdd348a67a4cf01f43c"
 
 class W102DocumentSessionContractTests(unittest.TestCase):
     def test_identity_is_exact(self):
-        text = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        for token in (
-            'DEVELOPMENT_BUILD_LABEL = "Development build"',
-            'DEVELOPMENT_WORK_ITEM = "W102"',
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Document Session Extraction"',
-            f'PUBLISHED_BASELINE = "{BASELINE}"',
-        ):
-            self.assertIn(token, text)
+        current = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
+        contract = (ROOT / "docs/canonical/CALAMUS_W102_DOCUMENT_SESSION_CONTRACT.md").read_text(encoding="utf-8")
+        self.assertIn("W102 Document Session Extraction", contract)
+        self.assertIn(BASELINE, contract)
+        self.assertNotIn('DEVELOPMENT_WORK_ITEM = "W102"', current)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W103"', current)
 
     def test_session_modules_are_provenance_tracked(self):
         provenance = (ROOT / "scripts/prove-source-provenance.sh").read_text(encoding="utf-8")

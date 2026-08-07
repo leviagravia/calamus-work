@@ -41,9 +41,13 @@ class DocumentStructureCommandWiringTests(unittest.TestCase):
 
     def test_buffer_change_invalidates_structure_without_parsing_inline(self):
         source = function_source(LAUNCHER, "on_changed")
-        self.assertIn("self.navigation_controller.invalidate()", source)
+        invalidation = function_source(LAUNCHER, "_invalidate_editor_views")
+        self.assertIn("self._invalidate_editor_views()", source)
+        self.assertIn("self.navigation_controller.invalidate()", invalidation)
         self.assertNotIn("build_document_structure", source)
+        self.assertNotIn("build_document_structure", invalidation)
         self.assertNotIn("re.", source)
+        self.assertNotIn("re.", invalidation)
 
     def test_callbacks_are_thin_and_non_mutating(self):
         go = function_source(LAUNCHER, "on_go_to_section")

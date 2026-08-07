@@ -49,8 +49,11 @@ class Stable4RegressionTests(unittest.TestCase):
         with open(_launcher(), encoding="utf-8") as f:
             source = f.read()
         self.assertNotIn("estimate_history_cursor", source)
-        self.assertIn("restore_buffer_state(self.text, state)", source)
-        self.assertIn("self.history_runtime.undo_target()", source)
+        self.assertIn("self.editor_transaction.undo()", source)
+        self.assertIn("self.editor_transaction.redo()", source)
+        with open(os.path.join(_source_root(), "calamus", "calamus_editor_buffer_adapter.py"), encoding="utf-8") as f:
+            adapter = f.read()
+        self.assertIn("buffer.select_range(insert, bound)", adapter)
 
 
 if __name__ == "__main__":
@@ -73,4 +76,6 @@ class Stable43GeometryChainTests(unittest.TestCase):
         with open(_launcher(), encoding="utf-8") as f:
             source = f.read()
         block = source[source.index("def execute_command"):source.index("def perform_buffer_edit")]
-        self.assertEqual(block.count("self.finalize_command_edit("), 1)
+        self.assertEqual(block.count("self.editor_transaction.execute_command("), 1)
+        self.assertNotIn("self.history_runtime.prepare_command()", block)
+        self.assertNotIn("begin_user_action()", block)

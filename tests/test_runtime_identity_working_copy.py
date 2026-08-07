@@ -89,14 +89,14 @@ class RuntimeIdentityWorkingCopyTests(unittest.TestCase):
 
     def test_development_identity_constants_are_exact(self):
         self.assertEqual(DEVELOPMENT_BUILD_LABEL, "Development build")
-        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W102")
+        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W103")
         self.assertEqual(
             DEVELOPMENT_WORK_ITEM_DESCRIPTION,
-            "Document Session Extraction",
+            "Editor Transaction Extraction",
         )
         self.assertEqual(
             PUBLISHED_BASELINE,
-            "17b409a05f356477173b2bdd348a67a4cf01f43c",
+            "c8ee3d5970a0cb1d05e4c4320a2117fe7e493368",
         )
 
     def test_historical_package_version_is_preserved_but_not_runtime_label(self):
