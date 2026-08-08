@@ -25,21 +25,20 @@ class W96DocumentOverviewWiringTests(unittest.TestCase):
         boundary = inspect.getsource(calamus_document_dossier_app)
         for token in (
             "import calamus_document_dossier_app as document_dossier_app",
-            "document_dossier_app.build_document_overview(self)",
-            "on_document_overview = document_dossier_app.on_document_overview",
-            "refresh_document_overview_if_open = document_dossier_app.refresh_document_overview_if_open",
-            "document_overview_runtime.mark_stale()",
-            'getattr(self, "refresh_document_overview_if_open", lambda: False)()',
+            "document_dossier_app.build_document_overview(",
+            "document_dossier_app.DocumentOverviewCompositionInput(",
+            "self.document_overview_runtime.refresh_if_open()",
         ):
             self.assertIn(token, launcher)
-        self.assertIn("app.document_overview_runtime.shutdown", lifecycle)
+        self.assertIn("document_overview_shutdown=self.document_overview_runtime.shutdown", launcher)
+        self.assertIn('register_final("document-overview", document_overview_shutdown)', lifecycle)
         for token in (
             "DocumentDossierController(",
             "build_document_dossier_inputs(",
             "DocumentOverviewRuntime(",
-            "reference_store=app.reference_store",
-            "reference_set_store=app.reference_set_store",
-            "show_notice=lambda message: app.info(message)",
+            "reference_store=inputs.reference_store",
+            "reference_set_store=inputs.reference_set_store",
+            "show_notice=inputs.show_notice",
         ):
             self.assertIn(token, boundary)
         self.assertIn("from calamus_document_overview_view import build_document_overview_view", boundary)
@@ -68,9 +67,9 @@ class W96DocumentOverviewWiringTests(unittest.TestCase):
 
     def test_w96_help_is_preserved_and_current_identity_is_w98(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"', version)
-        self.assertIn('PUBLISHED_BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W108"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Thin GTK Shell"', version)
+        self.assertIn('PUBLISHED_BASELINE = "e16cc21b8a900298406ae8cc4776f6f1ec658e93"', version)
         guide = (ROOT / "share/doc/calamus/USER_GUIDE.md").read_text(encoding="utf-8")
         for token in (
             "## Document Overview",

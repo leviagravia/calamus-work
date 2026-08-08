@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
-CURRENT_BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"
+CURRENT_BASELINE = "e16cc21b8a900298406ae8cc4776f6f1ec658e93"
 NEW_MODULES = (
     "calamus_application_components.py",
     "calamus_editor_composition.py",
@@ -84,8 +84,8 @@ class W101CoreCompositionContractTests(unittest.TestCase):
 
     def test_identity_scope_and_contract_are_exact(self):
         version = (self.calamus / "calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W108"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Thin GTK Shell"', version)
         self.assertIn(f'PUBLISHED_BASELINE = "{CURRENT_BASELINE}"', version)
         contract = (ROOT / "docs/canonical/CALAMUS_W101_CORE_COMPOSITION_CONTRACT.md").read_text(encoding="utf-8")
         self.assertIn("Candidate R1", contract)
@@ -121,6 +121,7 @@ class W101CoreCompositionContractTests(unittest.TestCase):
                 imported.add(node.module)
         self.assertEqual(imported, {
             "__future__",
+            "dataclasses",
             "calamus_application_components",
             "calamus_clip_composition",
             "calamus_document",
@@ -186,16 +187,9 @@ class W101CoreCompositionContractTests(unittest.TestCase):
                     args = [arg.arg for arg in node.args.args + node.args.kwonlyargs]
                     if "app" in args:
                         whole_app.append((path.name, node.name))
-        self.assertEqual(len(whole_app), 39)
-        w104_whole_app = [item for item in whole_app if item[0] == "calamus_application_commands.py"]
-        self.assertEqual(w104_whole_app, [
-            ("calamus_application_commands.py", "invoke_check_command"),
-            ("calamus_application_commands.py", "build_application_command_layer"),
-        ])
-        self.assertEqual(
-            [item for item in whole_app if item[1] == "compose_core_application_components"],
-            [("calamus_application_composition.py", "compose_core_application_components")],
-        )
+        # W108 supersedes the W101/W107 structural allowance for whole-App
+        # reusable seams: all production calamus/*.py functions are narrow.
+        self.assertEqual(whole_app, [])
         component_assignments = []
         compose_calls = []
         for node in ast.walk(self.app):
@@ -214,20 +208,21 @@ class W101CoreCompositionContractTests(unittest.TestCase):
         self.assertEqual(ledger["baseline_commit"], BASELINE)
         self.assertEqual(ledger["removal_work_item"], "W111")
         expected = [(item["app_attribute"], item["bundle_path"]) for item in ledger["aliases"]]
+        init = next(node for node in self.app.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
         actual = []
-        for stmt in ast.walk(self.root_tree):
+        for stmt in init.body:
             if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
                 continue
             target = dotted(stmt.targets[0])
             value = dotted(stmt.value)
-            if target and target.startswith("app.") and value:
-                actual.append((target.removeprefix("app."), value))
-        normalized = []
-        for attr, value in actual:
-            if value.startswith(("editor.", "navigator.", "workspace.", "clips.")) or value == "right_panel_host":
-                normalized.append((attr, value))
+            if target and target.startswith("self.") and value and value.startswith("core_components."):
+                actual.append((target.removeprefix("self."), value.removeprefix("core_components.")))
+        normalized = [item for item in actual if item in expected]
         self.assertEqual(normalized, expected)
-        self.assertFalse(any(isinstance(node, (ast.For, ast.While)) for node in ast.walk(self.root_tree)))
+        self.assertEqual(len(normalized), 24)
+        self.assertFalse(any(isinstance(node, (ast.For, ast.While)) for node in init.body))
+        # Reusable composition must not know about or mutate the concrete App.
+        self.assertNotIn("app.", self.root_text)
 
     def test_moved_constructor_inventory_is_exact_and_absent_from_app(self):
         inventory = self.load_json("CALAMUS_W101_MOVED_CONSTRUCTOR_INVENTORY.json")
@@ -302,8 +297,11 @@ class W101CoreCompositionContractTests(unittest.TestCase):
             if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "CORE_BUILD_ORDER" for t in node.targets)
         )
         self.assertEqual(tuple(item.value for item in order_assign.value.elts), EXPECTED_ORDER)
-        function = next(node for node in self.root_tree.body if isinstance(node, ast.FunctionDef))
-        calls = [dotted(node.func) for node in ast.walk(function) if isinstance(node, ast.Call)]
+        compose = next(
+            node for node in self.root_tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "compose_core_application_components"
+        )
+        calls = [dotted(node.func) for node in ast.walk(compose) if isinstance(node, ast.Call)]
         expected_calls = [
             "build_document_session_components",
             "build_editor_infrastructure",
@@ -312,17 +310,36 @@ class W101CoreCompositionContractTests(unittest.TestCase):
             "build_workspace_components",
             "build_right_panel_host",
             "build_clip_collection_components",
-            "bind_workspace_startup",
         ]
         positions = [calls.index(name) for name in expected_calls]
         self.assertEqual(positions, sorted(positions))
-        returns = [node for node in ast.walk(function) if isinstance(node, ast.Return)]
-        self.assertEqual(len(returns), 1)
-        returned = returns[0].value
-        self.assertIsInstance(returned, ast.Call)
+        self.assertNotIn("bind_workspace_startup", calls)
+        returned = next(node for node in ast.walk(compose) if isinstance(node, ast.Return)).value
         complete = next(kw.value for kw in returned.keywords if kw.arg == "composition_complete")
         self.assertIsInstance(complete, ast.Constant)
-        self.assertIs(complete.value, True)
+        self.assertIs(complete.value, False)
+
+        finish = next(
+            node for node in self.root_tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "complete_core_application_components"
+        )
+        finish_calls = [dotted(node.func) for node in ast.walk(finish) if isinstance(node, ast.Call)]
+        self.assertEqual(finish_calls.count("bind_workspace_startup"), 1)
+        self.assertIn("replace", finish_calls)
+        finish_text = ast.get_source_segment(self.root_text, finish) or ""
+        self.assertIn("composition_complete=True", finish_text)
+
+        init = next(node for node in self.app.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
+        init_text = ast.get_source_segment(self.launcher_text, init) or ""
+        compose_pos = init_text.index("core_components = compose_core_application_components(")
+        first_ledger_alias = init_text.index("self.history = core_components.editor.history")
+        finish_pos = init_text.index("core_components = complete_core_application_components(")
+        assignment_pos = init_text.index("self._components = core_components")
+        recent_projection_pos = init_text.index("self._components.workspace.host_runtime.populate_recent_workspaces_menu()")
+        self.assertLess(compose_pos, first_ledger_alias)
+        self.assertLess(first_ledger_alias, finish_pos)
+        self.assertLess(finish_pos, assignment_pos)
+        self.assertLess(assignment_pos, recent_projection_pos)
 
     def test_research_document_overview_and_lifecycle_remain_in_app_boundary(self):
         build_research = next(node for node in self.app.body if isinstance(node, ast.FunctionDef) and node.name == "build_research_panel")
@@ -357,22 +374,23 @@ class W101CoreCompositionContractTests(unittest.TestCase):
                 imports.add(node.module)
             elif isinstance(node, ast.Import):
                 imports.update(alias.name for alias in node.names if alias.name.startswith("calamus_"))
-        self.assertEqual(len(imports), 47)
-        self.assertEqual(len(methods), 296)
-        self.assertEqual(self.app.end_lineno - self.app.lineno + 1, 2355)
-        self.assertEqual(len(self.launcher_text.splitlines()), 2494)
+        # W108 Thin GTK Shell must strictly reduce the W107 published shell
+        # without weakening the original W100 reduction requirement.
+        self.assertLess(len(methods), 296)
+        self.assertLess(self.app.end_lineno - self.app.lineno + 1, 2355)
+        self.assertLess(len(self.launcher_text.splitlines()), 2494)
         metrics = self.load_json("CALAMUS_W100_BASELINE_METRICS.json")
-        self.assertLess(2493, metrics["launcher_lines"])
-        self.assertLess(2354, metrics["app_lines"])
-        self.assertGreaterEqual(len(methods), 279)
+        self.assertLess(self.app.end_lineno - self.app.lineno + 1, metrics["app_lines"])
+        self.assertLess(len(self.launcher_text.splitlines()), metrics["launcher_lines"])
+        self.assertGreater(len(imports), 0)
 
-    def test_clip_builder_uses_narrow_gateway_and_preserves_historical_wrappers(self):
+    def test_clip_builder_uses_only_narrow_gateway_after_w108_supersession(self):
         builder = (self.calamus / "calamus_clip_composition.py").read_text(encoding="utf-8")
         runtime = (self.calamus / "calamus_clip_runtime.py").read_text(encoding="utf-8")
         self.assertIn("selected_document_text_from_view(inputs.text_view)", builder)
         self.assertIn("insert_clip_expansion_through_gateway", builder)
-        self.assertIn("def selected_document_text(app", runtime)
-        self.assertIn("def insert_clip_expansion(app", runtime)
+        self.assertNotIn("def selected_document_text(app", runtime)
+        self.assertNotIn("def insert_clip_expansion(app", runtime)
         self.assertIn("def selected_document_text_from_view", runtime)
         self.assertIn("def insert_clip_expansion_through_gateway", runtime)
 

@@ -24,18 +24,17 @@ class BibtexCommandWiringTests(unittest.TestCase):
         self.assertIn("app.on_import_bibtex_biblatex", ui)
         self.assertIn("app.on_export_references_bibtex_biblatex", ui)
 
-    def test_app_gateways_are_thin(self):
-        app_importer = app_method_source("on_import_bibtex_biblatex")
-        app_exporter = app_method_source("on_export_references_bibtex_biblatex")
+    def test_w108_binds_bibtex_commands_directly_to_research_runtime(self):
         importer = self.method("on_import_bibtex_biblatex")
         exporter = self.method("on_export_references_bibtex_biblatex")
+        launcher = self.source("bin/calamus")
         self.assertIn("self.components.bibtex_runtime.import_references()", importer)
         self.assertIn("self.components.bibtex_runtime.export_references()", exporter)
-        self.assertIn("self._research_components.runtime.on_import_bibtex_biblatex", app_importer)
-        self.assertIn("self._research_components.runtime.on_export_references_bibtex_biblatex", app_exporter)
-        self.assertLessEqual(len(app_importer.splitlines()), 2)
-        self.assertLessEqual(len(app_exporter.splitlines()), 2)
-        for method in (importer, exporter, app_importer, app_exporter):
+        self.assertIn("on_import_bibtex_biblatex=research_runtime.on_import_bibtex_biblatex", launcher)
+        self.assertIn("on_export_references_bibtex_biblatex=research_runtime.on_export_references_bibtex_biblatex", launcher)
+        self.assertNotIn("def on_import_bibtex_biblatex", launcher)
+        self.assertNotIn("def on_export_references_bibtex_biblatex", launcher)
+        for method in (importer, exporter):
             for forbidden in ("open(", "Gtk.", "atomic_write", "references.md"):
                 self.assertNotIn(forbidden, method)
 

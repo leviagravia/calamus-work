@@ -21,11 +21,13 @@ class W98ResearchPanelProgramTests(unittest.TestCase):
         for token in ('ResearchPanelCoordinator(','ResearchClientSpec('):
             self.assertIn(token,composition)
         self.assertIn('research_document_context_changed', runtime)
-        self.assertIn('app.research_coordinator.shutdown', lifecycle)
+        self.assertIn('register_final("research-coordinator", research_coordinator_shutdown)', lifecycle)
+        self.assertIn('research_coordinator_shutdown=self.research_coordinator.shutdown', app)
         for name in ('execute_new_plan','finalize_open_transition','execute_new_from_template_plan'):
             start=app.index('    def '+name); end=app.find('\n    def ',start+5); body=app[start:end if end!=-1 else None]
             self.assertIn('research_document_context_changed', body)
-            self.assertIn('getattr(self, "research_document_context_changed", lambda: None)()', body)
+            self.assertIn('self._research_components.runtime.research_document_context_changed()', body)
+            self.assertNotIn('getattr(self, "research_document_context_changed"', body)
             self.assertNotIn('sync_source_notes_document(',body)
         for name in ('reconcile_workspace_rename','reconcile_workspace_trash'):
             start=workspace.index('    def '+name); end=workspace.find('\n    def ',start+5); body=workspace[start:end if end!=-1 else None]

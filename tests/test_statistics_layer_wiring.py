@@ -34,7 +34,8 @@ class StatisticsLayerWiringTests(unittest.TestCase):
     def test_bin_calamus_imports_command_layer_for_statistics_wiring(self):
         source = _source()
         self.assertIn("from calamus_command_context import CommandContext", source)
-        self.assertIn("from calamus_application_commands import build_application_command_layer", source)
+        self.assertIn("from calamus_application_commands import (", source)
+        self.assertIn("build_application_command_layer,", source)
         self.assertIn("from calamus_command_catalog import build_pure_command_layer", source)
         self.assertIn("self.command_layer = build_pure_command_layer()", source)
 

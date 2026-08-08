@@ -1,6 +1,7 @@
 import ast
 import copy
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 from calamus_document_session import DocumentSession
@@ -45,6 +46,8 @@ class _ApplicationState:
 class _App:
     def __init__(self, fail=False):
         self.events = []
+        self._research_components = SimpleNamespace(runtime=SimpleNamespace(research_document_context_changed=lambda: None, publish_research_invalidation=lambda *_: None))
+        self.document_overview_runtime = SimpleNamespace(refresh_if_open=lambda: False)
         self.application_state = _ApplicationState(self.events)
         self.buffer = "old buffer"
         session = DocumentSession(Document("old document", "/tmp/original.txt", True))

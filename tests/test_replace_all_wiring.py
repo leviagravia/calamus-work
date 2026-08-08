@@ -14,10 +14,8 @@ GATEWAY_SOURCE = (ROOT / "calamus" / "calamus_search_gateway.py").read_text(enco
 
 class ReplaceAllWiringTests(unittest.TestCase):
     def test_replace_all_plan_is_owned_by_search_controller(self):
-        app_method = app_method_source("replace_all_literal")
         method = authoritative_method_source("replace_all_literal")
-        self.assertIn("self._w107_subsystems.search.replace_all_literal", app_method)
-        self.assertLessEqual(len(app_method.splitlines()), 2)
+        self.assertNotIn("def replace_all_literal", SOURCE)
         self.assertIn("replaced, count = self.controller.prepare_replace_all(replacement)", method)
         self.assertIn("return prepare_replace_all_plan(", GATEWAY_SOURCE)
         self.assertNotIn("prepare_replace_all_plan", method)

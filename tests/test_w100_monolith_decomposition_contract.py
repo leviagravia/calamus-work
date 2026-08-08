@@ -33,9 +33,9 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
         # launcher/App surface through the accepted composition extraction.
         self.assertLess(len(self.launcher.splitlines()), metrics["launcher_lines"])
         self.assertLess(self.app.end_lineno - self.app.lineno + 1, metrics["app_lines"])
-        # W101-W105 may add bounded compatibility gateways while preserving
-        # strict launcher/App line-count reduction from the W100 monolith.
-        self.assertEqual(len(self.methods), 296)
+        # W108 supersedes the W100/W107 structural shell ceiling by deleting
+        # compatibility forwarding methods while preserving the frozen W100 inventory.
+        self.assertLess(len(self.methods), 296)
         method_names = {node.name for node in self.methods}
         for name in (
             "document", "current_file", "modified", "loading",
@@ -92,18 +92,13 @@ class W100MonolithDecompositionContractTests(unittest.TestCase):
                 args = [a.arg for a in node.args.args + node.args.kwonlyargs]
                 if "app" in args:
                     current.append((path.name, node.name))
-        self.assertEqual(len(current), 39)
-        w104_entries = {item for item in current if item in {
-            ("calamus_application_commands.py", "invoke_check_command"),
-            ("calamus_application_commands.py", "build_application_command_layer"),
-            ("calamus_ui.py", "add_command_item"),
-            ("calamus_ui.py", "connect_check_command"),
-        }}
-        self.assertEqual(len(w104_entries), 3)
-        self.assertEqual(
-            [item for item in current if item[1] == "compose_core_application_components"],
-            [("calamus_application_composition.py", "compose_core_application_components")],
-        )
+        self.assertEqual(current, [])
+        composition = (ROOT / "calamus/calamus_application_composition.py").read_text(encoding="utf-8")
+        commands = (ROOT / "calamus/calamus_application_commands.py").read_text(encoding="utf-8")
+        ui = (ROOT / "calamus/calamus_ui.py").read_text(encoding="utf-8")
+        self.assertIn("def compose_core_application_components(\n    inputs: CoreApplicationCompositionInput", composition)
+        self.assertIn("def build_application_command_layer(ports: ApplicationCommandPorts)", commands)
+        self.assertNotIn("def add_command_item", ui)
 
     def test_roadmap_is_exact_and_feature_work_is_deferred(self):
         text = (ROOT / "docs/canonical/CALAMUS_W100_W110_BINDING_DECOMPOSITION_ROADMAP.md").read_text(encoding="utf-8")

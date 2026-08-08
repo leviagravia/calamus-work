@@ -14,6 +14,16 @@ if CALAMUS not in sys.path:
 from calamus_application_commands import (  # noqa: E402
     APPLICATION_METHOD_TARGETS,
     CHECK_COMMAND_IDS,
+    ApplicationCommandPorts,
+    EditCommandPorts,
+    FileCommandPorts,
+    HelpCommandPorts,
+    NavigateCommandPorts,
+    OptionsCommandPorts,
+    ResearchCommandPorts,
+    ToolsCommandPorts,
+    ViewCommandPorts,
+    WritingCommandPorts,
     build_application_command_layer,
 )
 from calamus_command_catalog import (  # noqa: E402
@@ -32,7 +42,7 @@ from calamus_command_registry import (  # noqa: E402
     CommandSpec,
 )
 
-BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"
+BASELINE = "e16cc21b8a900298406ae8cc4776f6f1ec658e93"
 EXPECTED_LOW_RISK = {
     "edit.lowercase", "edit.uppercase", "writing.clean-pdf",
     "writing.insert-date-time", "writing.join-lines", "writing.reflow-paragraph",
@@ -47,12 +57,28 @@ class _FakeApp:
         return lambda *_args, **_kwargs: True
 
 
+def _fake_ports(app):
+    def family(port_type):
+        return port_type(**{field.name: getattr(app, field.name) for field in fields(port_type)})
+    return ApplicationCommandPorts(
+        edit=family(EditCommandPorts),
+        file=family(FileCommandPorts),
+        help=family(HelpCommandPorts),
+        navigate=family(NavigateCommandPorts),
+        options=family(OptionsCommandPorts),
+        research=family(ResearchCommandPorts),
+        tools=family(ToolsCommandPorts),
+        view=family(ViewCommandPorts),
+        writing=family(WritingCommandPorts),
+    )
+
+
 class W104CommandActionContractTests(unittest.TestCase):
     def test_w104_is_preserved_under_current_w105_identity(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         self.assertIn('DEVELOPMENT_BUILD_LABEL = "Development build"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W108"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Thin GTK Shell"', version)
         self.assertIn(f'PUBLISHED_BASELINE = "{BASELINE}"', version)
 
     def test_catalog_is_single_stable_identity_authority(self):
@@ -131,13 +157,16 @@ class W104CommandActionContractTests(unittest.TestCase):
         self.assertNotIn('ShortcutSpec("File"', shortcuts_source)
 
     def test_application_bindings_are_explicit_and_almost_total(self):
-        layer = build_application_command_layer(_FakeApp())
+        layer = build_application_command_layer(_fake_ports(_FakeApp()))
         catalog_ids = {spec.command_id for spec in command_specs()}
         binding_ids = set(layer.binding_ids())
         self.assertEqual(len(binding_ids), 117)
         self.assertEqual(catalog_ids - binding_ids, {"view.clip-wrap-auto"})
         source = (ROOT / "calamus/calamus_application_commands.py").read_text(encoding="utf-8")
-        self.assertNotIn("getattr(app, command_id", source)
+        tree = ast.parse(source)
+        builder = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "build_application_command_layer")
+        segment = ast.get_source_segment(source, builder) or ""
+        self.assertNotIn("getattr(", segment)
         self.assertNotIn("service locator", source.casefold())
 
     def test_menu_and_check_callbacks_use_stable_command_identity(self):

@@ -85,10 +85,10 @@ def build_editor_infrastructure(
     search_controller = SearchController(
         SearchViewAdapter(inputs.text_view, search_tag)
     )
-    current_line_tag = buffer.create_tag(
-        "current_line",
-        background="#eef5ff",
-    )
+    # The live shell projects an appearance-aware paragraph background onto
+    # this tag.  Keep tag construction palette-free so Light/Dark/System can
+    # be resolved by the active editor presentation context.
+    current_line_tag = buffer.create_tag("current_line")
 
     return EditorInfrastructureComponents(
         history=history,

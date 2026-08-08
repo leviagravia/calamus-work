@@ -29,16 +29,18 @@ class W90PandocCommandWiringTests(unittest.TestCase):
             self.assertIn(token, composition)
         self.assertIn("def on_export_with_pandoc", research_runtime)
         self.assertIn("return self.components.pandoc_export_runtime.export()", research_runtime)
-        self.assertIn("self._research_components.runtime.on_export_with_pandoc", launcher)
+        self.assertIn("on_export_with_pandoc=research_runtime.on_export_with_pandoc", launcher)
+        self.assertNotIn("def on_export_with_pandoc", launcher)
 
     def test_app_is_only_composition_callback_and_close_gateway(self):
         launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
         lifecycle = (ROOT / "calamus/calamus_application_lifecycle_app.py").read_text(encoding="utf-8")
-        self.assertIn("app.pandoc_export_runtime.shutdown", lifecycle)
-        callback = launcher.split("    def on_export_with_pandoc", 1)[1].split("\n    def ", 1)[0]
-        self.assertIn("self._research_components.runtime.on_export_with_pandoc", callback)
+        self.assertIn('register_pre_destroy("pandoc-export", pandoc_shutdown)', lifecycle)
+        self.assertIn("pandoc_shutdown=self.pandoc_export_runtime.shutdown", launcher)
+        self.assertIn("on_export_with_pandoc=research_runtime.on_export_with_pandoc", launcher)
+        self.assertNotIn("def on_export_with_pandoc", launcher)
         for forbidden in ("subprocess", "--citeproc", "export_references(", "os.replace("):
-            self.assertNotIn(forbidden, callback)
+            self.assertNotIn(forbidden, launcher[launcher.index("ApplicationCommandPorts("):launcher.index("self.command_actions =")])
 
     def test_closed_surface_has_no_pdf_or_user_argv(self):
         model = (ROOT / "calamus/calamus_pandoc.py").read_text(encoding="utf-8")

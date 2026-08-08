@@ -19,9 +19,10 @@ class W96EditorHandoffRebuildTests(unittest.TestCase):
         section = source.split("def _present_document_editor", 1)[1].split(
             "def navigate_document_overview_offset", 1
         )[0]
-        self.assertIn("present()", section)
-        self.assertIn("grab_focus()", section)
-        self.assertLess(section.index("\n    present()\n"), section.index("\n    grab_focus()\n"))
+        self.assertIn("present_window()", section)
+        self.assertIn("focus_document()", section)
+        self.assertLess(section.index("\n    present_window()\n"), section.index("\n    focus_document()\n"))
+        self.assertNotIn("app.", section)
 
     def test_handoff_command_order_is_owned_by_app_boundary(self):
         events = []
@@ -57,10 +58,15 @@ class W96EditorHandoffRebuildTests(unittest.TestCase):
                 events.append("present")
 
         app = FakeApp()
-        self.assertTrue(navigate_document_overview_offset(app, 4))
+        self.assertTrue(navigate_document_overview_offset(
+            app.buffer_text, app.set_cursor_offset, app.get_cursor_offset,
+            app.present, app.text.grab_focus, 4,
+        ))
         self.assertEqual([("cursor", 4), "present", "focus"], events)
         events.clear()
-        self.assertTrue(navigate_document_overview_range(app, 2, 6))
+        self.assertTrue(navigate_document_overview_range(
+            app.buffer_text, app.select_range, app.present, app.text.grab_focus, 2, 6,
+        ))
         self.assertEqual([("selection", 2, 6), "present", "focus"], events)
 
     def test_transient_tool_window_is_hidden_for_document_handoff(self):

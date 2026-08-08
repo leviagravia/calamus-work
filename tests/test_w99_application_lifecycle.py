@@ -136,15 +136,15 @@ class W99ApplicationLifecycleWiringTests(unittest.TestCase):
             ROOT / "calamus" / "calamus_application_lifecycle_app.py"
         ).read_text(encoding="utf-8")
         expected = (
-            'register_pre_destroy("pandoc-export"',
-            '"application-sources", app.shutdown_application_sources',
-            'register_final("navigator-panel"',
-            'register_final("research-panel-view"',
-            'register_final("research-coordinator"',
-            'register_final("document-overview"',
-            'register_final("typewriter"',
-            'register_final("history"',
-            'register_final("viewport"',
+            'register_pre_destroy("pandoc-export", pandoc_shutdown)',
+            'register_final("application-sources", shutdown_sources)',
+            'register_final("navigator-panel", navigator_shutdown)',
+            'register_final("research-panel-view", research_view_shutdown)',
+            'register_final("research-coordinator", research_coordinator_shutdown)',
+            'register_final("document-overview", document_overview_shutdown)',
+            'register_final("typewriter", typewriter_shutdown)',
+            'register_final("history", history_shutdown)',
+            'register_final("viewport", viewport_shutdown)',
         )
         for token in expected:
             self.assertIn(token, text)
@@ -182,11 +182,9 @@ class W99ApplicationLifecycleWiringTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("self._wrap_reflow_source = GLib.idle_add", launcher)
         self.assertIn("self.word_count_source = GLib.timeout_add", launcher)
-        self.assertIn("search_controller.cancel_pending_highlight(remove_source)", boundary)
-        self.assertIn(
-            '("spell_source", "word_count_source", "_wrap_reflow_source")',
-            boundary,
-        )
+        self.assertIn("cancel_search_highlight(remove_source)", boundary)
+        self.assertIn("source_ids = (self.spell_source, self.word_count_source, self._wrap_reflow_source)", launcher)
+        self.assertIn("self.search_controller.cancel_pending_highlight", launcher)
 
 
 if __name__ == "__main__":

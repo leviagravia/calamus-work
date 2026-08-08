@@ -56,6 +56,60 @@ class UiStateComponents:
     controller: Any
 
 
+
+
+@dataclass(frozen=True)
+class CoreApplicationCompositionInput:
+    initial_file_path: str | None
+    workspace_root: str | None
+    workspace_visible: bool
+    text_view: Any
+    scroller: Any
+    workspace_paned: Any
+    body_paned: Any
+    dialog_parent: Any
+    menu_ui_adapter: Any
+    recent_workspaces: Any
+    recent_files: Any
+    favourites: Any
+    application_state: Any
+    config_dir: str
+    read_buffer_text: Callable[[], str]
+    replace_buffer_text: Callable[[str], None]
+    reset_undo_history: Callable[[], None]
+    on_typewriter_state_changed: Callable[..., Any]
+    on_buffer_changed: Callable[..., Any]
+    on_buffer_begin_user_action: Callable[..., Any]
+    on_buffer_end_user_action: Callable[..., Any]
+    on_cursor_position_notify: Callable[..., Any]
+    on_text_key_press: Callable[..., Any]
+    on_text_key_release: Callable[..., Any]
+    on_text_move_cursor: Callable[..., Any]
+    on_text_button_press: Callable[..., Any]
+    on_text_motion_notify: Callable[..., Any]
+    on_text_button_release: Callable[..., Any]
+    on_text_scroll: Callable[..., Any]
+    on_text_focus_out: Callable[..., Any]
+    apply_wrap_policy: Callable[[], Any]
+    queue_wrap_reflow: Callable[[], Any]
+    may_continue: Callable[[], bool]
+    open_document: Callable[[str], bool]
+    report_error: Callable[[str], None]
+    document_text: Callable[[], str]
+    research_context_changed: Callable[[], Any]
+    update_title: Callable[[], Any]
+    refresh_overview: Callable[[], Any]
+    refresh_ui_state: Callable[[], Any]
+    on_navigator_visibility_changed: Callable[[bool], Any]
+    execute_command: Callable[..., bool]
+    get_cursor_offset: Callable[[], int]
+    set_cursor_offset: Callable[[int], Any]
+    sync_history_view_state: Callable[[], Any]
+    queue_insert_scroll: Callable[..., Any]
+    publish_invalidation: Callable[[Any], Any]
+    clip_invalidation_reason: Any
+
+
 @dataclass(frozen=True)
 class DocumentSessionCompositionInput:
     initial_file_path: str | None

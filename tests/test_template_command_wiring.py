@@ -2,6 +2,7 @@ from tests.w105_menu_test_support import legacy_menu_projection
 import ast
 import copy
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 from calamus_document_session import DocumentSession
@@ -31,6 +32,8 @@ def _compiled_method(name):
 class _App:
     def __init__(self, fail=False):
         self.events=[];self.buffer="old"
+        self._research_components=SimpleNamespace(runtime=SimpleNamespace(research_document_context_changed=lambda:None))
+        self.document_overview_runtime=SimpleNamespace(refresh_if_open=lambda:False)
         session=DocumentSession(Document("old","/tmp/original.txt",True))
         def replace(text):
             self.events.append(("buffer",text))

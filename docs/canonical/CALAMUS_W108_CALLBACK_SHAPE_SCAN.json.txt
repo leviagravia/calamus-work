@@ -1,0 +1,13 @@
+{
+  "callable_mappings_checked": 19,
+  "explicit_navigator_adapter": {
+    "composition_binding": true,
+    "no_bad_binding": true,
+    "no_variadic_workaround": true,
+    "root_adapter": true,
+    "root_field": true
+  },
+  "mapping_count": 118,
+  "mismatches": []
+}
+W108_CALLBACK_SHAPE_CLOSURE=PASS mappings=118 callable_checked=19 mismatches=0

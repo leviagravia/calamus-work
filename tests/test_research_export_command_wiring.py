@@ -25,14 +25,14 @@ class ResearchExportCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Export BibTeX", ui)
         self.assertNotIn("Export Bibliography of All References", ui)
 
-    def test_app_entrypoint_is_thin_and_uses_runtime(self):
-        app_method = app_method_source("on_export_research_apparatus")
+    def test_w108_binds_export_directly_to_research_runtime(self):
         method = self.method("on_export_research_apparatus")
+        launcher = self.source("bin/calamus")
         self.assertIn("self.components.research_export_runtime.export()", method)
-        self.assertIn("self._research_components.runtime.on_export_research_apparatus", app_method)
-        self.assertLessEqual(len(app_method.splitlines()), 2)
+        self.assertIn("on_export_research_apparatus=research_runtime.on_export_research_apparatus", launcher)
+        self.assertNotIn("def on_export_research_apparatus", launcher)
         for forbidden in ("open(", "atomic_write", "Gtk.", "references.md", "source-notes"):
-            self.assertNotIn(forbidden, app_method)
+            self.assertNotIn(forbidden, method)
 
     def test_app_builds_controller_from_existing_research_authorities(self):
         composition = research_composition_source()

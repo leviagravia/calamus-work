@@ -3,6 +3,6 @@ APP_VERSION = "1.7.0-rc3-stable4.3"
 
 # Truthful runtime identity for the active, unpublished development line.
 DEVELOPMENT_BUILD_LABEL = "Development build"
-DEVELOPMENT_WORK_ITEM = "W107"
-DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"
-PUBLISHED_BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"
+DEVELOPMENT_WORK_ITEM = "W108"
+DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Thin GTK Shell"
+PUBLISHED_BASELINE = "e16cc21b8a900298406ae8cc4776f6f1ec658e93"

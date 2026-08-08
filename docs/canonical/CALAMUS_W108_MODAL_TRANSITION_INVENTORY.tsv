@@ -1,0 +1,7 @@
+operation	precondition	modal_expected	driver_contract	terminal_receipt	primary_authority
+help.about	current document loaded	About Calamus	ModalDriver closes with Gtk.ResponseType.CLOSE	command returns and document identity is preserved	W104 command identity + W108 behavioral GTK
+view.character-map	current document loaded	Character Map	ModalDriver clicks Ω then closes dialog	Ω inserted through W103; edit.undo restores exact bytes	W103 transaction + W108 CharacterMapGtkAdapter
+tools.system-info	current document loaded	System Info	ModalDriver closes with Gtk.ResponseType.CLOSE	command returns without changing document identity	W108 identity/presentation
+file.open-drop.clean	public file.save executed after Character Map undo	NONE	NONE	drag_finish(True,False,77); identity becomes Dropped.md	W102 file lifecycle + W104 file.open-drop + W108 GTK endpoint
+file.open-drop.dirty-cancel	Dropped.md modified through public writing.insert-date command	Save changes?	ModalDriver clicks Cancel	drag_finish(False,False,78); Dropped.md identity and dirty content preserved	W102 unsaved gate + W108 GTK endpoint
+file.quit.clean	public file.save executed after dirty-drop Cancel receipt	NONE	NONE	file.quit succeeds; application_lifecycle.is_shutdown true	W99 lifecycle + W104 file.quit

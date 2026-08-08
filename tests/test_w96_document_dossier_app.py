@@ -114,20 +114,20 @@ class DocumentDossierAppBoundaryTests(unittest.TestCase):
 
     def test_offset_navigation_owns_cursor_window_presentation_and_editor_focus(self):
         app = FakeNavigationApp()
-        self.assertTrue(navigate_document_overview_offset(app, 7))
+        self.assertTrue(navigate_document_overview_offset(app.buffer_text, app.set_cursor_offset, app.get_cursor_offset, app.present, app.text.grab_focus, 7))
         self.assertEqual(7, app.get_cursor_offset())
         self.assertEqual([("cursor", 7), ("present",), ("focus",)], app.events)
 
     def test_range_navigation_owns_selection_window_presentation_and_editor_focus(self):
         app = FakeNavigationApp()
-        self.assertTrue(navigate_document_overview_range(app, 2, 6))
+        self.assertTrue(navigate_document_overview_range(app.buffer_text, app.select_range, app.present, app.text.grab_focus, 2, 6))
         self.assertEqual((2, 6), app.selection)
         self.assertEqual([("selection", 2, 6), ("present",), ("focus",)], app.events)
 
     def test_navigation_fails_closed_without_presentable_editor_toplevel(self):
         app = FakeNavigationApp()
         app.present = None
-        self.assertFalse(navigate_document_overview_offset(app, 4))
+        self.assertFalse(navigate_document_overview_offset(app.buffer_text, app.set_cursor_offset, app.get_cursor_offset, app.present, app.text.grab_focus, 4))
         self.assertEqual([("cursor", 4)], app.events)
 
     def test_invalid_authority_snapshot_fails_closed(self):

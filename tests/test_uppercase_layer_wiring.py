@@ -11,6 +11,7 @@ from tests.w105_menu_test_support import legacy_menu_projection
 ROOT = Path(__file__).resolve().parents[1]
 BIN_CALAMUS = ROOT / "bin" / "calamus"
 UI = ROOT / "calamus" / "calamus_ui.py"
+CHARACTER_MAP = ROOT / "calamus" / "calamus_character_map_dialog.py"
 sys.path.insert(0, str(ROOT / "calamus"))
 
 from calamus_command_catalog import build_pure_command_layer
@@ -169,14 +170,14 @@ class UppercaseLayerWiringTests(unittest.TestCase):
     def test_generic_replace_selection_users_keep_default_path(self):
         methods = _app_methods()
         replace_selection = methods["replace_selection"]
-        character_map = methods["on_character_map"]
+        character_map = CHARACTER_MAP.read_text(encoding="utf-8")
         self.assertIn('command_name="Replace Selection"', replace_selection)
         self.assertIn("else:\n            replacement = transform(txt)", replace_selection)
         self.assertIn(
             "return self.execute_command(command_name, edit, select_range=select)",
             replace_selection,
         )
-        self.assertIn("self.replace_selection(lambda _old, c=ch: c)", character_map)
+        self.assertIn("replace_selection(lambda _old, c=ch: c)", character_map)
 
     def test_existing_selection_or_document_uppercase_bridge_remains_available(self):
         method = _app_methods()["apply_text_transform"]

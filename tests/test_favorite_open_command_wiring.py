@@ -82,7 +82,8 @@ class FavoriteOpenCommandWiringTests(unittest.TestCase):
         model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
         commands=(ROOT/'calamus/calamus_application_commands.py').read_text(encoding='utf-8')
         self.assertIn('"file.favourite.open"',model)
-        self.assertIn('bind("file.favourite.open", lambda ctx: app.open_favourite_path',commands)
+        self.assertIn('bind("file.favourite.open", lambda ctx: ports.file.open_favourite_path',commands)
+        self.assertIn('open_favourite_path=self.open_favourite_path', (ROOT/'bin/calamus').read_text(encoding='utf-8'))
         self.assertNotIn('open_recent_path',_method_source('open_favourite_path'))
 
     def test_launcher_imports_pure_favorite_plan(self):

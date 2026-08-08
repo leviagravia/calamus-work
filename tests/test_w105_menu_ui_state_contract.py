@@ -17,15 +17,15 @@ from calamus_application_components import (  # noqa: E402
 )
 from calamus_menu_model import CHECK_COMMAND_IDS, DYNAMIC_SLOT_IDS  # noqa: E402
 
-BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"
+BASELINE = "e16cc21b8a900298406ae8cc4776f6f1ec658e93"
 
 
 class W105MenuUiStateContractTests(unittest.TestCase):
     def test_identity_is_exact_w105(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
         self.assertIn('DEVELOPMENT_BUILD_LABEL = "Development build"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W108"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Thin GTK Shell"', version)
         self.assertIn(f'PUBLISHED_BASELINE = "{BASELINE}"', version)
 
     def test_w105_core_modules_are_gtk_free(self):
@@ -142,8 +142,8 @@ class W105MenuUiStateContractTests(unittest.TestCase):
         ):
             self.assertIn(f"def {function_name}", launcher)
             self.assertIn(f'render_dynamic("{slot}"', launcher)
-        self.assertIn("def populate_recent_workspaces_menu", launcher)
-        self.assertIn("self._components.workspace.host_runtime.populate_recent_workspaces_menu", launcher)
+        self.assertNotIn("def populate_recent_workspaces_menu", launcher)
+        self.assertIn("self._components.workspace.host_runtime.populate_recent_workspaces_menu()", launcher)
         workspace_gtk = (ROOT / "calamus/calamus_workspace_host_gtk.py").read_text(encoding="utf-8")
         self.assertIn('self._menu_ui_adapter.render_dynamic(', workspace_gtk)
         self.assertIn('"recent-workspaces"', workspace_gtk)

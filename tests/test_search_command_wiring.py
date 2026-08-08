@@ -27,7 +27,8 @@ class SearchCommandWiringTests(unittest.TestCase):
         root = (ROOT / "calamus/calamus_application_composition.py").read_text(encoding="utf-8")
         self.assertEqual(composition.count("SearchController("), 1)
         self.assertIn("SearchViewAdapter(inputs.text_view, search_tag)", composition)
-        self.assertIn("app.search_controller = editor.search_controller", root)
+        self.assertIn("self.search_controller = core_components.editor.search_controller", source)
+        self.assertNotIn("app.search_controller", root)
         self.assertNotIn("self.last_search =", source)
         self.assertNotIn("self.last_match =", source)
         self.assertNotIn("self.search_highlight_source =", source)
@@ -43,14 +44,14 @@ class SearchCommandWiringTests(unittest.TestCase):
         )
         self.assertNotIn('top_menu(app, "Search")', ui)
 
-    def test_find_all_callback_is_thin(self):
-        app_method = app_method_source("on_find_all")
+    def test_w108_find_all_binds_directly_to_search_runtime(self):
         method = method_source("on_find_all")
         composition = (ROOT / "calamus" / "calamus_subsystem_composition.py").read_text(encoding="utf-8")
-        self.assertIn("self._w107_subsystems.search.on_find_all", app_method)
+        launcher = LAUNCHER.read_text(encoding="utf-8")
+        self.assertIn("on_find_all=search_runtime.on_find_all", launcher)
+        self.assertNotIn("def on_find_all", launcher)
         self.assertIn("self.ports.open_find_all()", method)
         self.assertIn("run_find_all_dialog", composition)
-        self.assertLessEqual(len(app_method.splitlines()), 2)
 
     def test_find_replace_dialog_moved_out_of_generic_dialog_module(self):
         self.assertNotIn("def run_find_replace_dialog", DIALOGS.read_text(encoding="utf-8"))

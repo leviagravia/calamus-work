@@ -98,6 +98,7 @@ modules = [
     "calamus_document_dossier",
     "calamus_document_dossier_controller",
     "calamus_document_dossier_app",
+    "calamus_character_map_dialog",
     "calamus_document_overview_model",
     "calamus_document_overview_view",
     "calamus_document_overview_runtime",

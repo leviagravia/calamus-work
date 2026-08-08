@@ -11,7 +11,6 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
-from calamus_application_commands import command_target_for_callback
 from calamus_command_catalog import build_command_registry, shortcut_bindings as command_shortcut_bindings
 from calamus_menu_model import (
     APPLICATION_MENU_MODEL,
@@ -25,55 +24,6 @@ from calamus_menu_model import (
 )
 from calamus_ui_state import UiStateSnapshot
 
-
-def top_menu(app, label: str) -> Gtk.Menu:
-    """Historical GTK helper retained for local compatibility tests.
-
-    W105 application-menu construction itself uses MenuGtkAdapter.
-    """
-    item = Gtk.MenuItem(label=label)
-    menu = Gtk.Menu()
-    item.set_submenu(menu)
-    app.menubar.append(item)
-    return menu
-
-
-def add_item(menu: Gtk.Menu, label: str, callback):
-    """Compatibility constructor routed through stable W104 command IDs."""
-    item = Gtk.MenuItem(label=label)
-    owner = getattr(callback, "__self__", None)
-    if owner is not None and hasattr(owner, "invoke_command"):
-        target = command_target_for_callback(callback)
-        if target is None:
-            raise RuntimeError(
-                f"Uncatalogued Calamus menu callback: {getattr(callback, '__name__', callback)!r}"
-            )
-        item.connect(
-            "activate",
-            lambda *_args, app=owner, command_id=target.command_id, data=target.data():
-                app.invoke_command(command_id, source="menu", data=data),
-        )
-    else:
-        item.connect("activate", callback)
-    menu.append(item)
-    return item
-
-
-def add_command_item(menu: Gtk.Menu, label: str, app, command_id: str, data=None):
-    item = Gtk.MenuItem(label=label)
-    payload = dict(data or {})
-    item.connect(
-        "activate",
-        lambda *_args, cid=command_id, values=payload: app.invoke_command(
-            cid, source="menu", data=values
-        ),
-    )
-    menu.append(item)
-    return item
-
-
-def add_separator(menu: Gtk.Menu) -> None:
-    menu.append(Gtk.SeparatorMenuItem())
 
 
 class MenuGtkAdapter:
@@ -223,34 +173,38 @@ class MenuGtkAdapter:
         return tuple(self._dynamic_widgets.get(str(slot_id), ()))
 
 
-def build_menu(app) -> MenuGtkAdapter:
-    adapter = MenuGtkAdapter(app.menubar, app.invoke_command).build()
-    app.menu_ui_adapter = adapter
-    controller = getattr(app, "ui_state_controller", None)
-    if controller is not None:
-        controller.bind_projector(adapter)
-        app.refresh_ui_state()
-
-    # Dynamic application-menu families are data projections owned by App's
-    # existing storage authorities; only the GTK rendering lives here.
-    app.populate_template_menu()
-    app.populate_recent_menu()
-    app.populate_favourites_menu()
-    # Recent Workspaces is owned by the W107 WorkspaceHostRuntime.  That
-    # runtime is constructed only after the editor/core composition barrier;
-    # projecting it here would use the host before `_components` exists.
-    # App.__init__ performs this one dynamic projection immediately after
-    # compose_core_application_components() returns.
+def build_menu(
+    menubar,
+    invoke_command,
+    *,
+    ui_state_controller=None,
+    refresh_ui_state=None,
+    populate_template_menu=None,
+    populate_recent_menu=None,
+    populate_favourites_menu=None,
+) -> MenuGtkAdapter:
+    adapter = MenuGtkAdapter(menubar, invoke_command).build()
+    if ui_state_controller is not None:
+        ui_state_controller.bind_projector(adapter)
+        if callable(refresh_ui_state):
+            refresh_ui_state()
+    for projection in (populate_template_menu, populate_recent_menu, populate_favourites_menu):
+        if callable(projection):
+            projection()
+    # Recent Workspaces remains intentionally delayed until final core
+    # composition assignment; the concrete shell performs that projection.
     return adapter
 
 
-def shortcut_bindings(app):
+def shortcut_bindings(invoke_command):
+    if not callable(invoke_command):
+        raise TypeError("invoke_command must be callable")
     rows = []
     for accelerator, command_id, data in command_shortcut_bindings():
         payload = dict(data)
         rows.append((
             accelerator,
-            lambda *_args, cid=command_id, values=payload: app.invoke_command(
+            lambda *_args, cid=command_id, values=payload: invoke_command(
                 cid, source="shortcut", data=values
             ),
         ))
@@ -264,13 +218,16 @@ def shortcut_conflicts(bindings: tuple[tuple[str, object], ...]) -> dict[str, in
     return {shortcut: count for shortcut, count in counts.items() if count > 1}
 
 
-def add_shortcuts(app) -> None:
+def add_shortcuts(window, invoke_command) -> None:
+    if not callable(getattr(window, "add_accel_group", None)):
+        raise TypeError("window must provide Gtk.Window accelerator ownership")
     acc = Gtk.AccelGroup()
-    app.add_accel_group(acc)
-    bindings = shortcut_bindings(app)
+    window.add_accel_group(acc)
+    bindings = shortcut_bindings(invoke_command)
     conflicts = shortcut_conflicts(bindings)
     if conflicts:
         raise RuntimeError(f"Duplicate Calamus shortcuts: {conflicts}")
     for shortcut, callback in bindings:
         key, mod = Gtk.accelerator_parse(shortcut)
         acc.connect(key, mod, Gtk.AccelFlags.VISIBLE, lambda *args, cb=callback: (cb(), True)[1])
+

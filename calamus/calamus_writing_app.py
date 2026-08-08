@@ -1,31 +1,44 @@
-"""Thin App bridge for the initial Writing menu commands."""
+"""Narrow boundary for the initial Writing date/time commands."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Callable, Any
 
 from calamus_commands import insert_at as command_insert_at
 
 
-def insert_current_moment(app, command_name, fmt):
-    txt, changed = app.command_layer_insert_date_time_text(datetime.now(), fmt)
+@dataclass(frozen=True)
+class WritingInsertPorts:
+    command_layer_insert_date_time_text: Callable[[datetime, str], tuple[str, bool]]
+    get_cursor_offset: Callable[[], int]
+    buffer_text: Callable[[], str]
+    execute_command: Callable[..., bool]
+    now: Callable[[], datetime] = datetime.now
+
+
+def insert_current_moment(ports: WritingInsertPorts, command_name: str, fmt: str) -> bool:
+    if not isinstance(ports, WritingInsertPorts):
+        raise TypeError("ports must be WritingInsertPorts")
+    txt, changed = ports.command_layer_insert_date_time_text(ports.now(), fmt)
     if not changed:
         return False
-    cursor = app.get_cursor_offset()
-    _, select = command_insert_at(app.buffer_text(), cursor, txt)
+    cursor = ports.get_cursor_offset()
+    _, select = command_insert_at(ports.buffer_text(), cursor, txt)
 
     def edit(buf):
         buf.insert_at_cursor(txt)
 
-    return app.execute_command(command_name, edit, select_range=select)
+    return ports.execute_command(command_name, edit, select_range=select)
 
 
-def on_insert_date(app, *_):
-    return insert_current_moment(app, "Insert Date", "%Y-%m-%d")
+def on_insert_date(ports: WritingInsertPorts, *_: Any):
+    return insert_current_moment(ports, "Insert Date", "%Y-%m-%d")
 
 
-def on_insert_time(app, *_):
-    return insert_current_moment(app, "Insert Time", "%H:%M")
+def on_insert_time(ports: WritingInsertPorts, *_: Any):
+    return insert_current_moment(ports, "Insert Time", "%H:%M")
 
 
-def on_insert_datetime(app, *_):
-    return insert_current_moment(app, "Insert Date and Time", "%Y-%m-%d %H:%M")
+def on_insert_datetime(ports: WritingInsertPorts, *_: Any):
+    return insert_current_moment(ports, "Insert Date and Time", "%Y-%m-%d %H:%M")

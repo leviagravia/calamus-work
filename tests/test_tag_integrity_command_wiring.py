@@ -31,12 +31,12 @@ class TagIntegrityCommandWiringTests(unittest.TestCase):
         self.assertTrue(guide_has("Research", "Tag Integrity", "menu"))
         self.assertNotIn("Tag Integrity…\\t", UI)
 
-    def test_app_gateway_is_thin_and_composes_existing_authorities(self):
+    def test_w108_binds_tag_integrity_directly_to_research_runtime(self):
         tree = ast.parse(APP)
         app_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "App")
-        methods = {node.name: node for node in app_class.body if isinstance(node, ast.FunctionDef)}
-        method = methods["on_tag_integrity"]
-        self.assertLessEqual(method.end_lineno - method.lineno + 1, 3)
+        methods = {node.name for node in app_class.body if isinstance(node, ast.FunctionDef)}
+        self.assertNotIn("on_tag_integrity", methods)
+        self.assertIn("on_tag_integrity=research_runtime.on_tag_integrity", APP)
         composition = research_composition_source()
         self.assertIn("TagIntegrityController", composition)
         self.assertIn("TagIntegrityRuntime", composition)

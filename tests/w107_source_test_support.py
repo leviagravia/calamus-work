@@ -80,7 +80,16 @@ def authoritative_method_source(name: str) -> str:
 
 
 def app_method_source(name: str) -> str:
-    return _method("bin/calamus", "App", name)
+    """Historical helper: follow the current authoritative owner after W108.
+
+    W107 kept compatibility forwarding methods in App.  W108 Thin GTK Shell
+    explicitly retires those facades, so historical source contracts that use
+    this helper keep testing the same behavior at its authoritative owner.
+    """
+    try:
+        return _method("bin/calamus", "App", name)
+    except StopIteration:
+        return authoritative_method_source(name)
 
 
 def research_composition_source() -> str:

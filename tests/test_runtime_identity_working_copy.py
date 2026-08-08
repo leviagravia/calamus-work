@@ -89,14 +89,14 @@ class RuntimeIdentityWorkingCopyTests(unittest.TestCase):
 
     def test_development_identity_constants_are_exact(self):
         self.assertEqual(DEVELOPMENT_BUILD_LABEL, "Development build")
-        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W107")
+        self.assertEqual(DEVELOPMENT_WORK_ITEM, "W108")
         self.assertEqual(
             DEVELOPMENT_WORK_ITEM_DESCRIPTION,
-            "Subsystem Host-Port Migration",
+            "Thin GTK Shell",
         )
         self.assertEqual(
             PUBLISHED_BASELINE,
-            "e8befafaf7f75d958eabbd2e273f83c630042b84",
+            "e16cc21b8a900298406ae8cc4776f6f1ec658e93",
         )
 
     def test_historical_package_version_is_preserved_but_not_runtime_label(self):

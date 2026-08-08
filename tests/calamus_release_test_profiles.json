@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "lineage": "W107 Subsystem Host-Port Migration Candidate R2",
-  "published_baseline": "e8befafaf7f75d958eabbd2e273f83c630042b84",
+  "lineage": "W108 Thin GTK Shell Candidate R1",
+  "published_baseline": "e16cc21b8a900298406ae8cc4776f6f1ec658e93",
   "policy": "Every automated release profile executes exact selected tests and requires zero skips.",
   "profiles": {
     "headless-core": {
@@ -108,7 +108,7 @@
         "tests.test_bibtex.BibtexPureTests.test_parenthesis_entry_does_not_close_on_parenthesis_inside_braces",
         "tests.test_bibtex.BibtexPureTests.test_parser_resolves_strings_and_reports_non_entry_blocks",
         "tests.test_bibtex_command_wiring.BibtexCommandWiringTests.test_app_composes_controller_from_existing_reference_authority",
-        "tests.test_bibtex_command_wiring.BibtexCommandWiringTests.test_app_gateways_are_thin",
+        "tests.test_bibtex_command_wiring.BibtexCommandWiringTests.test_w108_binds_bibtex_commands_directly_to_research_runtime",
         "tests.test_bibtex_command_wiring.BibtexCommandWiringTests.test_controller_owns_io_and_never_force_overwrites",
         "tests.test_bibtex_command_wiring.BibtexCommandWiringTests.test_dialogs_keep_local_file_boundaries_and_reexport_import_view",
         "tests.test_bibtex_command_wiring.BibtexCommandWiringTests.test_import_view_uses_session_static_actions_and_direct_row_projection",
@@ -830,7 +830,7 @@
         "tests.test_research_export.ResearchExportPureTests.test_reference_renderer_is_transparent_not_csl_claim",
         "tests.test_research_export.ResearchExportPureTests.test_wrong_types_fail_closed",
         "tests.test_research_export_command_wiring.ResearchExportCommandWiringTests.test_app_builds_controller_from_existing_research_authorities",
-        "tests.test_research_export_command_wiring.ResearchExportCommandWiringTests.test_app_entrypoint_is_thin_and_uses_runtime",
+        "tests.test_research_export_command_wiring.ResearchExportCommandWiringTests.test_w108_binds_export_directly_to_research_runtime",
         "tests.test_research_export_command_wiring.ResearchExportCommandWiringTests.test_controller_uses_shared_atomic_writer_and_never_writes_authorities",
         "tests.test_research_export_command_wiring.ResearchExportCommandWiringTests.test_dialog_uses_explicit_product_step_then_standard_local_save",
         "tests.test_research_export_command_wiring.ResearchExportCommandWiringTests.test_product_and_destination_are_sequential_not_hidden_in_file_chooser",
@@ -847,7 +847,7 @@
         "tests.test_research_export_runtime.ResearchExportRuntimeTests.test_success_reports_destination",
         "tests.test_research_file.ResearchFileTests.test_atomic_write_rejects_invalid_input",
         "tests.test_research_file.ResearchFileTests.test_file_token_and_atomic_write",
-        "tests.test_research_integrity_command_wiring.ResearchIntegrityCommandWiringTests.test_app_composes_authorities_and_keeps_wrappers_thin",
+        "tests.test_research_integrity_command_wiring.ResearchIntegrityCommandWiringTests.test_w108_composes_authorities_and_binds_without_app_wrappers",
         "tests.test_research_integrity_command_wiring.ResearchIntegrityCommandWiringTests.test_generic_reference_dialog_cannot_edit_key_or_aliases",
         "tests.test_research_integrity_command_wiring.ResearchIntegrityCommandWiringTests.test_modules_exist_and_are_provenance_tracked",
         "tests.test_research_integrity_command_wiring.ResearchIntegrityCommandWiringTests.test_research_menu_exposes_only_two_new_on_demand_commands",
@@ -871,14 +871,14 @@
         "tests.test_research_references_command_wiring.ResearchReferencesCommandWiringTests.test_research_is_top_level_between_edit_and_navigate",
         "tests.test_research_references_command_wiring.ResearchReferencesCommandWiringTests.test_shell_owns_title_selector_and_close_gateway",
         "tests.test_research_references_command_wiring.ResearchReferencesCommandWiringTests.test_shortcut_now_targets_research_panel_without_duplication",
-        "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_app_preserves_document_mutation_gateway_for_insert",
+        "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_w108_preserves_narrow_clip_mutation_gateway_without_app_wrapper",
         "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_clip_controller_owns_persist_first_mutations",
         "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_clip_store_is_markdown_primary_with_legacy_json_fallback",
         "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_host_remains_generic_and_research_shell_owns_real_clients",
         "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_launcher_no_longer_owns_raw_clip_or_reference_widgets",
         "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_source_provenance_includes_new_boundaries",
         "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_startup_has_one_right_panel_host_authority",
-        "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_toggle_is_a_thin_research_runtime_adapter",
+        "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_w108_toggle_binds_directly_to_research_runtime",
         "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_view_adapter_owns_double_click_and_list_selection",
         "tests.test_right_panel_command_wiring.RightPanelCommandWiringTests.test_visible_command_moves_coherently_to_research_without_duplication",
         "tests.test_right_panel_host.RightPanelHostTests.test_hide_show_preserves_user_width_without_positive_child_request",
@@ -985,7 +985,7 @@
         "tests.test_search.SearchTests.test_search_case_and_whole_word",
         "tests.test_search.SearchTests.test_text_stats",
         "tests.test_search.SearchTests.test_text_stats_matches_editor_paragraph_delimiters",
-        "tests.test_search_command_wiring.SearchCommandWiringTests.test_find_all_callback_is_thin",
+        "tests.test_search_command_wiring.SearchCommandWiringTests.test_w108_find_all_binds_directly_to_search_runtime",
         "tests.test_search_command_wiring.SearchCommandWiringTests.test_find_all_coordinates_are_owned_by_text_iter_adapter",
         "tests.test_search_command_wiring.SearchCommandWiringTests.test_find_all_is_visible_in_edit_menu_without_menu_recomposition",
         "tests.test_search_command_wiring.SearchCommandWiringTests.test_find_replace_dialog_moved_out_of_generic_dialog_module",
@@ -1084,7 +1084,7 @@
         "tests.test_source_notes.SourceNoteModelTests.test_new_id_is_readable_and_disambiguated",
         "tests.test_source_notes.SourceNoteModelTests.test_note_normalizes_and_searches_all_semantics",
         "tests.test_source_notes.SourceNoteModelTests.test_quote_requires_reference_and_text",
-        "tests.test_source_notes_command_wiring.SourceNotesCommandWiringTests.test_app_only_composes_and_exposes_thin_wrappers",
+        "tests.test_source_notes_command_wiring.SourceNotesCommandWiringTests.test_w108_app_only_composes_and_binds_source_note_authorities",
         "tests.test_source_notes_command_wiring.SourceNotesCommandWiringTests.test_controller_owns_persist_first_crud_and_missing_link_diagnostics",
         "tests.test_source_notes_command_wiring.SourceNotesCommandWiringTests.test_dialog_keeps_generated_source_note_id_stable",
         "tests.test_source_notes_command_wiring.SourceNotesCommandWiringTests.test_modules_exist_and_are_provenance_tracked",
@@ -1125,7 +1125,7 @@
         "tests.test_tag_integrity.TagIntegrityPureTests.test_rename_to_existing_identity_merges_and_deduplicates",
         "tests.test_tag_integrity.TagIntegrityPureTests.test_research_check_reports_logical_tag_collision",
         "tests.test_tag_integrity.TagIntegrityPureTests.test_swatch_is_stable_and_identity_derived",
-        "tests.test_tag_integrity_command_wiring.TagIntegrityCommandWiringTests.test_app_gateway_is_thin_and_composes_existing_authorities",
+        "tests.test_tag_integrity_command_wiring.TagIntegrityCommandWiringTests.test_w108_binds_tag_integrity_directly_to_research_runtime",
         "tests.test_tag_integrity_command_wiring.TagIntegrityCommandWiringTests.test_color_is_derived_and_no_third_authority_exists",
         "tests.test_tag_integrity_command_wiring.TagIntegrityCommandWiringTests.test_controller_uses_tokens_atomic_stores_and_compensating_rollback",
         "tests.test_tag_integrity_command_wiring.TagIntegrityCommandWiringTests.test_modules_exist_compile_and_are_provenance_tracked",
@@ -2199,7 +2199,7 @@
       },
       "test_ids": [
         "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_build_topology_and_composition_complete_barrier_are_exact",
-        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_clip_builder_uses_narrow_gateway_and_preserves_historical_wrappers",
+        "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_clip_builder_uses_only_narrow_gateway_after_w108_supersession",
         "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_editor_signal_inventory_and_lifetime_are_exact",
         "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_identity_scope_and_contract_are_exact",
         "tests.test_w101_core_composition_contract.W101CoreCompositionContractTests.test_moved_constructor_inventory_is_exact_and_absent_from_app",
@@ -2607,9 +2607,9 @@
         "tests.test_w107_subsystem_host_port.W107SubsystemHostPortTests.test_spellcheck_runtime_is_widget_free_and_uses_transaction_port",
         "tests.test_w107_subsystem_host_port.W107SubsystemHostPortTests.test_workspace_host_receives_narrow_state_direct_collaborators_and_ports",
         "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_app_state_is_not_restored",
-        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_app_w107_methods_are_compatibility_delegates_not_domain_owners",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_w108_collapses_w107_facades_but_keeps_bounded_shell_endpoints",
         "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_ctrl_alt_l_is_removed_from_authoritative_projections_without_replacement",
-        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_identity_is_exact_and_w108_is_not_started",
+        "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_identity_is_exact_under_w108_thin_shell",
         "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_no_generic_application_context_service_locator_or_event_bus",
         "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_recent_workspace_projection_waits_for_core_composition_barrier",
         "tests.test_w107_subsystem_host_port_contract.W107SubsystemHostPortContractTests.test_research_composition_is_outside_app_and_bundle_owned",
@@ -2619,7 +2619,7 @@
     },
     "w107-identity-smoke": {
       "kind": "unittest",
-      "release_gate": true,
+      "release_gate": false,
       "zero_skips": true,
       "capabilities": [
         "gtk-display"
@@ -2647,6 +2647,82 @@
       },
       "test_ids": [
         "tests.test_w107_subsystem_host_port_app_desktop_e2e.W107SubsystemHostPortRealAppE2E.test_true_app_narrow_subsystem_owners_search_workspace_research_and_normal_close"
+      ]
+    },
+    "w108-headless-focused": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [],
+      "unset_env": [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "MIR_SOCKET",
+        "GDK_BACKEND"
+      ],
+      "set_env": {
+        "CALAMUS_RELEASE_PROFILE": "w108-headless-focused"
+      },
+      "test_ids": [
+        "tests.test_w108_oracle_inventory_closure.W108OracleInventoryClosureTests.test_current_w108_gtk_lane_has_zero_structural_oracle_leakage",
+        "tests.test_w108_oracle_inventory_closure.W108OracleInventoryClosureTests.test_historical_allowlist_is_exact_and_no_unclassified_retired_app_call_remains",
+        "tests.test_w108_oracle_inventory_closure.W108OracleInventoryClosureTests.test_clean_drop_is_recleaned_through_public_save_before_replacement",
+        "tests.test_w108_oracle_inventory_closure.W108OracleInventoryClosureTests.test_current_w108_close_has_no_dirty_or_may_continue_bypass",
+        "tests.test_w108_oracle_inventory_closure.W108OracleInventoryClosureTests.test_dirty_drop_cancel_is_explicit_lossless_and_fail_closed",
+        "tests.test_w108_oracle_inventory_closure.W108OracleInventoryClosureTests.test_modal_transition_inventory_is_complete_unique_and_bounded",
+        "tests.test_w108_oracle_inventory_closure.W108OracleInventoryClosureTests.test_inventory_covers_every_w108_affected_real_gtk_file",
+        "tests.test_w108_oracle_inventory_closure.W108OracleInventoryClosureTests.test_w105_recent_workspaces_uses_natural_event_not_private_projection",
+        "tests.test_w108_oracle_inventory_closure.W108OracleInventoryClosureTests.test_w88_supersession_uses_stable_commands_without_private_replacement",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_baseline_39_whole_app_seams_are_closed_not_renamed",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_character_map_is_a_dedicated_gtk_adapter_not_app_method",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_command_layer_is_app_free_and_retains_exact_117_bindings",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_core_composition_is_typed_app_free_and_two_phase",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_identity_contract_and_roadmap_hold_are_exact",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_legacy_gateway_modules_are_narrow_and_no_generic_host_exists",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_menu_and_shortcut_projection_are_app_free",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_provenance_tracks_new_character_map_adapter",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_root_aggregate_records_are_confined_to_composition_root_and_fixtures",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_shell_surface_is_strictly_smaller_without_moving_monolith",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_w101_24_alias_ledger_is_preserved_in_concrete_shell",
+        "tests.test_w108_thin_gtk_shell_contract.W108ThinGtkShellContractTests.test_w102_through_w107_authorities_remain_present",
+        "tests.test_w108_callback_shape_closure.W108CallbackShapeClosureTests.test_machine_callback_shape_closure_passes",
+        "tests.test_w108_callback_shape_closure.W108CallbackShapeClosureTests.test_navigator_payload_adapter_is_explicit_and_shape_compatible",
+        "tests.test_w108_callback_shape_closure.W108CallbackShapeClosureTests.test_historical_w101_navigator_receipt_is_not_weakened",
+        "tests.test_w108_changed_binding_coverage.W108ChangedBindingCoverageTests.test_inventory_is_unique_complete_and_has_exact_117_changed_commands",
+        "tests.test_w108_changed_binding_coverage.W108ChangedBindingCoverageTests.test_navigator_changed_binding_has_current_and_historical_exact_receipts",
+        "tests.test_w108_changed_binding_coverage.W108ChangedBindingCoverageTests.test_character_map_signal_is_explicitly_classified"
+      ]
+    },
+    "w108-identity-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "unset_env": [],
+      "set_env": {
+        "CALAMUS_W108_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w108-identity-smoke"
+      },
+      "test_ids": [
+        "tests.test_w108_identity_app_desktop_e2e.W108IdentityRealAppE2E.test_exact_current_identity_and_stable_about"
+      ]
+    },
+    "w108-thin-gtk-shell-smoke": {
+      "kind": "unittest",
+      "release_gate": true,
+      "zero_skips": true,
+      "capabilities": [
+        "gtk-display"
+      ],
+      "unset_env": [],
+      "set_env": {
+        "CALAMUS_W108_RUN_REAL_GTK": "1",
+        "CALAMUS_RELEASE_PROFILE": "w108-thin-gtk-shell-smoke"
+      },
+      "test_ids": [
+        "tests.test_w108_thin_gtk_shell_app_desktop_e2e.W108ThinGtkShellRealAppE2E.test_true_app_thin_shell_nine_command_families_and_normal_close"
       ]
     }
   }

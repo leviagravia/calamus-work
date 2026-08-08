@@ -12,7 +12,177 @@ from calamus_appearance_preferences import (
     APPEARANCE_DARK,
     APPEARANCE_LIGHT,
     APPEARANCE_MODES,
+    APPEARANCE_SYSTEM,
 )
+
+
+LIGHT_EDITOR_BACKGROUND = "#ffffff"
+DARK_EDITOR_BACKGROUND = "#1e1e1e"
+EDITOR_SELECTION_BACKGROUND = "#2b62b8"
+CURRENT_LINE_MIN_BACKGROUND_CONTRAST = 1.50
+
+
+def _parse_hex_rgb(value: str) -> tuple[int, int, int]:
+    if not isinstance(value, str) or len(value) != 7 or not value.startswith("#"):
+        raise ValueError("RGB color must use #rrggbb form")
+    try:
+        return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
+    except ValueError as exc:
+        raise ValueError("RGB color must use #rrggbb form") from exc
+
+
+def _rgb_hex(rgb: tuple[int, int, int]) -> str:
+    if len(rgb) != 3 or any(isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= 255 for v in rgb):
+        raise ValueError("RGB components must be integers in 0..255")
+    return "#%02x%02x%02x" % rgb
+
+
+def _relative_luminance(rgb: tuple[int, int, int]) -> float:
+    channels = []
+    for component in rgb:
+        value = component / 255.0
+        channels.append(value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+
+def background_contrast_ratio(first: str, second: str) -> float:
+    """Return relative-luminance contrast between two background colors."""
+    first_luminance = _relative_luminance(_parse_hex_rgb(first))
+    second_luminance = _relative_luminance(_parse_hex_rgb(second))
+    lighter = max(first_luminance, second_luminance)
+    darker = min(first_luminance, second_luminance)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def _blend_rgb(base: tuple[int, int, int], accent: tuple[int, int, int], fraction: float) -> tuple[int, int, int]:
+    return tuple(round(base[i] * (1.0 - fraction) + accent[i] * fraction) for i in range(3))
+
+
+def semantic_current_line_background(
+    base: str,
+    accent: str,
+    *,
+    minimum_contrast: float = CURRENT_LINE_MIN_BACKGROUND_CONTRAST,
+) -> str:
+    """Derive a subordinate but perceptible row background from a palette.
+
+    The current-line color is not selected by an arbitrary fixed literal. It is
+    the first 1%-step blend from the editor base toward the active selection
+    accent that reaches the requested background contrast. If a theme accent
+    cannot reach that target, a neutral high-contrast pole is used as a
+    deterministic fallback while preserving the same contrast target.
+    """
+    if isinstance(minimum_contrast, bool) or not isinstance(minimum_contrast, (int, float)):
+        raise TypeError("minimum_contrast must be numeric")
+    if minimum_contrast <= 1.0:
+        raise ValueError("minimum_contrast must be greater than 1")
+    base_rgb = _parse_hex_rgb(base)
+    accent_rgb = _parse_hex_rgb(accent)
+
+    def derive(toward: tuple[int, int, int]) -> str | None:
+        for percent in range(1, 101):
+            candidate = _rgb_hex(_blend_rgb(base_rgb, toward, percent / 100.0))
+            if background_contrast_ratio(base, candidate) >= float(minimum_contrast):
+                return candidate
+        return None
+
+    result = derive(accent_rgb)
+    if result is not None:
+        return result
+
+    black = (0, 0, 0)
+    white = (255, 255, 255)
+    fallback = black if _relative_luminance(base_rgb) > 0.5 else white
+    result = derive(fallback)
+    if result is None:
+        raise ValueError("cannot derive current-line background at requested contrast")
+    return result
+
+
+def current_line_background_for_appearance(
+    appearance_mode: str,
+    *,
+    system_base: str | None = None,
+    system_accent: str | None = None,
+    system_prefers_dark: bool = False,
+) -> str:
+    """Resolve the semantic current-line row color for Light/Dark/System."""
+    if appearance_mode == APPEARANCE_LIGHT:
+        base = LIGHT_EDITOR_BACKGROUND
+        accent = EDITOR_SELECTION_BACKGROUND
+    elif appearance_mode == APPEARANCE_DARK:
+        base = DARK_EDITOR_BACKGROUND
+        accent = EDITOR_SELECTION_BACKGROUND
+    elif appearance_mode == APPEARANCE_SYSTEM:
+        base = system_base or (DARK_EDITOR_BACKGROUND if system_prefers_dark else LIGHT_EDITOR_BACKGROUND)
+        accent = system_accent or EDITOR_SELECTION_BACKGROUND
+    else:
+        raise ValueError("appearance mode must be light, dark, or system")
+    return semantic_current_line_background(base, accent)
+
+
+def _rgba_to_hex(rgba: Any) -> str:
+    return "#{:02x}{:02x}{:02x}".format(
+        round(max(0.0, min(1.0, float(rgba.red))) * 255),
+        round(max(0.0, min(1.0, float(rgba.green))) * 255),
+        round(max(0.0, min(1.0, float(rgba.blue))) * 255),
+    )
+
+
+def _lookup_theme_color(style_context: Any, name: str) -> str | None:
+    try:
+        found, rgba = style_context.lookup_color(name)
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return _rgba_to_hex(rgba) if found else None
+
+
+def resolve_current_line_background_for_view(
+    appearance_mode: str,
+    text_view: Any,
+    *,
+    settings_api: Any,
+) -> str:
+    """Resolve the row background from explicit or active GTK presentation state."""
+    if appearance_mode != APPEARANCE_SYSTEM:
+        return current_line_background_for_appearance(appearance_mode)
+
+    context = text_view.get_style_context()
+    base = _lookup_theme_color(context, "theme_base_color")
+    accent = _lookup_theme_color(context, "theme_selected_bg_color")
+    settings = settings_api.get_default()
+    prefer_dark = False
+    if settings is not None:
+        try:
+            prefer_dark = bool(settings.get_property("gtk-application-prefer-dark-theme"))
+        except (AttributeError, TypeError):
+            pass
+    return current_line_background_for_appearance(
+        appearance_mode,
+        system_base=base,
+        system_accent=accent,
+        system_prefers_dark=prefer_dark,
+    )
+
+
+def apply_current_line_tag_style(
+    tag: Any,
+    text_view: Any,
+    appearance_mode: str,
+    *,
+    settings_api: Any,
+) -> str:
+    """Project semantic full-row current-line styling onto a GtkTextTag-like object."""
+    background = resolve_current_line_background_for_view(
+        appearance_mode,
+        text_view,
+        settings_api=settings_api,
+    )
+    # Paragraph background deliberately avoids competing with character-level
+    # search backgrounds, spellcheck underline, and GTK-owned selection paint.
+    tag.set_property("background-set", False)
+    tag.set_property("paragraph-background", background)
+    return background
 
 
 def build_application_css(

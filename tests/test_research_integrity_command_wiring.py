@@ -36,18 +36,19 @@ class ResearchIntegrityCommandWiringTests(unittest.TestCase):
         self.assertNotIn("Rename Reference Key…\\t", UI)
         self.assertNotIn("Research Check…\\t", UI)
 
-    def test_app_composes_authorities_and_keeps_wrappers_thin(self):
+    def test_w108_composes_authorities_and_binds_without_app_wrappers(self):
         tree = ast.parse(APP)
         app_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "App")
-        methods = {node.name: node for node in app_class.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+        methods = {node.name for node in app_class.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
         composition = research_composition_source()
         self.assertIn("ResearchIntegrityController", composition)
         self.assertIn("ResearchIntegrityRuntime", composition)
         self.assertIn("reference_store=reference_store", composition)
         self.assertIn("reference_key_resolver=reference_panel_runtime.resolve_key", composition)
-        for name in ("on_rename_reference_key", "on_research_check"):
-            method = methods[name]
-            self.assertLessEqual(method.end_lineno - method.lineno + 1, 3)
+        self.assertNotIn("on_rename_reference_key", methods)
+        self.assertNotIn("on_research_check", methods)
+        self.assertIn("on_rename_reference_key=research_runtime.on_rename_reference_key", APP)
+        self.assertIn("on_research_check=research_runtime.on_research_check", APP)
         replacement = authoritative_method_source("replace_document_for_reference_migration")
         self.assertIn('self.ports.execute_command("Rename Reference Key", edit)', replacement)
         self.assertNotIn("set_text(", replacement)

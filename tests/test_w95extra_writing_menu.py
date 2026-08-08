@@ -54,7 +54,8 @@ class W95ExtraWritingMenuTests(unittest.TestCase):
         launcher=LAUNCHER.read_text(encoding="utf-8")
         lifecycle=(ROOT/"calamus/calamus_application_lifecycle_app.py").read_text(encoding="utf-8")
         self.assertIn("on_typewriter_item_toggled", launcher)
-        self.assertIn("app.typewriter_runtime.shutdown", lifecycle)
+        self.assertIn("typewriter_shutdown=self.typewriter_runtime.shutdown", launcher)
+        self.assertIn('register_final("typewriter", typewriter_shutdown)', lifecycle)
 
 
     def test_geometry_policy_is_gtk_free_and_projection_has_one_runtime_writer(self):
@@ -81,12 +82,12 @@ class W95ExtraWritingMenuTests(unittest.TestCase):
             self.assertIn(label, guide)
         self.assertIn("## Typewriter Mode", guide)
         version = VERSION.read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W108"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Thin GTK Shell"',
             version,
         )
-        self.assertIn("e8befafaf7f75d958eabbd2e273f83c630042b84", version)
+        self.assertIn("e16cc21b8a900298406ae8cc4776f6f1ec658e93", version)
 
 
 if __name__ == "__main__":

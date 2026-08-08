@@ -1,6 +1,7 @@
 import ast
 import copy
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 from calamus_document_session import DocumentSession
@@ -42,7 +43,7 @@ class _ApplicationState:
 
 class _App:
     def __init__(self, fail=False):
-        self.events=[]; self.application_state=_ApplicationState(self.events); self.buffer="Body"
+        self.events=[]; self._research_components=SimpleNamespace(runtime=SimpleNamespace(research_document_context_changed=lambda:None, publish_research_invalidation=lambda *_:None)); self.document_overview_runtime=SimpleNamespace(refresh_if_open=lambda:False); self.application_state=_ApplicationState(self.events); self.buffer="Body"
         session=DocumentSession(Document("Body", "/tmp/original.txt", True))
         def write(path,text):
             self.events.append(("write",path,text))

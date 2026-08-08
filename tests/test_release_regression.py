@@ -85,7 +85,8 @@ class ReleaseRegressionTests(unittest.TestCase):
         with open(os.path.join(_lib_dir(), "calamus_research_composition.py"), "r", encoding="utf-8") as handle:
             research = handle.read()
         self.assertEqual(composition.count("RightPanelHost("), 1)
-        self.assertIn("app.right_panel_host = right_panel_host", root)
+        self.assertNotIn("app.right_panel_host = right_panel_host", root)
+        self.assertIn("self.right_panel_host = core_components.right_panel_host", source)
         self.assertIn('inputs.right_panel_host.register("research", panel_view.widget)', research)
         self.assertNotIn("self.clip_panel_attached", source)
         self.assertNotIn("self.body_paned.pack2(self.clip_panel", source)

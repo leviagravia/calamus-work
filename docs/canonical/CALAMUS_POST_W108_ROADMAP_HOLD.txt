@@ -1,0 +1,6 @@
+POST-W108 ROADMAP HOLD — USER AUTHORITY — 2026-08-07
+
+1. Complete and close W108 first.
+2. Do not start, audit, freeze or implement W109, W110, W111, or any replacement work item as part of W108.
+3. The previously planned sequence W109 Monolith Closure Gate -> W110 Source Code Cleanup -> W111 Product Roadmap Rebaseline is historical planning context only for now.
+4. After W108 is CLOSED/CERTIFIED/PUBLISHED, the post-W108 roadmap will be reconsidered explicitly.

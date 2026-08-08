@@ -23,10 +23,6 @@ def selected_document_text_from_view(text_view: Any) -> str:
     return buffer.get_text(start, end, True)
 
 
-def selected_document_text(app: Any) -> str:
-    """Historical whole-App compatibility gateway retained until W108."""
-    return selected_document_text_from_view(app.text)
-
 
 def copy_clip_body(text: str) -> None:
     """Copy one clip body through the GTK clipboard boundary."""
@@ -84,24 +80,6 @@ def insert_clip_expansion_through_gateway(
     return True
 
 
-def insert_clip_expansion(app: Any, text: str, cursor_offset: int) -> bool:
-    """Historical whole-App compatibility gateway retained until W108."""
-    sync_history = getattr(app, "sync_current_history_view_state", None)
-    if not callable(sync_history):
-        sync_history = lambda: None
-    queue_scroll = getattr(app, "queue_insert_scroll", None)
-    if not callable(queue_scroll):
-        queue_scroll = lambda **_kwargs: None
-    return insert_clip_expansion_through_gateway(
-        app.text,
-        text,
-        cursor_offset,
-        execute_command=app.execute_command,
-        get_cursor_offset=app.get_cursor_offset,
-        set_cursor_offset=app.set_cursor_offset,
-        sync_history_view_state=sync_history,
-        queue_insert_scroll=queue_scroll,
-    )
 
 
 class ClipCollectionRuntime:

@@ -31,7 +31,8 @@ class W94TagsCommandWiringTests(unittest.TestCase):
         self.assertIn('lambda client_id=spec.client_id: coordinator.activate(client_id)', composition)
         self.assertIn('def show_tags(self, *_):', runtime)
         self.assertIn('return self.components.panel_runtime.show("tags")', runtime)
-        self.assertIn('self._research_components.runtime.show_tags', app)
+        self.assertIn('show_tags=research_runtime.show_tags', app)
+        self.assertNotIn('def show_tags', app)
 
     def test_help_has_current_menu_entry_and_learning_topic(self):
         guide = (ROOT / "share/doc/calamus/USER_GUIDE.md").read_text(encoding="utf-8")

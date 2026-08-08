@@ -72,7 +72,7 @@ class W107SubsystemHostPortRealAppE2E(unittest.TestCase):
                     # Search mutation flows through the W107 runtime and W103 transaction authority.
                     before = buffer_text(window)
                     window.search_controller.configure("alpha", match_case=True, whole_word=True, wrap=True)
-                    replaced = window.replace_all_literal("beta")
+                    replaced = window._w107_subsystems.search.replace_all_literal("beta")
                     pump()
                     self.assertEqual(replaced, 2)
                     self.assertEqual(buffer_text(window), before.replace("alpha", "beta"))
@@ -85,14 +85,14 @@ class W107SubsystemHostPortRealAppE2E(unittest.TestCase):
                     self.assertEqual(host.root, str(workspace.resolve()))
                     self.assertTrue(window.workspace_application_runtime.close_root()); pump()
                     self.assertIsNone(host.root)
-                    self.assertTrue(window.activate_workspace_path(str(workspace))); pump()
+                    self.assertTrue(host.activate_workspace_path(str(workspace))); pump()
                     self.assertEqual(host.root, str(workspace.resolve()))
 
                     # Research composition is a separate typed bundle but visible command behavior is unchanged.
                     initial = bool(window.research_panel_runtime.is_visible)
-                    window.toggle_research_panel(); pump()
+                    window._research_components.runtime.toggle_research_panel(); pump()
                     self.assertEqual(bool(window.research_panel_runtime.is_visible), not initial)
-                    window.toggle_research_panel(); pump()
+                    window._research_components.runtime.toggle_research_panel(); pump()
                     self.assertEqual(bool(window.research_panel_runtime.is_visible), initial)
 
                     # Line Numbers command remains; Linux-Mint-conflicting Ctrl+Alt+L has no GTK binding/menu display.

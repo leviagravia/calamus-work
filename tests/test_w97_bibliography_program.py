@@ -128,7 +128,9 @@ class W97BibliographyProgramTests(unittest.TestCase):
         self.assertIn("Export Bibliography as Markdown", ui)
         self.assertIn("Export Bibliography as Text", ui)
         self.assertIn("return self.components.reference_panel_runtime.export_visible_bibliography", research_runtime)
-        self.assertIn("self._research_components.runtime.on_export_bibliography_", app)
+        self.assertIn("on_export_bibliography_markdown=research_runtime.on_export_bibliography_markdown", app)
+        self.assertIn("on_export_bibliography_text=research_runtime.on_export_bibliography_text", app)
+        self.assertNotIn("def on_export_bibliography_markdown", app)
 
 
 if __name__ == "__main__":

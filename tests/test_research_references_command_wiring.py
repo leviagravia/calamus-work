@@ -66,8 +66,14 @@ class ResearchReferencesCommandWiringTests(unittest.TestCase):
         self.assertIn("ReferencePanelRuntime(", research)
         for forbidden in ("ReferenceRecord(", "serialize_references_markdown", "os.replace(tmp", "resolve_external_reference_change"):
             self.assertNotIn(forbidden, launcher)
+        tree = ast.parse(launcher)
+        app_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "App")
+        app_methods = {node.name for node in app_class.body if isinstance(node, ast.FunctionDef)}
         for method in ("toggle_research_panel", "show_clip_collection", "show_references"):
-            self.assertLessEqual(len(app_method_source(method).splitlines()), 2)
+            self.assertNotIn(method, app_methods)
+        self.assertIn("toggle_research_panel=research_runtime.toggle_research_panel", launcher)
+        self.assertIn("show_clip_collection=research_runtime.show_clip_collection", launcher)
+        self.assertIn("show_references=research_runtime.show_references", launcher)
 
     def test_shell_owns_title_selector_and_close_gateway(self):
         view = source(ROOT / "calamus" / "calamus_research_panel_view.py")

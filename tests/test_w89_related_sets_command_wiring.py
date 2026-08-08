@@ -24,7 +24,8 @@ class W89RelatedSetsCommandWiringTests(unittest.TestCase):
             self.assertIn(required, composition)
         self.assertIn("def show_reference_sets", runtime)
         self.assertIn('return self.components.panel_runtime.show("reference-sets")', runtime)
-        self.assertIn("self._research_components.runtime.show_reference_sets", app)
+        self.assertIn("show_reference_sets=research_runtime.show_reference_sets", app)
+        self.assertNotIn("def show_reference_sets", app)
         self.assertIn('add_item(researchm, "Reference Sets", app.show_reference_sets)', ui)
         self.assertTrue(guide_has("Research", "Reference Sets", "menu"))
 

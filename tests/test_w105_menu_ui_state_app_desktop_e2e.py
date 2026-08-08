@@ -120,11 +120,24 @@ class W105MenuUiStateRealAppE2E(unittest.TestCase):
                     for slot_id, populate in (
                         ("recent-files", window.populate_recent_menu),
                         ("favourites", window.populate_favourites_menu),
-                        ("recent-workspaces", window.populate_recent_workspaces_menu),
                     ):
                         populate(); pump(); first = dynamic_signature(window, slot_id)
                         populate(); pump(); second = dynamic_signature(window, slot_id)
                         self.assertEqual(first, second, slot_id)
+
+                    # W108 supersedes the retired App recent-workspaces facade without
+                    # introducing a private composition leak. Exercise the published
+                    # Workspace behavior: open_root() records recency and its
+                    # on_recent_changed callback reprojections the GTK slot.
+                    second_workspace = Path(temp) / "workspace-second"; second_workspace.mkdir()
+                    before_recent = dynamic_signature(window, "recent-workspaces")
+                    self.assertTrue(window.workspace_application_runtime.open_root(str(second_workspace))); pump()
+                    after_recent = dynamic_signature(window, "recent-workspaces")
+                    self.assertNotEqual(after_recent, before_recent)
+                    self.assertTrue(any(label == str(second_workspace.resolve()) for label, _ in after_recent))
+                    # Reopening the same root is idempotent at the projection boundary.
+                    self.assertTrue(window.workspace_application_runtime.open_root(str(second_workspace))); pump()
+                    self.assertEqual(dynamic_signature(window, "recent-workspaces"), after_recent)
 
                     window.document_session.mark_clean(window.buffer_text())
                     window.may_continue = lambda: True

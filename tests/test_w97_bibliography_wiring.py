@@ -56,21 +56,20 @@ class W97BibliographyWiringTests(unittest.TestCase):
     def test_app_remains_composition_only(self):
         text = self.source("bin/calamus")
         tree = ast.parse(text)
-        methods = {
-            node.name: ast.get_source_segment(text, node) or ""
-            for node in ast.walk(tree)
-            if isinstance(node, ast.FunctionDef)
-        }
-        self.assertLessEqual(len(methods["show_references"].splitlines()), 3)
-        self.assertLessEqual(len(methods["on_open_bibliography_file"].splitlines()), 6)
+        app = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "App")
+        methods = {node.name for node in app.body if isinstance(node, ast.FunctionDef)}
+        self.assertNotIn("show_references", methods)
+        self.assertNotIn("on_open_bibliography_file", methods)
+        self.assertIn("show_references=research_runtime.show_references", text)
+        self.assertIn("on_open_bibliography_file=research_runtime.on_open_bibliography_file", text)
         for forbidden in ("BibliographyFilters(", "project_references(", "build_delete_impact("):
             self.assertNotIn(forbidden, text)
 
     def test_w97_core_is_preserved_under_current_w98_identity(self):
         version = self.source("calamus/calamus_version.py")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"', version)
-        self.assertIn('PUBLISHED_BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W108"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Thin GTK Shell"', version)
+        self.assertIn('PUBLISHED_BASELINE = "e16cc21b8a900298406ae8cc4776f6f1ec658e93"', version)
 
 
 if __name__ == "__main__":

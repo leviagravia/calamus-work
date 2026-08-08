@@ -71,7 +71,7 @@ class W98ResearchPanelAppDesktopE2E(unittest.TestCase):
      self.assertTrue(win.research_panel_runtime.show('authoring-bridge')); pump()
      win.text.get_buffer().set_text('# A2 {#a2}\nAgain [@alpha].\n')
      self.assertTrue(wait(lambda:'[@alpha]' in win.authoring_bridge_runtime.controller.projection.document_text))
-     self.assertTrue(win.research_panel_runtime.show('references')); pump(); win.publish_research_invalidation(__import__('calamus_research_coordination').ResearchInvalidationReason.SOURCE_NOTES)
+     self.assertTrue(win.research_panel_runtime.show('references')); pump(); win._research_components.runtime.publish_research_invalidation(__import__('calamus_research_coordination').ResearchInvalidationReason.SOURCE_NOTES)
      self.assertTrue(win.research_coordinator.dirty_reasons('tags'))
      self.assertTrue(win.research_panel_runtime.show('tags')); pump(); self.assertFalse(win.research_coordinator.dirty_reasons('tags'))
      for client in ('clip-collection','scratchpad','references','tags','reference-sets','source-notes','authoring-bridge'):

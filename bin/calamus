@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+from functools import partial
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -52,12 +53,24 @@ from calamus_dialogs import (
 from calamus_ui import build_menu as ui_build_menu, add_shortcuts as ui_add_shortcuts
 from calamus_menu_model import template_rows, recent_file_rows, favourite_rows
 from calamus_ui_state import UiStateFacts
-from calamus_application_components import UiStateCompositionInput
+from calamus_application_components import CoreApplicationCompositionInput, SetOnceReference, UiStateCompositionInput
 from calamus_ui_state_composition import build_ui_state_components
 from calamus_command_context import CommandContext
 from calamus_command_catalog import build_pure_command_layer
-from calamus_application_commands import build_application_command_layer
-from calamus_application_composition import compose_core_application_components
+from calamus_application_commands import (
+    ApplicationCommandPorts,
+    EditCommandPorts,
+    FileCommandPorts,
+    HelpCommandPorts,
+    NavigateCommandPorts,
+    OptionsCommandPorts,
+    ResearchCommandPorts,
+    ToolsCommandPorts,
+    ViewCommandPorts,
+    WritingCommandPorts,
+    build_application_command_layer,
+)
+from calamus_application_composition import compose_core_application_components, complete_core_application_components
 from calamus_preferences_composition import build_preferences_application_state_components
 from calamus_preferences_controller import PreferenceProjectionError
 from calamus_subsystem_composition import (
@@ -107,10 +120,12 @@ from calamus_opacity import (
 )
 from calamus_opacity_view import apply_widget_opacity
 from calamus_appearance import (
+    apply_current_line_tag_style,
     build_application_css,
     install_application_css,
 )
 from calamus_line_numbers_gateway import refresh_line_number_gutter
+from calamus_character_map_dialog import present_character_map
 DEFAULT_FONT = DEFAULT_FONT_SIZE
 MIN_FONT = MIN_FONT_SIZE
 MAX_FONT = MAX_FONT_SIZE
@@ -131,11 +146,9 @@ class App(Gtk.Window):
         self.favourite_store = self.persistence.favourites
         self.recent_workspace_store = self.persistence.recent_workspaces
         self.command_layer = build_pure_command_layer()
-        self.command_actions = build_application_command_layer(self)
-        self.ui_state_components = build_ui_state_components(
-            UiStateCompositionInput(self.command_actions.availability)
-        )
-        self.ui_state_controller = self.ui_state_components.controller
+        self.command_actions = None
+        self.ui_state_components = None
+        self.ui_state_controller = None
         self.application_lifecycle = ApplicationLifecycleCoordinator()
 
         persisted_state = self.application_state.current
@@ -176,7 +189,7 @@ class App(Gtk.Window):
 
         self.menubar = Gtk.MenuBar()
         root.pack_start(self.menubar, False, False, 0)
-        self.build_menu()
+        self.menu_ui_adapter = ui_build_menu(self.menubar, self.invoke_command)
 
         self.workspace_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.workspace_paned.set_hexpand(True)
@@ -193,11 +206,105 @@ class App(Gtk.Window):
         # topology; the line-number gutter stays outside the scroller.
         self.editor_box, self.line_gutter, self.scroller, self.text = build_editor_widgets(self.word_wrap)
         self.body_paned.pack1(self.editor_box, True, True)
-        self._components = compose_core_application_components(
-            self,
-            clip_invalidation_reason=ResearchInvalidationReason.CLIPS,
+
+        overview_runtime_ref = SetOnceReference("document-overview-runtime")
+        research_runtime_ref = SetOnceReference("research-application-runtime")
+        def refresh_overview_if_ready():
+            try:
+                return overview_runtime_ref.require().refresh_if_open()
+            except RuntimeError:
+                return False
+
+        core_components = compose_core_application_components(
+            CoreApplicationCompositionInput(
+                initial_file_path=self.persisted_application_state.last_file,
+                workspace_root=(self.persisted_application_state.workspace_root if self.persisted_application_state.workspace_root and os.path.isdir(self.persisted_application_state.workspace_root) else None),
+                workspace_visible=self.persisted_application_state.workspace_visible,
+                text_view=self.text,
+                scroller=self.scroller,
+                workspace_paned=self.workspace_paned,
+                body_paned=self.body_paned,
+                dialog_parent=self,
+                menu_ui_adapter=self.menu_ui_adapter,
+                recent_workspaces=self.recent_workspace_store,
+                recent_files=self.recent_file_store,
+                favourites=self.favourite_store,
+                application_state=self.application_state,
+                config_dir=self.config_dir,
+                read_buffer_text=self._read_buffer_text_raw,
+                replace_buffer_text=self._replace_buffer_text_raw,
+                reset_undo_history=self.reset_undo_history,
+                on_typewriter_state_changed=self.on_typewriter_state_changed,
+                on_buffer_changed=self.on_changed,
+                on_buffer_begin_user_action=self.on_buffer_begin_user_action,
+                on_buffer_end_user_action=self.on_buffer_end_user_action,
+                on_cursor_position_notify=self.on_cursor_position_notify,
+                on_text_key_press=self.on_text_key_press,
+                on_text_key_release=self.on_text_key_release,
+                on_text_move_cursor=self.on_text_move_cursor,
+                on_text_button_press=self.on_text_button_press,
+                on_text_motion_notify=self.on_text_motion_notify,
+                on_text_button_release=self.on_text_button_release,
+                on_text_scroll=self.on_text_scroll,
+                on_text_focus_out=self.on_text_focus_out,
+                apply_wrap_policy=self.apply_wrap_policy,
+                queue_wrap_reflow=self.queue_wrap_reflow,
+                may_continue=self.may_continue,
+                open_document=self.open_path,
+                report_error=self.error,
+                document_text=self.buffer_text,
+                research_context_changed=lambda: research_runtime_ref.require().research_document_context_changed(),
+                update_title=self.update_title,
+                refresh_overview=refresh_overview_if_ready,
+                refresh_ui_state=self.refresh_ui_state,
+                on_navigator_visibility_changed=lambda _visible: self.refresh_ui_state(),
+                execute_command=self.execute_command,
+                get_cursor_offset=self.get_cursor_offset,
+                set_cursor_offset=self.set_cursor_offset,
+                sync_history_view_state=self.sync_current_history_view_state,
+                queue_insert_scroll=self.queue_insert_scroll,
+                publish_invalidation=lambda *reasons: research_runtime_ref.require().publish_research_invalidation(*reasons),
+                clip_invalidation_reason=ResearchInvalidationReason.CLIPS,
+            )
         )
-        self.populate_recent_workspaces_menu()
+
+        # W101 compatibility ledger: exact 24 aliases, explicitly projected by
+        # the concrete shell before Workspace startup binding.
+        self.document_session = core_components.document_session.session
+        self.document_session_controller = core_components.document_session.controller
+        self.history = core_components.editor.history
+        self.viewport_runtime = core_components.editor.viewport_runtime
+        self.history_runtime = core_components.editor.history_runtime
+        self.editor_transaction = core_components.editor_transaction.controller
+        self.editor_buffer_adapter = core_components.editor_transaction.buffer_adapter
+        self.typewriter_runtime = core_components.editor.typewriter_runtime
+        self.search_controller = core_components.editor.search_controller
+        self.tag = core_components.editor.misspelling_tag
+        self.search_tag = core_components.editor.search_tag
+        self.current_line_tag = core_components.editor.current_line_tag
+        self.navigation_controller = core_components.navigator.navigation_controller
+        self.left_panel_host = core_components.navigator.left_panel_host
+        self.navigator_panel_view = core_components.navigator.panel_view
+        self.navigator_panel_host = core_components.navigator.panel_host
+        self.navigator_panel_runtime = core_components.navigator.panel_runtime
+        self.workspace_controller = core_components.workspace.controller
+        self.workspace_panel_view = core_components.workspace.panel_view
+        self.workspace_application_runtime = core_components.workspace.application_runtime
+        self.workspace_mutation_controller = core_components.workspace.mutation_controller
+        self.workspace_mutation_runtime = core_components.workspace.mutation_runtime
+        self.workspace_panel_host = core_components.workspace.panel_host
+        self.workspace_panel_runtime = core_components.workspace.panel_runtime
+        self.right_panel_host = core_components.right_panel_host
+        self.clip_collection_view = core_components.clips.view
+        self.clip_collection = core_components.clips.controller
+        self.clip_collection_runtime = core_components.clips.runtime
+
+        core_components = complete_core_application_components(
+            core_components,
+            (self.persisted_application_state.workspace_root if self.persisted_application_state.workspace_root and os.path.isdir(self.persisted_application_state.workspace_root) else None),
+            self.persisted_application_state.workspace_visible,
+        )
+        self._components = core_components
         self._w107_subsystems = build_subsystem_host_components(
             SubsystemHostCompositionInput(
                 dialog_parent=self,
@@ -217,7 +324,212 @@ class App(Gtk.Window):
             )
         )
         self.build_research_panel()
-        document_dossier_app.build_document_overview(self)
+        research_runtime_ref.set(self._research_components.runtime)
+        dossier = document_dossier_app.build_document_overview(
+            document_dossier_app.DocumentOverviewCompositionInput(
+                dialog_parent=self,
+                text_view=self.text,
+                document_text=self.buffer_text,
+                document_path=lambda: self.document.file_path,
+                document_modified=lambda: self.modified,
+                bookmarks=lambda: tuple(self.bookmarks),
+                reference_store=self.reference_store,
+                reference_set_store=self.reference_set_store,
+                set_cursor_offset=self.set_cursor_offset,
+                get_cursor_offset=self.get_cursor_offset,
+                select_range=self.select_range,
+                show_reference=self._research_components.runtime.show_reference_key,
+                show_source_note=self._research_components.runtime.show_source_note_id,
+                show_reference_set=partial(
+                    document_dossier_app.show_reference_set_name,
+                    self.research_panel_runtime.show,
+                    self.reference_set_runtime.show_set,
+                ),
+                run_research_check=self._research_components.runtime.on_research_check,
+                show_error=self.error,
+                show_notice=self.info,
+            )
+        )
+        self.document_dossier_controller = dossier.controller
+        self.document_overview_runtime = dossier.runtime
+        overview_runtime_ref.set(dossier.runtime)
+
+        search_runtime = self._w107_subsystems.search
+        spellcheck_runtime = self._w107_subsystems.spellcheck
+        print_runtime = self._w107_subsystems.printer
+        workspace_runtime = self._components.workspace.host_runtime
+        research_runtime = self._research_components.runtime
+        writing_insert_ports = writing_app.WritingInsertPorts(
+            command_layer_insert_date_time_text=self.command_layer_insert_date_time_text,
+            get_cursor_offset=self.get_cursor_offset,
+            buffer_text=self.buffer_text,
+            execute_command=self.execute_command,
+        )
+        self.command_actions = build_application_command_layer(
+            ApplicationCommandPorts(
+                edit=EditCommandPorts(
+                    on_copy=self.on_copy,
+                    on_cut=self.on_cut,
+                    on_duplicate_line_or_selection=self.on_duplicate_line_or_selection,
+                    on_find_all=search_runtime.on_find_all,
+                    on_find_next=search_runtime.on_find_next,
+                    on_find_previous=search_runtime.on_find_previous,
+                    on_find_replace=search_runtime.on_find_replace,
+                    on_lowercase=self.on_lowercase,
+                    on_paste=self.on_paste,
+                    on_paste_clean_pdf=self.on_paste_clean_pdf,
+                    on_paste_plain_text=self.on_paste_plain_text,
+                    on_redo=self.on_redo,
+                    on_replace_all_dialog=search_runtime.on_find_replace,
+                    on_select_all=self.on_select_all,
+                    on_undo=self.on_undo,
+                    on_uppercase=self.on_uppercase,
+                    on_move_line=self.on_move_line,
+                ),
+                file=FileCommandPorts(
+                    on_add_favourite=self.on_add_favourite,
+                    on_edit_favourites=self.on_edit_favourites,
+                    on_reload_favourites=self.on_reload_favourites,
+                    on_new=self.on_new,
+                    on_open=self.on_open,
+                    on_print=print_runtime.on_print,
+                    on_print_preview=print_runtime.on_print_preview,
+                    on_quit=self.on_quit,
+                    on_save=self.on_save,
+                    on_save_as=self.on_save_as,
+                    on_manage_templates=self.on_manage_templates,
+                    on_save_as_template=self.on_save_as_template,
+                    on_close_workspace=workspace_runtime.on_close_workspace,
+                    on_duplicate_workspace_file=workspace_runtime.on_duplicate_workspace_file,
+                    on_new_workspace_folder=workspace_runtime.on_new_workspace_folder,
+                    on_new_workspace_text_file=workspace_runtime.on_new_workspace_text_file,
+                    on_refresh_workspace=workspace_runtime.on_refresh_workspace,
+                    on_rename_workspace_item=workspace_runtime.on_rename_workspace_item,
+                    on_reveal_workspace=workspace_runtime.on_reveal_workspace,
+                    on_select_workspace_folder=workspace_runtime.on_select_workspace_folder,
+                    show_workspace_panel=workspace_runtime.show_workspace_panel,
+                    on_move_workspace_item_to_trash=workspace_runtime.on_move_workspace_item_to_trash,
+                    on_new_from_template=self.on_new_from_template,
+                    open_recent_path=self.open_recent_path,
+                    open_favourite_path=self.open_favourite_path,
+                    activate_workspace_path=workspace_runtime.activate_workspace_path,
+                    open_path=self.open_path,
+                    may_continue=self.may_continue,
+                    on_clear_recent=self.on_clear_recent,
+                ),
+                help=HelpCommandPorts(
+                    on_about=self.on_about,
+                    on_keyboard_shortcuts=self.on_keyboard_shortcuts,
+                    on_user_guide=self.on_user_guide,
+                ),
+                navigate=NavigateCommandPorts(
+                    on_manage_bookmarks=self.on_manage_bookmarks,
+                    next_bookmark=self.next_bookmark,
+                    previous_bookmark=self.previous_bookmark,
+                    toggle_bookmark=self.toggle_bookmark,
+                    on_document_overview=self.document_overview_runtime.open,
+                    on_go_to_line=self.on_go_to_line,
+                    on_go_to_section=self.on_go_to_section,
+                    on_next_heading=self.on_next_heading,
+                    on_previous_heading=self.on_previous_heading,
+                    on_navigator_item_toggled=lambda item: self.navigator_panel_runtime.set_visible(bool(item.get_active())),
+                    toggle_navigator_panel=self.navigator_panel_runtime.toggle,
+                    on_workspace_item_toggled=workspace_runtime.on_workspace_item_toggled,
+                    toggle_workspace_panel=workspace_runtime.toggle_workspace_panel,
+                ),
+                options=OptionsCommandPorts(
+                    on_font=self.on_font,
+                    on_opacity_selection=self.on_opacity_selection,
+                    change_font=self.change_font,
+                    set_opacity_value=self.set_opacity_value,
+                    on_word_wrap=self.on_word_wrap,
+                    toggle_word_wrap=self.toggle_word_wrap,
+                    on_transparent_mode=self.on_transparent_mode,
+                    toggle_transparent_mode=self.toggle_transparent_mode,
+                    on_top=self.on_top,
+                    toggle_always_on_top=self.toggle_always_on_top,
+                    on_line_numbers=self.on_line_numbers,
+                    toggle_line_numbers=self.toggle_line_numbers,
+                    on_white_background=self.on_white_background,
+                    on_dark_mode=self.on_dark_mode,
+                ),
+                research=ResearchCommandPorts(
+                    show_authoring_bridge=research_runtime.show_authoring_bridge,
+                    show_references=research_runtime.show_references,
+                    on_capture_selection_in_scratchpad=research_runtime.on_capture_selection_in_scratchpad,
+                    on_research_check=research_runtime.on_research_check,
+                    show_clip_collection=research_runtime.show_clip_collection,
+                    on_create_source_note_from_selection=research_runtime.on_create_source_note_from_selection,
+                    on_export_research_apparatus=research_runtime.on_export_research_apparatus,
+                    on_export_references_bibtex_biblatex=research_runtime.on_export_references_bibtex_biblatex,
+                    on_export_bibliography_markdown=research_runtime.on_export_bibliography_markdown,
+                    on_export_bibliography_text=research_runtime.on_export_bibliography_text,
+                    on_export_with_pandoc=research_runtime.on_export_with_pandoc,
+                    on_import_bibtex_biblatex=research_runtime.on_import_bibtex_biblatex,
+                    on_insert_clip=research_runtime.on_insert_clip,
+                    on_insert_link_to_heading=research_runtime.on_insert_link_to_heading,
+                    on_new_scratchpad_for_current_section=research_runtime.on_new_scratchpad_for_current_section,
+                    on_open_bibliography_file=research_runtime.on_open_bibliography_file,
+                    on_open_citation_in_references=research_runtime.on_open_citation_in_references,
+                    on_quick_cite=research_runtime.on_quick_cite,
+                    show_reference_sets=research_runtime.show_reference_sets,
+                    on_rename_reference_key=research_runtime.on_rename_reference_key,
+                    show_scratchpad=research_runtime.show_scratchpad,
+                    on_show_scratchpad_for_current_section=research_runtime.on_show_scratchpad_for_current_section,
+                    show_source_notes=research_runtime.show_source_notes,
+                    on_tag_integrity=research_runtime.on_tag_integrity,
+                    show_tags=research_runtime.show_tags,
+                    insert_clip_number=research_runtime.insert_clip_number,
+                    on_research_item_toggled=research_runtime.on_research_item_toggled,
+                    toggle_research_panel=research_runtime.toggle_research_panel,
+                ),
+                tools=ToolsCommandPorts(
+                    on_language_selection=self.on_language_selection,
+                    on_check=spellcheck_runtime.on_check,
+                    on_system_info=self.on_system_info,
+                ),
+                view=ViewCommandPorts(
+                    on_character_map=partial(
+                        present_character_map,
+                        self,
+                        self.text,
+                        replace_selection=self.replace_selection,
+                        execute_command=self.execute_command,
+                    ),
+                    toggle_current_line_highlight=self.toggle_current_line_highlight,
+                    toggle_distraction_free=self.toggle_distraction_free,
+                    toggle_focus_mode=self.toggle_focus_mode,
+                ),
+                writing=WritingCommandPorts(
+                    on_clean_selected_pdf=self.on_clean_selected_pdf,
+                    on_insert_date=partial(writing_app.on_insert_date, writing_insert_ports),
+                    on_insert_datetime=partial(writing_app.on_insert_datetime, writing_insert_ports),
+                    on_insert_time=partial(writing_app.on_insert_time, writing_insert_ports),
+                    on_join_lines=self.on_join_lines,
+                    on_reflow_paragraph=self.on_reflow_paragraph,
+                    on_remove_extra_spaces=self.on_remove_extra_spaces,
+                    on_remove_trailing_spaces=self.on_remove_trailing_spaces,
+                    on_sentence_case=self.on_sentence_case,
+                    on_smart_typography=self.on_smart_typography,
+                    on_document_statistics=self.on_document_statistics,
+                    on_title_case=self.on_title_case,
+                    on_sort_lines_descending=self.on_sort_lines_descending,
+                    on_sort_lines_ascending=self.on_sort_lines_ascending,
+                    on_typewriter_item_toggled=partial(typewriter_app.on_typewriter_item_toggled, self.typewriter_runtime),
+                    toggle_typewriter_mode=partial(typewriter_app.toggle_typewriter_mode, self.typewriter_runtime),
+                ),
+            )
+        )
+        self.ui_state_components = build_ui_state_components(
+            UiStateCompositionInput(self.command_actions.availability)
+        )
+        self.ui_state_controller = self.ui_state_components.controller
+        self.ui_state_controller.bind_projector(self.menu_ui_adapter)
+        self.populate_template_menu()
+        self.populate_recent_menu()
+        self.populate_favourites_menu()
+        self._components.workspace.host_runtime.populate_recent_workspaces_menu()
+
         # Both side panels start detached. The editor remains the only visible
         # workspace client until the user explicitly requests a panel.
         self.workspace_paned.set_position(0)
@@ -243,7 +555,7 @@ class App(Gtk.Window):
         self.css = Gtk.CssProvider()
         self.apply_font()
 
-        self.add_shortcuts()
+        ui_add_shortcuts(self, self.invoke_command)
         self.setup_file_drop_target()
         self.connect("delete-event", self.on_close)
         self.connect("destroy", self.on_destroy)
@@ -342,14 +654,31 @@ class App(Gtk.Window):
         if hasattr(self, "navigator_panel_view"):
             self.navigator_panel_view.schedule_cursor_sync()
 
-    on_text_key_press = typewriter_app.on_text_key_press
-    on_text_key_release = typewriter_app.on_text_key_release
-    on_text_move_cursor = typewriter_app.on_text_move_cursor
-    on_text_button_press = typewriter_app.on_text_button_press
-    on_text_motion_notify = typewriter_app.on_text_motion_notify
-    on_text_button_release = typewriter_app.on_text_button_release
-    on_text_scroll = typewriter_app.on_text_scroll
-    on_text_focus_out = typewriter_app.on_text_focus_out
+    def on_text_key_press(self, widget, event):
+        return typewriter_app.on_text_key_press(self.typewriter_runtime, widget, event)
+
+    def on_text_key_release(self, widget, event):
+        return typewriter_app.on_text_key_release(self.typewriter_runtime, widget, event)
+
+    def on_text_move_cursor(self, *_args):
+        return typewriter_app.on_text_move_cursor(
+            self.typewriter_runtime, self.viewport_runtime, *_args
+        )
+
+    def on_text_button_press(self, widget, event):
+        return typewriter_app.on_text_button_press(self.typewriter_runtime, widget, event)
+
+    def on_text_motion_notify(self, widget, event):
+        return typewriter_app.on_text_motion_notify(self.typewriter_runtime, widget, event)
+
+    def on_text_button_release(self, widget, event):
+        return typewriter_app.on_text_button_release(self.typewriter_runtime, widget, event)
+
+    def on_text_scroll(self, widget, event):
+        return typewriter_app.on_text_scroll(self.typewriter_runtime, widget, event)
+
+    def on_text_focus_out(self, widget, event):
+        return typewriter_app.on_text_focus_out(self.typewriter_runtime, widget, event)
 
     def on_buffer_begin_user_action(self, *_):
         enabled = not self.loading and not self.restoring_undo
@@ -501,6 +830,8 @@ class App(Gtk.Window):
 
     def invoke_command(self, command_id, *, source="gui", data=None):
         """Invoke one stable W104 user command through explicit application bindings."""
+        if self.command_actions is None:
+            raise RuntimeError("application command bindings are not composition-complete")
         return self.command_actions.dispatch(
             command_id,
             CommandContext(source=source, data=dict(data or {})),
@@ -525,13 +856,9 @@ class App(Gtk.Window):
         )
 
     def refresh_ui_state(self):
+        if self.ui_state_controller is None:
+            return False
         return self.ui_state_controller.refresh(self.ui_state_facts())
-
-    def build_menu(self):
-        return ui_build_menu(self)
-
-    def add_shortcuts(self):
-        return ui_add_shortcuts(self)
 
     def buffer_text(self):
         return self.document_session_controller.capture_buffer_text()
@@ -583,7 +910,7 @@ class App(Gtk.Window):
             self.typewriter_runtime.on_edit()
         else:
             self.viewport_runtime.queue_visible_to_insert(0.02)
-        self.publish_research_invalidation(
+        self._research_components.runtime.publish_research_invalidation(
             ResearchInvalidationReason.DOCUMENT_CONTENT
         )
         self.update_title()
@@ -789,6 +1116,7 @@ class App(Gtk.Window):
             style_context=Gtk.StyleContext,
             priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
+        apply_current_line_tag_style(self.current_line_tag, self.text, self.appearance_mode, settings_api=Gtk.Settings)
         if hasattr(self, "line_gutter"):
             self.line_gutter.apply_typography(
                 self.font_family,
@@ -810,11 +1138,28 @@ class App(Gtk.Window):
         return True
 
     def configure_application_lifecycle(self):
-        return application_lifecycle_app.configure_application_lifecycle(self)
+        return application_lifecycle_app.configure_application_lifecycle(
+            self.application_lifecycle,
+            pandoc_shutdown=self.pandoc_export_runtime.shutdown,
+            shutdown_sources=self.shutdown_application_sources,
+            navigator_shutdown=self.navigator_panel_runtime.shutdown,
+            research_view_shutdown=self.research_panel_view.shutdown,
+            research_coordinator_shutdown=self.research_coordinator.shutdown,
+            document_overview_shutdown=self.document_overview_runtime.shutdown,
+            typewriter_shutdown=self.typewriter_runtime.shutdown,
+            history_shutdown=self.history_runtime.shutdown,
+            viewport_shutdown=self.viewport_runtime.shutdown,
+        )
 
     def shutdown_application_sources(self):
+        source_ids = (self.spell_source, self.word_count_source, self._wrap_reflow_source)
+        self.spell_source = None
+        self.word_count_source = None
+        self._wrap_reflow_source = None
         return application_lifecycle_app.shutdown_application_sources(
-            self, GLib.source_remove
+            source_ids,
+            GLib.source_remove,
+            self.search_controller.cancel_pending_highlight,
         )
 
     def request_application_close(self):
@@ -874,8 +1219,8 @@ class App(Gtk.Window):
         # The controller commits identity only after Gtk accepts the text.
         self.document_session_controller.execute_new(plan)
         self.application_state.record_last_file(self.current_file)
-        getattr(self, "research_document_context_changed", lambda: None)()
-        getattr(self, "refresh_document_overview_if_open", lambda: False)()
+        self._research_components.runtime.research_document_context_changed()
+        self.document_overview_runtime.refresh_if_open()
         if hasattr(self, "workspace_panel_view") and self.current_file:
             self.workspace_panel_view.select_path(self.current_file)
         self.update_title()
@@ -903,8 +1248,8 @@ class App(Gtk.Window):
 
     def finalize_open_transition(self, plan, silent=False):
         self.add_recent_file(self.current_file)
-        getattr(self, "research_document_context_changed", lambda: None)()
-        getattr(self, "refresh_document_overview_if_open", lambda: False)()
+        self._research_components.runtime.research_document_context_changed()
+        self.document_overview_runtime.refresh_if_open()
         if hasattr(self, "workspace_panel_view") and self.current_file:
             self.workspace_panel_view.select_path(self.current_file)
         self.update_title()
@@ -935,14 +1280,14 @@ class App(Gtk.Window):
             self.document_session_controller.execute_save(plan)
             self.add_recent_file(self.current_file)
             if previous_path != self.current_file:
-                getattr(self, "research_document_context_changed", lambda: None)()
+                self._research_components.runtime.research_document_context_changed()
             elif plan.replaces_buffer_text:
-                self.publish_research_invalidation(
+                self._research_components.runtime.publish_research_invalidation(
                     ResearchInvalidationReason.DOCUMENT_CONTENT
                 )
             self.update_title()
             self.application_state.record_last_file(self.current_file)
-            getattr(self, "refresh_document_overview_if_open", lambda: False)()
+            self.document_overview_runtime.refresh_if_open()
             return True
         except (OSError, ValueError) as e:
             self.error(str(e))
@@ -1544,9 +1889,9 @@ class App(Gtk.Window):
                 modified=plan.modified,
             )
         )
-        getattr(self, "research_document_context_changed", lambda: None)()
+        self._research_components.runtime.research_document_context_changed()
         self.update_title()
-        getattr(self, "refresh_document_overview_if_open", lambda: False)()
+        self.document_overview_runtime.refresh_if_open()
         return True
 
     def on_save_as_template(self, *_):
@@ -1698,13 +2043,9 @@ class App(Gtk.Window):
         insertion = result.value.get("text", "") if result.success and isinstance(result.value, dict) else ""
         return (insertion, bool(insertion)) if isinstance(insertion, str) else ("", False)
 
-    insert_current_moment = writing_app.insert_current_moment
-    on_insert_date = writing_app.on_insert_date
-    on_insert_time = writing_app.on_insert_time
-    on_insert_datetime = writing_app.on_insert_datetime
 
     def on_replace_all_dialog(self, *_):
-        self.on_find_replace()
+        return self._w107_subsystems.search.on_find_replace(*_)
 
     def load_favourite_store(self):
         return self.favourite_store.canonical()
@@ -1874,114 +2215,6 @@ class App(Gtk.Window):
             return self.search_controller.schedule_highlight(GLib.timeout_add)
         return False
 
-    def on_character_map(self, *_):
-        d = Gtk.Dialog(title="Character Map", transient_for=self, modal=True)
-        d.set_name("calamus-character-map-dialog")
-        d.add_buttons("Close", Gtk.ResponseType.CLOSE)
-        d.set_default_size(720, 520)
-
-        css = b"""
-        #calamus-character-map-dialog,
-        #calamus-character-map-dialog box,
-        #calamus-character-map-dialog scrolledwindow,
-        #calamus-character-map-dialog viewport {
-            background-color: #ffffff;
-            color: #000000;
-            background-image: none;
-        }
-        #calamus-character-map-dialog label {
-            color: #000000;
-        }
-        #calamus-character-map-dialog button,
-        #calamus-character-map-dialog button label {
-            background-color: #eeeeee;
-            color: #000000;
-            background-image: none;
-            text-shadow: none;
-            box-shadow: none;
-        }
-        #calamus-character-map-dialog button:hover {
-            background-color: #dddddd;
-            color: #000000;
-            background-image: none;
-        }
-        """
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css)
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
-        )
-
-        box = d.get_content_area()
-        box.set_spacing(8)
-        box.set_margin_start(10)
-        box.set_margin_end(10)
-        box.set_margin_top(10)
-        box.set_margin_bottom(10)
-
-        hint = Gtk.Label(label="Click a character to insert it at the cursor position. Shortcut: Ctrl+Alt+F10")
-        hint.set_xalign(0)
-        box.pack_start(hint, False, False, 0)
-
-        notebook = Gtk.Notebook()
-        box.pack_start(notebook, True, True, 0)
-
-        groups = [
-            ("Alphabet", "ABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz"),
-            ("Accents", "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞß\nàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\nĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĞğĠġĢģĪīĮįİıŁłŃńŇňŐőŒœŔŕŘřŚśŞşŠšŤťŪūŮůŰűŲųŸŹźŻżŽž"),
-            ("Greek", "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ\nαβγδεζηθικλμνξοπρστυφχψω"),
-            ("Numbers", "0123456789 ⁰¹²³⁴⁵⁶⁷⁸⁹ ₀₁₂₃₄₅₆₇₈₉ ½⅓⅔¼¾⅛⅜⅝⅞"),
-            ("Punctuation", ".,;:!?¡¿'\"`´‘’“”‚„…·•-–—_()[]{}<>/\\|@#&§¶"),
-            ("Math", "+−×÷=≠≈≡<≤>≥±∞√∑∏∫∂∆∇πµΩ°′″‰%¬∧∨∩∪⊂⊃⊆⊇∈∉∅"),
-            ("Currency", "€£$¥¢₹₽₩₪₫₴₦₱₲₵₡₭₮₨฿"),
-            ("Arrows", "←↑→↓↔↕↖↗↘↙⇐⇑⇒⇓⇔⇧⇨➜➤➔➜➞"),
-            ("Symbols", "©®™✓✔✕✖★☆♥♦♣♠♪♫☀☁☂☃☎☑☐☒⚠⚙⚡☕⌘⌥⇧⎋"),
-        ]
-
-        def insert_char(ch):
-            b = self.text.get_buffer()
-            if b.get_has_selection():
-                self.replace_selection(lambda _old, c=ch: c)
-                return
-            cursor = b.get_iter_at_mark(b.get_insert()).get_offset()
-            def edit(buf):
-                buf.insert(buf.get_iter_at_offset(cursor), ch)
-            self.execute_command("Insert Character", edit, select_range=(cursor + len(ch), cursor + len(ch)))
-
-        for title, chars in groups:
-            scroll = Gtk.ScrolledWindow()
-            scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-            grid = Gtk.Grid(column_spacing=4, row_spacing=4)
-            grid.set_margin_start(8)
-            grid.set_margin_end(8)
-            grid.set_margin_top(8)
-            grid.set_margin_bottom(8)
-            scroll.add(grid)
-
-            row = 0
-            col = 0
-            for ch in chars:
-                if ch == "\n":
-                    row += 1
-                    col = 0
-                    continue
-                if ch == " ":
-                    continue
-                btn = Gtk.Button(label=ch)
-                btn.set_size_request(34, 30)
-                btn.set_tooltip_text("Insert " + ch)
-                btn.connect("clicked", lambda _b, c=ch: insert_char(c))
-                grid.attach(btn, col, row, 1, 1)
-                col += 1
-                if col >= 16:
-                    row += 1
-                    col = 0
-            notebook.append_page(scroll, Gtk.Label(label=title))
-
-        d.show_all()
-        d.run()
-        d.destroy()
-
     def build_research_panel(self):
         self._research_components = build_research_subsystem(
             ResearchCompositionInput(
@@ -2025,181 +2258,15 @@ class App(Gtk.Window):
         self.pandoc_export_runtime = c.pandoc_export_runtime
         return c
 
-    on_document_overview = document_dossier_app.on_document_overview
-    refresh_document_overview_if_open = document_dossier_app.refresh_document_overview_if_open
-
-    def refresh_clip_list(self):
-        return self._research_components.runtime.refresh_clip_list()
-
-    def on_research_item_toggled(self, item):
-        return self._research_components.runtime.on_research_item_toggled(item)
-
-    def on_research_visibility_changed(self, _visible):
-        return self._research_components.runtime.on_research_visibility_changed(_visible)
-
-    def toggle_research_panel(self, *_):
-        return self._research_components.runtime.toggle_research_panel(*_)
-
-    def show_clip_collection(self, *_):
-        return self._research_components.runtime.show_clip_collection(*_)
-
-    def show_scratchpad(self, *_):
-        return self._research_components.runtime.show_scratchpad(*_)
-
-    def on_capture_selection_in_scratchpad(self, *_):
-        return self._research_components.runtime.on_capture_selection_in_scratchpad(*_)
-
-    def on_new_scratchpad_for_current_section(self, *_):
-        return self._research_components.runtime.on_new_scratchpad_for_current_section(*_)
-
-    def on_show_scratchpad_for_current_section(self, *_):
-        return self._research_components.runtime.on_show_scratchpad_for_current_section(*_)
-
-    def show_references(self, *_):
-        return self._research_components.runtime.show_references(*_)
-
-    def on_open_bibliography_file(self, *_):
-        return self._research_components.runtime.on_open_bibliography_file(*_)
-
-    def on_export_bibliography_markdown(self, *_):
-        return self._research_components.runtime.on_export_bibliography_markdown(*_)
-
-    def on_export_bibliography_text(self, *_):
-        return self._research_components.runtime.on_export_bibliography_text(*_)
-
-    def show_tags(self, *_):
-        return self._research_components.runtime.show_tags(*_)
-
-    def show_source_notes(self, *_):
-        return self._research_components.runtime.show_source_notes(*_)
-
-    def show_reference_sets(self, *_):
-        return self._research_components.runtime.show_reference_sets(*_)
-
-    def show_authoring_bridge(self, *_):
-        return self._research_components.runtime.show_authoring_bridge(*_)
-
-    def source_notes_snapshot(self):
-        return self._research_components.runtime.source_notes_snapshot()
-
-    def current_heading_identifier(self):
-        return self._research_components.runtime.current_heading_identifier()
-
-    def authoring_selection_snapshot(self):
-        return self._research_components.runtime.authoring_selection_snapshot()
-
-    def navigate_authoring_occurrence(self, start, end, _occurrence_id):
-        return self._research_components.runtime.navigate_authoring_occurrence(start, end, _occurrence_id)
-
-    def show_source_note_id(self, note_id):
-        return self._research_components.runtime.show_source_note_id(note_id)
-
-    def show_scratchpad_entry_id(self, entry_id):
-        return self._research_components.runtime.show_scratchpad_entry_id(entry_id)
-
-    def create_source_note_from_authoring_snapshot(self, snapshot, reference_key, target):
-        return self._research_components.runtime.create_source_note_from_authoring_snapshot(snapshot, reference_key, target)
-
-    def on_create_source_note_from_selection(self, *_):
-        return self._research_components.runtime.on_create_source_note_from_selection(*_)
-
-    def on_insert_link_to_heading(self, *_):
-        return self._research_components.runtime.on_insert_link_to_heading(*_)
-
-    def apply_heading_link_plan(self, plan):
-        return self._research_components.runtime.apply_heading_link_plan(plan)
-
-    def show_reference_key(self, key):
-        return self._research_components.runtime.show_reference_key(key)
-
-    def insert_citation_text(self, citation):
-        return self._research_components.runtime.insert_citation_text(citation)
-
-    def run_quick_cite(self, initial_key=None):
-        return self._research_components.runtime.run_quick_cite(initial_key)
-
-    def on_quick_cite(self, *_):
-        return self._research_components.runtime.on_quick_cite(*_)
-
-    def quick_cite_key(self, key):
-        return self._research_components.runtime.quick_cite_key(key)
-
-    def on_open_citation_in_references(self, *_):
-        return self._research_components.runtime.on_open_citation_in_references(*_)
-
-    def replace_document_for_reference_migration(self, before, after):
-        return self._research_components.runtime.replace_document_for_reference_migration(before, after)
-
-    def on_rename_reference_key(self, *_):
-        return self._research_components.runtime.on_rename_reference_key(*_)
-
-    def on_research_check(self, *_):
-        return self._research_components.runtime.on_research_check(*_)
-
-    def on_tag_integrity(self, *_):
-        return self._research_components.runtime.on_tag_integrity(*_)
-
-    def on_import_bibtex_biblatex(self, *_):
-        return self._research_components.runtime.on_import_bibtex_biblatex(*_)
-
-    def on_export_references_bibtex_biblatex(self, *_):
-        return self._research_components.runtime.on_export_references_bibtex_biblatex(*_)
-
-    def on_export_research_apparatus(self, *_):
-        return self._research_components.runtime.on_export_research_apparatus(*_)
-
-    def on_export_with_pandoc(self, *_):
-        return self._research_components.runtime.on_export_with_pandoc(*_)
-
-    def show_heading_target(self, target):
-        return self._research_components.runtime.show_heading_target(target)
-
-    def finish_research_mutation(self, changed, *reasons):
-        return self._research_components.runtime.finish_research_mutation(changed, *reasons)
-
-    def publish_research_invalidation(self, *reasons):
-        components = getattr(self, "_research_components", None)
-        runtime = components.runtime if components is not None else None
-        if runtime is not None:
-            return runtime.publish_research_invalidation(*reasons)
-        return None
-
-    def research_document_context_changed(self):
-        components = getattr(self, "_research_components", None)
-        runtime = components.runtime if components is not None else None
-        if runtime is None:
-            return True
-        return runtime.research_document_context_changed()
-
-    def sync_source_notes_document(self, *, force=False):
-        components = getattr(self, "_research_components", None)
-        runtime = components.runtime if components is not None else None
-        if runtime is None:
-            return True
-        return runtime.sync_source_notes_document(force=force)
-
-    def toggle_clip_collection(self, *_):
-        return self._research_components.runtime.toggle_clip_collection(*_)
-
-    def insert_clip_number(self, number):
-        return self._research_components.runtime.insert_clip_number(number)
-
-    def on_insert_clip(self, *_):
-        return self._research_components.runtime.on_insert_clip(*_)
 
     # Compatibility callbacks retained for tests and older menu wiring.
-    def on_clip_add_selection(self, *_):
-        return self._research_components.runtime.on_clip_add_selection(*_)
-
-    def on_clip_insert(self, *_):
-        return self._research_components.runtime.on_clip_insert(*_)
-
-    def on_clip_delete(self, *_):
-        return self._research_components.runtime.on_clip_delete(*_)
-
-    on_typewriter_state_changed = typewriter_app.on_typewriter_state_changed
-    on_typewriter_item_toggled = typewriter_app.on_typewriter_item_toggled
-    toggle_typewriter_mode = typewriter_app.toggle_typewriter_mode
+    def on_typewriter_state_changed(self, enabled):
+        return typewriter_app.project_typewriter_state(
+            enabled,
+            set_enabled=lambda value: setattr(self, "typewriter_mode", value),
+            refresh_ui_state=self.refresh_ui_state,
+            update_title=self.update_title,
+        )
 
     def toggle_focus_mode(self, *_):
         self.focus_mode = not self.focus_mode
@@ -2233,10 +2300,14 @@ class App(Gtk.Window):
         cur = b.get_iter_at_mark(b.get_insert())
         start = cur.copy()
         start.set_line_offset(0)
+        # Tag through the logical line terminator when one exists. Together
+        # with paragraph-background this projects a row, rather than painting
+        # only behind the glyphs before the caret line's final character.
         end = start.copy()
-        if not end.ends_line():
-            end.forward_to_line_end()
-        b.apply_tag(self.current_line_tag, start, end)
+        if not end.forward_line():
+            end = b.get_end_iter()
+        if not start.equal(end):
+            b.apply_tag(self.current_line_tag, start, end)
 
     def toggle_bookmark(self, *_):
         off = self.get_cursor_offset()
@@ -2274,78 +2345,6 @@ class App(Gtk.Window):
             lines.append(f"{i}. Line {line} — offset {off}")
         self.large_info("Bookmarks", "\n".join(lines))
 
-    def populate_recent_workspaces_menu(self):
-        return self._components.workspace.host_runtime.populate_recent_workspaces_menu()
-
-    def show_workspace_panel(self, *_):
-        return self._components.workspace.host_runtime.show_workspace_panel(*_)
-
-    def on_new_workspace_text_file(self, *_):
-        return self._components.workspace.host_runtime.on_new_workspace_text_file(*_)
-
-    def create_workspace_text_file(self, name, suffix=".txt"):
-        return self._components.workspace.host_runtime.create_workspace_text_file(name, suffix)
-
-    def on_new_workspace_folder(self, *_):
-        return self._components.workspace.host_runtime.on_new_workspace_folder(*_)
-
-    def create_workspace_folder(self, name):
-        return self._components.workspace.host_runtime.create_workspace_folder(name)
-
-    def on_duplicate_workspace_file(self, *_):
-        return self._components.workspace.host_runtime.on_duplicate_workspace_file(*_)
-
-    def on_move_workspace_item_to_trash(self, *_):
-        return self._components.workspace.host_runtime.on_move_workspace_item_to_trash(*_)
-
-    def confirm_workspace_trash(self, trash_plan, active_document_affected):
-        return self._components.workspace.host_runtime.confirm_workspace_trash(trash_plan, active_document_affected)
-
-    def on_rename_workspace_item(self, *_):
-        return self._components.workspace.host_runtime.on_rename_workspace_item(*_)
-
-    def rename_workspace_item(self, name):
-        return self._components.workspace.host_runtime.rename_workspace_item(name)
-
-    def capture_workspace_path_references(self):
-        return self._components.workspace.host_runtime.capture_workspace_path_references()
-
-    def reconcile_workspace_rename(self, rename_plan, references):
-        return self._components.workspace.host_runtime.reconcile_workspace_rename(rename_plan, references)
-
-    def reconcile_workspace_trash(self, trash_plan, references):
-        return self._components.workspace.host_runtime.reconcile_workspace_trash(trash_plan, references)
-
-    def on_select_workspace_folder(self, *_):
-        return self._components.workspace.host_runtime.on_select_workspace_folder(*_)
-
-    def open_workspace_path(self, path):
-        return self._components.workspace.host_runtime.open_workspace_path(path)
-
-    def activate_workspace_path(self, path):
-        return self._components.workspace.host_runtime.activate_workspace_path(path)
-
-    def on_close_workspace(self, *_):
-        return self._components.workspace.host_runtime.on_close_workspace(*_)
-
-    def on_refresh_workspace(self, *_):
-        return self._components.workspace.host_runtime.on_refresh_workspace(*_)
-
-    def on_reveal_workspace(self, *_):
-        return self._components.workspace.host_runtime.on_reveal_workspace(*_)
-
-    def on_workspace_item_toggled(self, item):
-        return self._components.workspace.host_runtime.on_workspace_item_toggled(item)
-
-    def toggle_workspace_panel(self, *_):
-        return self._components.workspace.host_runtime.toggle_workspace_panel(*_)
-
-    def on_workspace_root_changed(self, _root):
-        return self._components.workspace.host_runtime.on_workspace_root_changed(_root)
-
-    def on_workspace_visibility_changed(self, visible):
-        return self._components.workspace.host_runtime.on_workspace_visibility_changed(visible)
-
     def on_navigator_item_toggled(self, item):
         return self.navigator_panel_runtime.set_visible(bool(item.get_active()))
 
@@ -2378,83 +2377,8 @@ class App(Gtk.Window):
         )
         return heading is not None
 
-    def on_find_replace(self, *_):
-        return self._w107_subsystems.search.on_find_replace(*_)
-
-    def on_find_all(self, *_):
-        return self._w107_subsystems.search.on_find_all(*_)
-
-    def on_find_next(self, *_):
-        return self._w107_subsystems.search.on_find_next(*_)
-
-    def on_find_previous(self, *_):
-        return self._w107_subsystems.search.on_find_previous(*_)
-
-    def search_matches(self, needle, match_case=False, whole_word=False):
-        return self._w107_subsystems.search.search_matches(needle, match_case, whole_word)
-
-    def highlight_all_search(self, needle, match_case=False, whole_word=False):
-        return self._w107_subsystems.search.highlight_all_search(needle, match_case, whole_word)
-
-    def find_text(self, needle, backwards=False, match_case=False, whole_word=False, wrap=True):
-        return self._w107_subsystems.search.find_text(needle, backwards, match_case, whole_word, wrap)
-
-    def find_text_previous(self, needle):
-        return self._w107_subsystems.search.find_text_previous(needle)
-
-    def replace_current_match(self, needle_or_replacement, replacement=None, match_case=False, whole_word=False):
-        return self._w107_subsystems.search.replace_current_match(needle_or_replacement, replacement, match_case, whole_word)
-
-    def replace_all_literal(self, old_or_replacement, new=None, match_case=False, whole_word=False):
-        return self._w107_subsystems.search.replace_all_literal(old_or_replacement, new, match_case, whole_word)
-
-    def on_print_preview(self, *_):
-        return self._w107_subsystems.printer.on_print_preview(*_)
-
-    def on_print(self, *_):
-        return self._w107_subsystems.printer.on_print(*_)
-
-    def on_begin_print(self, operation, context):
-        return self._w107_subsystems.printer.on_begin_print(operation, context)
-
-    def on_draw_page(self, operation, context, page_nr):
-        return self._w107_subsystems.printer.on_draw_page(operation, context, page_nr)
-
-    def on_lang(self, item, lang):
-        return self._w107_subsystems.spellcheck.on_lang(item, lang)
-
-    def clear_spell_tags(self):
-        return self._w107_subsystems.spellcheck.clear_spell_tags()
-
-    def hunspell_dict(self):
-        return self._w107_subsystems.spellcheck.hunspell_dict()
-
-    def hunspell_base_command(self):
-        return self._w107_subsystems.spellcheck.hunspell_base_command()
-
-    def hunspell_misspelled_words(self, text):
-        return self._w107_subsystems.spellcheck.hunspell_misspelled_words(text)
-
-    def hunspell_suggestions(self, word):
-        return self._w107_subsystems.spellcheck.hunspell_suggestions(word)
-
-    def find_next_error(self, start_offset, misspelled):
-        return self._w107_subsystems.spellcheck.find_next_error(start_offset, misspelled)
-
     def select_range(self, start, end):
         return self._w107_subsystems.spellcheck.select_range(start, end)
-
-    def spelling_dialog(self, word, suggestions):
-        return self._w107_subsystems.spellcheck.spelling_dialog(word, suggestions)
-
-    def replace_buffer_range(self, start, end, replacement):
-        return self._w107_subsystems.spellcheck.replace_buffer_range(start, end, replacement)
-
-    def replace_all_word(self, old, new, from_offset=0):
-        return self._w107_subsystems.spellcheck.replace_all_word(old, new, from_offset)
-
-    def on_check(self, *_):
-        return self._w107_subsystems.spellcheck.on_check(*_)
 
     def shortcut_rows(self):
         return SHORTCUT_ROWS

@@ -1,11 +1,16 @@
-"""Stateless W101 orchestration for the non-Research application graph."""
+"""Stateless W101 orchestration for the non-Research application graph.
+
+W108 rule: this reusable composition boundary receives only one immutable,
+exactly-named input record.  It never receives or mutates the concrete App.
+"""
 from __future__ import annotations
 
-import os
+from dataclasses import replace
 
 from calamus_application_components import (
     ClipCollectionCompositionInput,
     CoreApplicationComponents,
+    CoreApplicationCompositionInput,
     DocumentSessionCompositionInput,
     EditorCompositionInput,
     EditorTransactionCompositionInput,
@@ -14,19 +19,13 @@ from calamus_application_components import (
     WorkspaceCompositionInput,
 )
 from calamus_document import is_large_text_file, read_text_file, write_text_file
-from calamus_clip_composition import (
-    build_clip_collection_components,
-    build_right_panel_host,
-)
+from calamus_clip_composition import build_clip_collection_components, build_right_panel_host
 from calamus_document_session_composition import build_document_session_components
 from calamus_editor_composition import build_editor_infrastructure
 from calamus_editor_transaction_composition import build_editor_transaction_components
 from calamus_navigator_composition import build_navigator_components
 from calamus_workspace_host_gtk import WorkspaceHostGtkAdapter
-from calamus_workspace_composition import (
-    bind_workspace_startup,
-    build_workspace_components,
-)
+from calamus_workspace_composition import bind_workspace_startup, build_workspace_components
 
 
 CORE_BUILD_ORDER = (
@@ -42,16 +41,17 @@ CORE_BUILD_ORDER = (
 
 
 def compose_core_application_components(
-    app,
-    *,
-    clip_invalidation_reason,
+    inputs: CoreApplicationCompositionInput,
 ) -> CoreApplicationComponents:
+    if not isinstance(inputs, CoreApplicationCompositionInput):
+        raise TypeError("inputs must be CoreApplicationCompositionInput")
+
     document_session = build_document_session_components(
         DocumentSessionCompositionInput(
-            initial_file_path=app.persisted_application_state.last_file,
-            read_buffer_text=app._read_buffer_text_raw,
-            replace_buffer_text=app._replace_buffer_text_raw,
-            reset_undo_history=app.reset_undo_history,
+            initial_file_path=inputs.initial_file_path,
+            read_buffer_text=inputs.read_buffer_text,
+            replace_buffer_text=inputs.replace_buffer_text,
+            reset_undo_history=inputs.reset_undo_history,
             read_text_file=read_text_file,
             write_text_file=write_text_file,
             is_large_text_file=is_large_text_file,
@@ -59,27 +59,27 @@ def compose_core_application_components(
     )
     editor = build_editor_infrastructure(
         EditorCompositionInput(
-            text_view=app.text,
-            scroller=app.scroller,
-            on_typewriter_state_changed=app.on_typewriter_state_changed,
-            on_buffer_changed=app.on_changed,
-            on_buffer_begin_user_action=app.on_buffer_begin_user_action,
-            on_buffer_end_user_action=app.on_buffer_end_user_action,
-            on_cursor_position_notify=app.on_cursor_position_notify,
-            on_text_key_press=app.on_text_key_press,
-            on_text_key_release=app.on_text_key_release,
-            on_text_move_cursor=app.on_text_move_cursor,
-            on_text_button_press=app.on_text_button_press,
-            on_text_motion_notify=app.on_text_motion_notify,
-            on_text_button_release=app.on_text_button_release,
-            on_text_scroll=app.on_text_scroll,
-            on_text_focus_out=app.on_text_focus_out,
-            apply_wrap_policy=app.apply_wrap_policy,
+            text_view=inputs.text_view,
+            scroller=inputs.scroller,
+            on_typewriter_state_changed=inputs.on_typewriter_state_changed,
+            on_buffer_changed=inputs.on_buffer_changed,
+            on_buffer_begin_user_action=inputs.on_buffer_begin_user_action,
+            on_buffer_end_user_action=inputs.on_buffer_end_user_action,
+            on_cursor_position_notify=inputs.on_cursor_position_notify,
+            on_text_key_press=inputs.on_text_key_press,
+            on_text_key_release=inputs.on_text_key_release,
+            on_text_move_cursor=inputs.on_text_move_cursor,
+            on_text_button_press=inputs.on_text_button_press,
+            on_text_motion_notify=inputs.on_text_motion_notify,
+            on_text_button_release=inputs.on_text_button_release,
+            on_text_scroll=inputs.on_text_scroll,
+            on_text_focus_out=inputs.on_text_focus_out,
+            apply_wrap_policy=inputs.apply_wrap_policy,
         )
     )
     editor_transaction = build_editor_transaction_components(
         EditorTransactionCompositionInput(
-            text_view=app.text,
+            text_view=inputs.text_view,
             document_session=document_session.session,
             document_session_controller=document_session.controller,
             history_runtime=editor.history_runtime,
@@ -87,29 +87,27 @@ def compose_core_application_components(
     )
     navigator = build_navigator_components(
         NavigatorCompositionInput(
-            text_view=app.text,
-            workspace_paned=app.workspace_paned,
-            queue_wrap_reflow=app.queue_wrap_reflow,
-            on_visibility_changed=app.on_navigator_visibility_changed,
+            text_view=inputs.text_view,
+            workspace_paned=inputs.workspace_paned,
+            queue_wrap_reflow=inputs.queue_wrap_reflow,
+            on_visibility_changed=inputs.on_navigator_visibility_changed,
         )
     )
-    workspace_gtk = WorkspaceHostGtkAdapter(
-        app, app.menu_ui_adapter
-    )
+    workspace_gtk = WorkspaceHostGtkAdapter(inputs.dialog_parent, inputs.menu_ui_adapter)
     workspace_input = WorkspaceCompositionInput(
         left_panel_host=navigator.left_panel_host,
-        recent_workspaces=app.recent_workspace_store,
-        recent_files=app.recent_file_store,
-        favourites=app.favourite_store,
-        application_state=app.application_state,
+        recent_workspaces=inputs.recent_workspaces,
+        recent_files=inputs.recent_files,
+        favourites=inputs.favourites,
+        application_state=inputs.application_state,
         document_session=document_session.session,
-        text_view=app.text,
-        workspace_root=(app.persisted_application_state.workspace_root if app.persisted_application_state.workspace_root and os.path.isdir(app.persisted_application_state.workspace_root) else None),
-        workspace_visible=app.persisted_application_state.workspace_visible,
-        may_continue=app.may_continue,
-        open_document=app.open_path,
-        record_workspace_root=app.application_state.record_workspace_root,
-        report_error=app.error,
+        text_view=inputs.text_view,
+        workspace_root=inputs.workspace_root,
+        workspace_visible=inputs.workspace_visible,
+        may_continue=inputs.may_continue,
+        open_document=inputs.open_document,
+        record_workspace_root=inputs.application_state.record_workspace_root,
+        report_error=inputs.report_error,
         render_recent_workspaces=workspace_gtk.render_recent_workspaces,
         choose_workspace_root=workspace_gtk.choose_root,
         prompt_new_text_file=workspace_gtk.prompt_new_text_file,
@@ -117,75 +115,29 @@ def compose_core_application_components(
         prompt_rename_item=workspace_gtk.prompt_rename_item,
         confirm_trash=workspace_gtk.confirm_trash,
         show_workspace_error=workspace_gtk.show_error,
-        document_text=app.buffer_text,
-        research_context_changed=app.research_document_context_changed,
-        update_title=app.update_title,
-        refresh_overview=app.refresh_document_overview_if_open,
-        refresh_ui_state=app.refresh_ui_state,
+        document_text=inputs.document_text,
+        research_context_changed=inputs.research_context_changed,
+        update_title=inputs.update_title,
+        refresh_overview=inputs.refresh_overview,
+        refresh_ui_state=inputs.refresh_ui_state,
     )
     workspace = build_workspace_components(workspace_input)
     right_panel_host = build_right_panel_host(
-        RightPanelHostInput(
-            body_paned=app.body_paned,
-            queue_wrap_reflow=app.queue_wrap_reflow,
-        )
+        RightPanelHostInput(body_paned=inputs.body_paned, queue_wrap_reflow=inputs.queue_wrap_reflow)
     )
     clips = build_clip_collection_components(
         ClipCollectionCompositionInput(
-            dialog_parent=app,
-            config_dir=app.config_dir,
-            text_view=app.text,
-            execute_command=app.execute_command,
-            get_cursor_offset=app.get_cursor_offset,
-            set_cursor_offset=app.set_cursor_offset,
-            sync_history_view_state=app.sync_current_history_view_state,
-            queue_insert_scroll=app.queue_insert_scroll,
-            publish_invalidation=app.publish_research_invalidation,
-            clip_invalidation_reason=clip_invalidation_reason,
+            dialog_parent=inputs.dialog_parent,
+            config_dir=inputs.config_dir,
+            text_view=inputs.text_view,
+            execute_command=inputs.execute_command,
+            get_cursor_offset=inputs.get_cursor_offset,
+            set_cursor_offset=inputs.set_cursor_offset,
+            sync_history_view_state=inputs.sync_history_view_state,
+            queue_insert_scroll=inputs.queue_insert_scroll,
+            publish_invalidation=inputs.publish_invalidation,
+            clip_invalidation_reason=inputs.clip_invalidation_reason,
         )
-    )
-    # Static compatibility projections. The typed bundles are authoritative;
-    app.document_session = document_session.session
-    app.document_session_controller = document_session.controller
-
-    # these exact aliases preserve the published App surface until W111.
-    app.history = editor.history
-    app.viewport_runtime = editor.viewport_runtime
-    app.history_runtime = editor.history_runtime
-    app.editor_transaction = editor_transaction.controller
-    app.editor_buffer_adapter = editor_transaction.buffer_adapter
-    app.typewriter_runtime = editor.typewriter_runtime
-    app.search_controller = editor.search_controller
-    app.tag = editor.misspelling_tag
-    app.search_tag = editor.search_tag
-    app.current_line_tag = editor.current_line_tag
-
-    app.navigation_controller = navigator.navigation_controller
-    app.left_panel_host = navigator.left_panel_host
-    app.navigator_panel_view = navigator.panel_view
-    app.navigator_panel_host = navigator.panel_host
-    app.navigator_panel_runtime = navigator.panel_runtime
-
-    app.workspace_controller = workspace.controller
-    app.workspace_panel_view = workspace.panel_view
-    app.workspace_application_runtime = workspace.application_runtime
-    app.workspace_mutation_controller = workspace.mutation_controller
-    app.workspace_mutation_runtime = workspace.mutation_runtime
-    app.workspace_panel_host = workspace.panel_host
-    app.workspace_panel_runtime = workspace.panel_runtime
-
-    app.right_panel_host = right_panel_host
-    app.clip_collection_view = clips.view
-    app.clip_collection = clips.controller
-    app.clip_collection_runtime = clips.runtime
-
-    # Startup-root binding is deliberately delayed until every core owner and
-    # compatibility projection exists. This is the W101 composition-complete
-    # barrier; visible panel activation remains in App after full construction.
-    workspace = bind_workspace_startup(
-        workspace,
-        workspace_input.workspace_root,
-        workspace_input.workspace_visible,
     )
     return CoreApplicationComponents(
         document_session=document_session,
@@ -196,5 +148,19 @@ def compose_core_application_components(
         right_panel_host=right_panel_host,
         clips=clips,
         build_order=CORE_BUILD_ORDER,
-        composition_complete=True,
+        composition_complete=False,
     )
+
+
+def complete_core_application_components(
+    components: CoreApplicationComponents,
+    workspace_root: str | None,
+    workspace_visible: bool,
+) -> CoreApplicationComponents:
+    """Apply the delayed Workspace startup binding after shell alias projection."""
+    if not isinstance(components, CoreApplicationComponents):
+        raise TypeError("components must be CoreApplicationComponents")
+    if components.composition_complete:
+        raise RuntimeError("core application components already completed")
+    workspace = bind_workspace_startup(components.workspace, workspace_root, workspace_visible)
+    return replace(components, workspace=workspace, composition_complete=True)

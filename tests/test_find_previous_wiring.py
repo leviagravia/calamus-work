@@ -12,10 +12,9 @@ SOURCE = (ROOT / "bin" / "calamus").read_text(encoding="utf-8")
 
 class FindPreviousWiringTests(unittest.TestCase):
     def test_find_previous_reuses_canonical_search_session(self):
-        app_method = app_method_source("on_find_previous")
         method = authoritative_method_source("on_find_previous")
-        self.assertIn("self._w107_subsystems.search.on_find_previous", app_method)
-        self.assertLessEqual(len(app_method.splitlines()), 2)
+        self.assertIn("on_find_previous=search_runtime.on_find_previous", SOURCE)
+        self.assertNotIn("def on_find_previous", SOURCE)
         self.assertIn("if not self.controller.has_query():", method)
         self.assertIn("self.on_find_replace()", method)
         self.assertIn("self.controller.repeat(backwards=True)", method)
@@ -24,7 +23,7 @@ class FindPreviousWiringTests(unittest.TestCase):
         self.assertNotIn("self.last_match", method)
 
     def test_find_previous_remains_non_mutating_wrapper(self):
-        method = app_method_source("on_find_previous")
+        method = authoritative_method_source("on_find_previous")
         for token in (
             "execute_command",
             "finalize_command_edit",
@@ -39,10 +38,8 @@ class FindPreviousWiringTests(unittest.TestCase):
             self.assertNotIn(token, method)
 
     def test_find_text_is_a_thin_search_controller_adapter(self):
-        app_method = app_method_source("find_text")
         method = authoritative_method_source("find_text")
-        self.assertIn("self._w107_subsystems.search.find_text", app_method)
-        self.assertLessEqual(len(app_method.splitlines()), 2)
+        self.assertNotIn("def find_text", SOURCE)
         self.assertIn("return self.controller.find(", method)
         self.assertLessEqual(len(method.splitlines()), 10)
         for token in (

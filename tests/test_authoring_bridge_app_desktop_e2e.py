@@ -177,7 +177,11 @@ class AuthoringBridgeAppDesktopE2E(unittest.TestCase):
                     win.show_all()
                     _pump()
                     self.assertTrue(win.open_path(str(document)))
-                    self.assertTrue(win.show_authoring_bridge())
+                    command_result = win.invoke_command(
+                        "research.authoring-bridge", source="w108-historical-w88"
+                    )
+                    self.assertTrue(command_result.success, command_result.message)
+                    self.assertTrue(command_result.value)
                     _pump()
 
                     runtime = win.authoring_bridge_runtime
@@ -206,7 +210,11 @@ class AuthoringBridgeAppDesktopE2E(unittest.TestCase):
                     _pump()
                     self.assertEqual(_selected_text(win), "[Method](#method)")
 
-                    win.show_authoring_bridge()
+                    command_result = win.invoke_command(
+                        "research.authoring-bridge", source="w108-historical-w88"
+                    )
+                    self.assertTrue(command_result.success, command_result.message)
+                    self.assertTrue(command_result.value)
                     view._mode_selector.set_active_id("heading")
                     view._subject_selector.set_active_id("intro")
                     _pump()
@@ -290,7 +298,11 @@ class AuthoringBridgeAppDesktopE2E(unittest.TestCase):
                         return False
 
                     GLib.idle_add(accept_source_note)
-                    created = win.on_create_source_note_from_selection()
+                    command_result = win.invoke_command(
+                        "research.create-source-note", source="w108-historical-w88"
+                    )
+                    self.assertTrue(command_result.success, command_result.message)
+                    created = command_result.value
                     _pump()
                     if failures:
                         raise failures.pop(0)
@@ -344,7 +356,11 @@ class AuthoringBridgeAppDesktopE2E(unittest.TestCase):
                         return False
 
                     GLib.idle_add(accept_heading_link)
-                    self.assertTrue(win.on_insert_link_to_heading())
+                    command_result = win.invoke_command(
+                        "research.insert-heading-link", source="w108-historical-w88"
+                    )
+                    self.assertTrue(command_result.success, command_result.message)
+                    self.assertTrue(command_result.value)
                     _pump()
                     if failures:
                         raise failures.pop(0)

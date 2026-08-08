@@ -1,0 +1,1 @@
+W108_CHANGED_BINDING_COVERAGE=PASS rows=152 commands=117 composition=34

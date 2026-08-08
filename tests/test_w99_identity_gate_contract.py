@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 W99_BASELINE = "fb54cd3bb96bbea024966db2a059c755aef45d95"
-CURRENT_BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"
+CURRENT_BASELINE = "e16cc21b8a900298406ae8cc4776f6f1ec658e93"
 
 
 class W99IdentityGateContractTests(unittest.TestCase):

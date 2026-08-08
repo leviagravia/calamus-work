@@ -25,9 +25,9 @@ class FindTextMatchChoiceWiringTests(unittest.TestCase):
     def test_match_choice_moved_to_search_gateway(self):
         self.assertIn("chosen = choose_search_match(", GATEWAY_SOURCE)
         self.assertIn("cursor = self._adapter.cursor_offset(backwards=backwards)", GATEWAY_SOURCE)
-        method = app_method_source("find_text")
-        self.assertNotIn("choose_search_match", method)
-        self.assertNotIn("for match in", method)
+        self.assertNotIn("def find_text", LAUNCHER_SOURCE)
+        self.assertIn("on_find_next=search_runtime.on_find_next", LAUNCHER_SOURCE)
+        self.assertIn("on_find_previous=search_runtime.on_find_previous", LAUNCHER_SOURCE)
 
     def test_gtk_selection_boundary_moved_out_of_app(self):
         self.assertIn("class SearchViewAdapter", VIEW_SOURCE)
@@ -35,9 +35,8 @@ class FindTextMatchChoiceWiringTests(unittest.TestCase):
         self.assertIn("buffer.get_selection_bounds()", VIEW_SOURCE)
         self.assertIn("buffer.select_range(begin, finish)", VIEW_SOURCE)
         self.assertIn("self._text_view.scroll_to_iter", VIEW_SOURCE)
-        method = app_method_source("find_text")
-        self.assertNotIn("get_buffer", method)
-        self.assertNotIn("scroll_to", method)
+        self.assertNotIn("def find_text", LAUNCHER_SOURCE)
+        self.assertIn("search_runtime = self._w107_subsystems.search", LAUNCHER_SOURCE)
 
     def test_search_model_remains_pure(self):
         for token in (

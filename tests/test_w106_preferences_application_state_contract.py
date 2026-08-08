@@ -40,8 +40,11 @@ class W106PreferencesApplicationStateContractTests(unittest.TestCase):
         self.assertNotIn("app.settings", text)
         self.assertNotIn("app.state", text)
         self.assertNotIn("save_settings=", text)
-        self.assertIn("recent_workspaces=app.recent_workspace_store", text)
-        self.assertIn("record_workspace_root=app.application_state.record_workspace_root", text)
+        self.assertIn("recent_workspaces=inputs.recent_workspaces", text)
+        self.assertIn("application_state=inputs.application_state", text)
+        launcher = (ROOT / "bin/calamus").read_text(encoding="utf-8")
+        self.assertIn("recent_workspaces=self.recent_workspace_store", launcher)
+        self.assertIn("application_state=self.application_state", launcher)
 
     def test_state_manager_is_explicit_compatibility_only(self):
         text = (ROOT / "calamus/calamus_state.py").read_text(encoding="utf-8")

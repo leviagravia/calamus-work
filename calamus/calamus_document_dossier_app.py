@@ -7,8 +7,9 @@ value consumed by :mod:`calamus_document_dossier`.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from calamus_document_dossier import DocumentDossierInputs
 from calamus_reference_set_store import ReferenceSetSnapshot
@@ -101,90 +102,134 @@ def _default_document_overview_view_factory():
     return build_document_overview_view
 
 
-def build_document_overview(app, *, view_factory=None) -> None:
-    """Compose W96 from App authorities and the application-owned GTK view."""
+
+@dataclass(frozen=True)
+class DocumentOverviewCompositionInput:
+    dialog_parent: Any
+    text_view: Any
+    document_text: Callable[[], str]
+    document_path: Callable[[], str | None]
+    document_modified: Callable[[], bool]
+    bookmarks: Callable[[], tuple[int, ...]]
+    reference_store: SnapshotStore
+    reference_set_store: SnapshotStore
+    set_cursor_offset: Callable[[int], Any]
+    get_cursor_offset: Callable[[], int]
+    select_range: Callable[[int, int], Any]
+    show_reference: Callable[[str], Any]
+    show_source_note: Callable[[str], Any]
+    show_reference_set: Callable[[str], Any]
+    run_research_check: Callable[[], Any]
+    show_error: Callable[[str], Any]
+    show_notice: Callable[[str], Any]
+
+
+@dataclass(frozen=True)
+class DocumentOverviewComponents:
+    controller: Any
+    runtime: Any
+
+
+def _present_document_editor(present_window, focus_document) -> bool:
+    if not callable(present_window) or not callable(focus_document):
+        return False
+    present_window()
+    focus_document()
+    return True
+
+
+def navigate_document_overview_offset(
+    document_text,
+    set_cursor_offset,
+    get_cursor_offset,
+    present_window,
+    focus_document,
+    offset,
+):
+    if not isinstance(offset, int) or isinstance(offset, bool):
+        return False
+    if offset < 0 or offset > len(document_text()):
+        return False
+    set_cursor_offset(offset)
+    if get_cursor_offset() != offset:
+        return False
+    return _present_document_editor(present_window, focus_document)
+
+
+def navigate_document_overview_range(
+    document_text,
+    select_range,
+    present_window,
+    focus_document,
+    start,
+    end,
+):
+    if not all(isinstance(value, int) and not isinstance(value, bool) for value in (start, end)):
+        return False
+    if start < 0 or end <= start or end > len(document_text()):
+        return False
+    select_range(start, end)
+    return _present_document_editor(present_window, focus_document)
+
+
+def build_document_overview(inputs: DocumentOverviewCompositionInput, *, view_factory=None) -> DocumentOverviewComponents:
+    """Compose W96 from exact document/research/window capabilities."""
     from calamus_document_dossier_controller import DocumentDossierController
     from calamus_document_overview_runtime import DocumentOverviewRuntime
 
+    if not isinstance(inputs, DocumentOverviewCompositionInput):
+        raise TypeError("inputs must be DocumentOverviewCompositionInput")
     if view_factory is None:
         view_factory = _default_document_overview_view_factory()
     if not callable(view_factory):
         raise TypeError("view_factory must be callable")
 
-    app.document_dossier_controller = DocumentDossierController(
+    controller = DocumentDossierController(
         lambda: build_document_dossier_inputs(
-            document_text=app.buffer_text(),
-            document_path=app.document.file_path,
-            modified=app.modified,
-            bookmarks=tuple(app.bookmarks),
-            reference_store=app.reference_store,
-            reference_set_store=app.reference_set_store,
+            document_text=inputs.document_text(),
+            document_path=inputs.document_path(),
+            modified=inputs.document_modified(),
+            bookmarks=inputs.bookmarks(),
+            reference_store=inputs.reference_store,
+            reference_set_store=inputs.reference_set_store,
         )
     )
-    app.document_overview_runtime = DocumentOverviewRuntime(
-        app,
-        app.document_dossier_controller,
-        navigate_offset=lambda offset: navigate_document_overview_offset(app, offset),
-        select_range=lambda start, end: navigate_document_overview_range(app, start, end),
-        show_reference=app.show_reference_key,
-        show_source_note=app.show_source_note_id,
-        show_reference_set=lambda name: show_reference_set_name(app, name),
-        run_research_check=lambda: app.on_research_check(),
-        focus_document=app.text.grab_focus,
-        show_error=lambda message: app.error(message),
-        show_notice=lambda message: app.info(message),
+    runtime = DocumentOverviewRuntime(
+        inputs.dialog_parent,
+        controller,
+        navigate_offset=lambda offset: navigate_document_overview_offset(
+            inputs.document_text,
+            inputs.set_cursor_offset,
+            inputs.get_cursor_offset,
+            inputs.dialog_parent.present,
+            inputs.text_view.grab_focus,
+            offset,
+        ),
+        select_range=lambda start, end: navigate_document_overview_range(
+            inputs.document_text,
+            inputs.select_range,
+            inputs.dialog_parent.present,
+            inputs.text_view.grab_focus,
+            start,
+            end,
+        ),
+        show_reference=inputs.show_reference,
+        show_source_note=inputs.show_source_note,
+        show_reference_set=inputs.show_reference_set,
+        run_research_check=inputs.run_research_check,
+        focus_document=inputs.text_view.grab_focus,
+        show_error=inputs.show_error,
+        show_notice=inputs.show_notice,
         view_factory=view_factory,
     )
+    return DocumentOverviewComponents(controller=controller, runtime=runtime)
 
 
-def on_document_overview(app, *_):
-    return app.document_overview_runtime.open()
+def show_reference_set_name(show_panel, show_set, name):
+    if not callable(show_panel) or not callable(show_set):
+        raise TypeError("reference-set presentation capabilities must be callable")
+    show_panel("reference-sets")
+    return show_set(name)
 
-
-def refresh_document_overview_if_open(app):
-    runtime = getattr(app, "document_overview_runtime", None)
+def refresh_document_overview_if_open(runtime) -> bool:
     return bool(runtime and runtime.refresh_if_open())
-
-
-def _present_document_editor(app) -> bool:
-    """Transfer the user from a non-modal tool window back to the editor.
-
-    A widget-level focus request only chooses the focus widget inside its own
-    toplevel.  It does not make an inactive parent window visible or active.
-    Document Overview navigation therefore owns the whole handoff: present the
-    main window first, then focus the text view.  The caller has already moved
-    the insert mark or selection before this function is invoked.
-    """
-    present = getattr(app, "present", None)
-    text = getattr(app, "text", None)
-    grab_focus = getattr(text, "grab_focus", None)
-    if not callable(present) or not callable(grab_focus):
-        return False
-    present()
-    grab_focus()
-    return True
-
-
-def navigate_document_overview_offset(app, offset):
-    if not isinstance(offset, int) or isinstance(offset, bool):
-        return False
-    if offset < 0 or offset > len(app.buffer_text()):
-        return False
-    app.set_cursor_offset(offset)
-    if app.get_cursor_offset() != offset:
-        return False
-    return _present_document_editor(app)
-
-
-def navigate_document_overview_range(app, start, end):
-    if not all(isinstance(value, int) and not isinstance(value, bool) for value in (start, end)):
-        return False
-    if start < 0 or end <= start or end > len(app.buffer_text()):
-        return False
-    app.select_range(start, end)
-    return _present_document_editor(app)
-
-
-def show_reference_set_name(app, name):
-    app.research_panel_runtime.show("reference-sets")
-    return app.reference_set_runtime.show_set(name)

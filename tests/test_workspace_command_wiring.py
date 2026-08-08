@@ -16,7 +16,8 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)',view)
         self.assertIn('column.set_fixed_width(1)',view)
         self.assertIn('column.set_expand(True)',view)
-        self.assertIn('open_document=app.open_path', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
+        self.assertIn('open_document=inputs.open_document', composition)
+        self.assertIn('open_document=self.open_path', launcher)
         self.assertIn('self._open_document(activation.path)',app)
 
     def test_view_is_semantic_and_has_no_document_or_filesystem_ownership(self):
@@ -102,11 +103,12 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         launcher=(ROOT/'bin/calamus').read_text(encoding='utf-8')
         commands=(ROOT/'calamus/calamus_application_commands.py').read_text(encoding='utf-8')
         model=(ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8')
-        self.assertIn('bind("file.workspace.recent.open", lambda ctx: app.activate_workspace_path', commands)
+        self.assertIn('bind("file.workspace.recent.open", lambda ctx: ports.file.activate_workspace_path', commands)
         self.assertIn('file.workspace.recent.open', model)
-        self.assertIn('def activate_workspace_path(self, path):', launcher)
+        self.assertNotIn('def activate_workspace_path(self, path):', launcher)
         host=(ROOT/'calamus/calamus_workspace_host_runtime.py').read_text(encoding='utf-8')
-        self.assertIn('return self._components.workspace.host_runtime.activate_workspace_path(path)', launcher)
+        self.assertIn('activate_workspace_path=workspace_runtime.activate_workspace_path', launcher)
+        self.assertIn('def activate_workspace_path(self, path):', host)
         self.assertIn('self._panel_runtime.set_visible(True)', host)
         self.assertIn('self._panel_view.focus_tree()', host)
 
@@ -134,7 +136,9 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('self._view.select_path(result.path)', runtime)
         self.assertIn('self._open_document(result.path)', runtime)
         self.assertIn('WorkspaceMutationRuntime(', (ROOT/'calamus/calamus_workspace_composition.py').read_text(encoding='utf-8'))
-        self.assertIn('open_document=app.open_path', (ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8'))
+        composition=(ROOT/'calamus/calamus_application_composition.py').read_text(encoding='utf-8')
+        self.assertIn('open_document=inputs.open_document', composition)
+        self.assertIn('open_document=self.open_path', launcher)
         self.assertIn('document-new-symbolic', panel)
 
     def test_new_text_file_dialog_is_input_only(self):
@@ -164,7 +168,9 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('self._workspace_runtime.refresh()', block)
         self.assertIn('self._view.select_path(result.path)', block)
         self.assertNotIn('self._open_document(result.path)', block)
-        self.assertIn('def create_workspace_folder(self, name):', launcher)
+        self.assertNotIn('def create_workspace_folder(self, name):', launcher)
+        self.assertIn('on_new_workspace_folder=workspace_runtime.on_new_workspace_folder', launcher)
+        self.assertIn('def create_workspace_folder(self, name):', (ROOT/'calamus/calamus_workspace_host_runtime.py').read_text(encoding='utf-8'))
         self.assertIn('folder-new-symbolic', panel)
 
     def test_new_folder_dialog_is_input_only(self):
@@ -199,7 +205,9 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('self._recent_files.save', host)
         self.assertIn('self._favourites.save', host)
         self.assertIn('self._application_state.record_last_file', host)
-        self.assertIn('self._components.workspace.host_runtime.reconcile_workspace_rename', launcher)
+        self.assertNotIn('self._components.workspace.host_runtime.reconcile_workspace_rename', launcher)
+        self.assertIn('reconcile_rename=lambda plan, refs: host_reference.require().reconcile_workspace_rename(plan, refs)', (ROOT/'calamus/calamus_workspace_composition.py').read_text(encoding='utf-8'))
+        self.assertIn('on_rename_workspace_item=workspace_runtime.on_rename_workspace_item', launcher)
 
 
     def test_duplicate_uses_pure_plan_gio_copy_and_reconciliation_without_identity_transfer(self):
@@ -218,7 +226,8 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertNotIn('self._open_document(', block)
         self.assertIn('self._workspace_runtime.refresh()', block)
         self.assertIn('self._view.select_path(result.path)', block)
-        self.assertIn('def on_duplicate_workspace_file(', launcher)
+        self.assertNotIn('def on_duplicate_workspace_file(', launcher)
+        self.assertIn('on_duplicate_workspace_file=workspace_runtime.on_duplicate_workspace_file', launcher)
         self.assertNotIn('self.current_file =', block)
 
     def test_context_menu_is_selection_adapter_to_canonical_rename_gateway(self):
@@ -286,7 +295,9 @@ class WorkspaceCommandWiringTests(unittest.TestCase):
         self.assertIn('self._document_session.detach(self._ports.document_text())', host)
         host_block=host[host.index('def reconcile_workspace_trash'):host.index('def on_select_workspace_folder')]
         self.assertNotIn('self.current_file =', host_block)
-        self.assertIn('self._components.workspace.host_runtime.reconcile_workspace_trash', launcher)
+        self.assertNotIn('self._components.workspace.host_runtime.reconcile_workspace_trash', launcher)
+        self.assertIn('reconcile_trash=lambda plan, refs: host_reference.require().reconcile_workspace_trash(plan, refs)', (ROOT/'calamus/calamus_workspace_composition.py').read_text(encoding='utf-8'))
+        self.assertIn('on_move_workspace_item_to_trash=workspace_runtime.on_move_workspace_item_to_trash', launcher)
         self.assertIn('Move Selected Item to Trash', (ROOT/'calamus/calamus_menu_model.py').read_text(encoding='utf-8'))
         self.assertIn('def confirm_move_workspace_item_to_trash(', dialogs)
         dialog_block=dialogs[dialogs.index('def confirm_move_workspace_item_to_trash('):]

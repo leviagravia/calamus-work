@@ -31,7 +31,8 @@ class ClipW95ContractTests(unittest.TestCase):
         self.assertIn('Insert Clip…', menu_model)
         self.assertTrue(actual_binding_has("research.insert-clip", "<Control><Alt>K"))
         self.assertIn("command_shortcut_bindings()", ui)
-        self.assertIn("def on_insert_clip", app)
+        self.assertNotIn("def on_insert_clip", app)
+        self.assertIn("on_insert_clip=research_runtime.on_insert_clip", app)
         composition = (ROOT / "calamus/calamus_clip_composition.py").read_text(encoding="utf-8")
         self.assertEqual(composition.count("ClipCollectionRuntime("), 1)
         self.assertEqual(composition.count("MarkdownClipStore("), 1)
@@ -82,12 +83,12 @@ class ClipW95ContractTests(unittest.TestCase):
 
     def test_w95extra_identity_points_to_published_w95(self):
         version = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', version)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W108"', version)
         self.assertIn(
-            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"',
+            'DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Thin GTK Shell"',
             version,
         )
-        self.assertIn('PUBLISHED_BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"', version)
+        self.assertIn('PUBLISHED_BASELINE = "e16cc21b8a900298406ae8cc4776f6f1ec658e93"', version)
 
 
 if __name__ == "__main__":

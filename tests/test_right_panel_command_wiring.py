@@ -36,7 +36,8 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         research = research_composition_source()
         self.assertEqual(composition.count("RightPanelHost("), 1)
         self.assertNotIn("RightPanelHost(", launcher)
-        self.assertIn("app.right_panel_host = right_panel_host", root)
+        self.assertIn("self.right_panel_host = core_components.right_panel_host", launcher)
+        self.assertNotIn("app.right_panel_host", root)
         self.assertIn('inputs.right_panel_host.register("research", panel_view.widget)', research)
         self.assertNotIn('register("clip-collection"', research)
 
@@ -54,14 +55,14 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, launcher)
 
-    def test_toggle_is_a_thin_research_runtime_adapter(self):
-        app_method = app_method_source("toggle_research_panel")
+    def test_w108_toggle_binds_directly_to_research_runtime(self):
+        launcher = source(LAUNCHER)
         runtime_method = method_source("toggle_research_panel")
-        self.assertIn("self._research_components.runtime.toggle_research_panel", app_method)
+        self.assertIn("toggle_research_panel=research_runtime.toggle_research_panel", launcher)
+        self.assertNotIn("def toggle_research_panel", launcher)
         self.assertIn("self.components.panel_runtime.toggle()", runtime_method)
         self.assertNotIn("pack2", runtime_method)
         self.assertNotIn("set_position", runtime_method)
-        self.assertLessEqual(len(app_method.splitlines()), 2)
 
     def test_clip_controller_owns_persist_first_mutations(self):
         controller = source(CONTROLLER)
@@ -121,14 +122,14 @@ class RightPanelCommandWiringTests(unittest.TestCase):
         view_block = ui[ui.index('viewm = top_menu(app, "View")'):ui.index('optm = top_menu(app, "Options")')]
         self.assertNotIn("Clip Collection", view_block)
 
-    def test_app_preserves_document_mutation_gateway_for_insert(self):
-        app_adapter = app_method_source("on_clip_insert")
+    def test_w108_preserves_narrow_clip_mutation_gateway_without_app_wrapper(self):
         runtime_adapter = method_source("on_clip_insert")
         gateway = source(CLIP_RUNTIME)
-        self.assertIn("self._research_components.runtime.on_clip_insert", app_adapter)
+        launcher = source(LAUNCHER)
+        self.assertNotIn("def on_clip_insert", launcher)
         self.assertIn("self.components.clip_collection_runtime.on_insert()", runtime_adapter)
         self.assertIn("def insert_clip_expansion_through_gateway", gateway)
-        self.assertIn("def insert_clip_expansion(app", gateway)
+        self.assertNotIn("def insert_clip_expansion(app", gateway)
         self.assertIn('execute_command("Insert Clip", edit)', gateway)
         self.assertIn("set_cursor_offset(caret)", gateway)
         self.assertIn('queue_insert_scroll(margin=0.15)', gateway)

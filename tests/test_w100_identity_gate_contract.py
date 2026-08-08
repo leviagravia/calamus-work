@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 W100_BASELINE = "9a80b266cbdb41b499efdb296ff2a312cf85656f"
 W101_BASELINE = "fb003223643d9da5f81ddaa3f3e0e4a9304f3903"
 W102_BASELINE = "17b409a05f356477173b2bdd348a67a4cf01f43c"
-W105_BASELINE = "e8befafaf7f75d958eabbd2e273f83c630042b84"
+W105_BASELINE = "e16cc21b8a900298406ae8cc4776f6f1ec658e93"
 
 
 class W100IdentityGateContractTests(unittest.TestCase):
@@ -21,14 +21,14 @@ class W100IdentityGateContractTests(unittest.TestCase):
         ):
             self.assertIn(token, historical)
         current = (ROOT / "calamus/calamus_version.py").read_text(encoding="utf-8")
-        self.assertIn('DEVELOPMENT_WORK_ITEM = "W107"', current)
-        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Subsystem Host-Port Migration"', current)
+        self.assertIn('DEVELOPMENT_WORK_ITEM = "W108"', current)
+        self.assertIn('DEVELOPMENT_WORK_ITEM_DESCRIPTION = "Thin GTK Shell"', current)
         self.assertIn(f'PUBLISHED_BASELINE = "{W105_BASELINE}"', current)
 
     def test_release_manifest_owns_w100_profiles_and_w99_identity_is_not_release_gate(self):
         data = json.loads((ROOT / "tests/calamus_release_test_profiles.json").read_text(encoding="utf-8"))
         self.assertEqual(data["published_baseline"], W105_BASELINE)
-        self.assertIn("W107", data["lineage"])
+        self.assertIn("W108", data["lineage"])
         self.assertTrue(data["profiles"]["w100-headless-focused"]["release_gate"])
         self.assertFalse(data["profiles"]["w100-identity-smoke"]["release_gate"])
         self.assertFalse(data["profiles"]["w99-identity-smoke"]["release_gate"])
@@ -51,6 +51,7 @@ class W100IdentityGateContractTests(unittest.TestCase):
         self.assertIn('"CALAMUS_W105_"', text)
         self.assertIn('"CALAMUS_W106_"', text)
         self.assertIn('"CALAMUS_W107_"', text)
+        self.assertIn('"CALAMUS_W108_"', text)
         self.assertIn(W105_BASELINE, text)
 
 

@@ -15,10 +15,8 @@ SEARCH_DIALOGS_SOURCE = (ROOT / "calamus" / "calamus_search_dialogs.py").read_te
 
 class ReplaceCurrentWiringTests(unittest.TestCase):
     def test_replace_current_preflight_is_owned_by_search_controller(self):
-        app_method = app_method_source("replace_current_match")
         method = authoritative_method_source("replace_current_match")
-        self.assertIn("self._w107_subsystems.search.replace_current_match", app_method)
-        self.assertLessEqual(len(app_method.splitlines()), 2)
+        self.assertNotIn("def replace_current_match", SOURCE)
         self.assertIn("plan = self.controller.prepare_current_replacement(replacement)", method)
         self.assertIn("return prepare_current_replacement(", GATEWAY_SOURCE)
         self.assertNotIn("self.buffer_text()", method)
@@ -47,9 +45,8 @@ class ReplaceCurrentWiringTests(unittest.TestCase):
             self.assertNotIn(token, method)
 
     def test_replace_buffer_range_still_owns_execute_command_boundary(self):
-        app_method = app_method_source("replace_buffer_range")
         method = authoritative_method_source("replace_buffer_range")
-        self.assertIn("self._w107_subsystems.spellcheck.replace_buffer_range", app_method)
+        self.assertNotIn("def replace_buffer_range", SOURCE)
         self.assertIn("buffer.delete(it1, it2)", method)
         self.assertIn("buffer.insert(buffer.get_iter_at_offset(start), replacement)", method)
         self.assertIn('self._execute(', method)

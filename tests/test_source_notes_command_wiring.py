@@ -121,13 +121,16 @@ class SourceNotesCommandWiringTests(unittest.TestCase):
         ):
             self.assertIn("research_document_context_changed", method_source(method))
 
-    def test_app_only_composes_and_exposes_thin_wrappers(self):
+    def test_w108_app_only_composes_and_binds_source_note_authorities(self):
         launcher = source(LAUNCHER)
         for forbidden in ("SourceNote(", "serialize_source_notes_markdown", "atomic_write_utf8", "MarkdownSourceNoteStore("):
             self.assertNotIn(forbidden, launcher)
+        tree = ast.parse(launcher)
+        app_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "App")
+        methods = {node.name for node in app_class.body if isinstance(node, ast.FunctionDef)}
         for name in ("show_source_notes", "sync_source_notes_document", "show_reference_key", "show_heading_target"):
-            self.assertLessEqual(len(app_method_source(name).splitlines()), 6)
-        self.assertIn("self._research_components.runtime", app_method_source("show_source_notes"))
+            self.assertNotIn(name, methods)
+        self.assertIn("show_source_notes=research_runtime.show_source_notes", launcher)
         self.assertIn("self.components.source_note_panel_runtime.sync_document", method_source("sync_source_notes_document"))
 
     def test_w77_keeps_source_notes_free_of_pdf_concept_and_check_features(self):
